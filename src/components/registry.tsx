@@ -63,7 +63,7 @@ export interface RtcTextInputProps {
   label: string
   placeholder?: string
   /** `search` renders a clearable search affordance where the library has one. */
-  type?: 'text' | 'search' | 'number' | 'date'
+  type?: 'text' | 'search' | 'number' | 'date' | 'datetime-local' | 'time'
   size?: RtcSize
   autoFocus?: boolean
   disabled?: boolean

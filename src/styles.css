@@ -1076,10 +1076,6 @@
   margin-inline-start: auto;
 }
 
-.rtc-filter-popover-mode {
-  display: flex;
-}
-
 .rtc-th[data-rtc-filtered="true"] .rtc-filter-trigger {
   color: var(--rtc-color-accent);
   opacity: 1;
@@ -1090,6 +1086,43 @@
   align-items: center;
   gap: 6px;
   width: 100%;
+}
+
+/* Operands that need their inputs on separate lines — date ranges, radius
+   plus centre point — rather than side by side. */
+.rtc-filter-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.rtc-filter-conditions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.rtc-filter-condition {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rtc-filter-condition-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* The and/or toggle sits between conditions, aligned to the start so it reads
+   as a joiner rather than another control in the stack. */
+.rtc-filter-join,
+.rtc-filter-add-condition {
+  align-self: flex-start;
+  color: var(--rtc-color-text-muted);
+  font-size: var(--rtc-font-size-sm);
 }
 
 .rtc-filter-checkboxes {

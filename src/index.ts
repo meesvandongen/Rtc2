@@ -84,10 +84,81 @@ export {
 } from './components/registry'
 export { defaultComponents } from './components/defaultComponents'
 
+/**
+ * Filter data types: register your own to teach the table a new kind of
+ * column, or reuse a built-in as the basis for one.
+ */
+export {
+  defaultDataTypes,
+  resolveDataType,
+  resolveTypeMeta,
+  findOperator,
+  toConditions,
+  fromConditions,
+  joinOf,
+} from './filters/registry'
+export { textDataType, enumDataType } from './filters/dataTypes/text'
+export { numberDataType, durationDataType } from './filters/dataTypes/number'
+export { booleanDataType } from './filters/dataTypes/boolean'
+export { dateDataType, dateTimeDataType } from './filters/dataTypes/date'
+export {
+  collectionDataType,
+  geoPointDataType,
+  parseGeoPoint,
+  haversineKm,
+  type GeoPoint,
+} from './filters/dataTypes/collection'
+export {
+  NoOperand,
+  TextOperand,
+  NumberOperand,
+  NumberRangeOperand,
+  SliderOperand,
+  SelectOperand,
+  MultiSelectOperand,
+  CheckboxGroupOperand,
+} from './filters/operands'
+export { evaluateConditions, STRUCTURED_FILTER_FN } from './filters/filterFn'
+export {
+  DATE_PRESETS,
+  presetInterval,
+  lastNInterval,
+  nextNInterval,
+  toEpoch,
+  startOf,
+  addUnits,
+  type DatePresetId,
+  type DateUnit,
+  type Interval,
+} from './filters/temporal'
+export type {
+  ColumnDataType,
+  ColumnDataTypes,
+  ColumnFilterValue,
+  DescribeContext,
+  FilterArity,
+  FilterCondition,
+  FilterModifiers,
+  FilterOperandProps,
+  FilterOperator,
+  FilterTestContext,
+  FilterTypeMeta,
+} from './filters/types'
+
 /** Filter surfaces, usable standalone with an instance from `useDataTable`. */
 export { DataTableFilterPanel, type DataTableFilterPanelProps } from './components/FilterPanel'
 export { ColumnFilterPopover } from './components/ColumnFilterPopover'
-export { FilterEditor, type FilterEditorProps } from './components/FilterEditor'
+export { FilterConditions } from './components/FilterConditions'
+export {
+  FilterEditor,
+  columnOperators,
+  currentOperatorId,
+  currentOperatorLabel,
+  describeFilter,
+  filterOperatorItems,
+  hasFilterOperatorChoice,
+  type FilterEditorProps,
+} from './components/FilterEditor'
 
 export type {
   DataTableCell,

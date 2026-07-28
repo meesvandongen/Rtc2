@@ -1,10 +1,9 @@
 import type { RowData } from '@tanstack/react-table'
 
 import { defaultComponents } from './defaultComponents'
-import { FilterEditor, filterModeItems, hasFilterModes, currentFilterMode } from './FilterEditor'
+import { FilterConditions } from './FilterConditions'
 import { DataTableComponentsProvider, useComponents } from './registry'
 import { isDisplayColumnId } from '../displayColumns'
-import { formatMessage } from '../locale'
 import { cx, getColumnLabel } from '../utils'
 import type { DataTableInstance } from '../types'
 
@@ -92,27 +91,6 @@ function FilterPanelContent<TData extends RowData>({
               <div className="rtc-filter-field-header">
                 <span className="rtc-filter-field-label">{label}</span>
 
-                {hasFilterModes(table, column as never) ? (
-                  <ui.Menu
-                    align="end"
-                    label={localization.changeFilterMode}
-                    items={filterModeItems(table, column as never)}
-                    trigger={
-                      <ui.IconButton
-                        size="sm"
-                        label={formatMessage(localization.filterMode, {
-                          filterType:
-                            localization.filterOperators[
-                              currentFilterMode(table, column as never)
-                            ] ?? currentFilterMode(table, column as never),
-                        })}
-                      >
-                        <ui.Icon name="filter" />
-                      </ui.IconButton>
-                    }
-                  />
-                ) : null}
-
                 {isActive ? (
                   <ui.IconButton
                     size="sm"
@@ -124,7 +102,7 @@ function FilterPanelContent<TData extends RowData>({
                 ) : null}
               </div>
 
-              <FilterEditor table={table} column={column as never} />
+              <FilterConditions table={table} column={column as never} />
             </div>
           )
         })}

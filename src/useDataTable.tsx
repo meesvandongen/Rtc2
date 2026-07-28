@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTable } from '@tanstack/react-table'
 
 import { buildDisplayColumns } from './displayColumns'
+import { STRUCTURED_FILTER_FN } from './filters/filterFn'
+import type { DataTableTableMeta } from './filters/registry'
 import { dataTableFeatures } from './features'
 import { defaultLocalization, type DataTableLocalization } from './locale'
 import type {
@@ -39,7 +41,7 @@ const DEFAULT_UI_STATE: DataTableUiState = {
   editingRowId: null,
   editingCellId: null,
   rowOrder: [],
-  columnFilterFns: {},
+  columnFilterOperators: {},
 }
 
 /** Maps each TanStack slice to the public callback that observes it. */
@@ -196,18 +198,15 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
 
   const columns = useMemo(() => {
     const { leading, trailing } = buildDisplayColumns({ options: optionsRef.current, getTable })
-    // Column-level filter fn overrides chosen from the operator menu are
-    // applied here because `filterFn` lives on the column def, not on state.
-    const userColumns = stableUserColumns.map((column) => {
-      const id = (column as { id?: string; accessorKey?: string }).id ??
-        (column as { accessorKey?: string }).accessorKey
-      const override = id ? ui.columnFilterFns[id] : undefined
-      return override ? ({ ...column, filterFn: override } as typeof column) : column
-    })
+    // Every column routes through the one structured filter fn, which reads
+    // the operator out of the filter value. A column that sets its own
+    // `filterFn` explicitly keeps it, as an escape hatch to raw TanStack.
+    const userColumns = stableUserColumns.map((column) =>
+      column.filterFn ? column : ({ ...column, filterFn: STRUCTURED_FILTER_FN } as typeof column),
+    )
     return [...leading, ...userColumns, ...trailing]
   }, [
     stableUserColumns,
-    ui.columnFilterFns,
     getTable,
     // Display-column composition depends only on these flags.
     options.enableRowSelection,
@@ -230,6 +229,11 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
 
   const hasDetailPanel = !!options.renderDetailPanel
 
+  const tableMeta = useMemo<DataTableTableMeta>(
+    () => ({ rtcFilterConfig: { dataTypes: options.dataTypes, filterNow: options.filterNow } }),
+    [options.dataTypes, options.filterNow],
+  )
+
   const table = useTable<typeof dataTableFeatures, TData>({
     features: dataTableFeatures,
     columns,
@@ -248,6 +252,12 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
       ? { maxMultiSortColCount: options.maxMultiSortColCount }
       : {}),
     manualSorting: options.manualSorting ?? false,
+
+    // The structured filter fn receives `row.table`, which is the internal
+    // instance — not the shallow copy `useTable` returns — so its
+    // configuration travels on the options rather than being assigned to the
+    // instance alongside `dataTableOptions`.
+    meta: tableMeta,
 
     enableFilters: options.enableFilters ?? true,
     enableColumnFilters: options.enableColumnFilters ?? true,
@@ -336,12 +346,12 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
     (order: string[] | ((old: string[]) => string[])) => setUi('rowOrder', order, 'onRowOrderChange'),
     [setUi],
   )
-  instance.setColumnFilterFn = useCallback(
-    (columnId: string, fn: string) =>
+  instance.setColumnFilterOperator = useCallback(
+    (columnId: string, operatorId: string) =>
       setUi(
-        'columnFilterFns',
-        (old) => ({ ...old, [columnId]: fn }),
-        'onColumnFilterFnsChange',
+        'columnFilterOperators',
+        (old) => ({ ...old, [columnId]: operatorId }),
+        'onColumnFilterOperatorsChange',
       ),
     [setUi],
   )

@@ -2,91 +2,108 @@ import { useMemo } from 'react'
 import type { RowData } from '@tanstack/react-table'
 
 import { useComponents, type RtcMenuItem, type RtcOption } from './registry'
+import {
+  findOperator,
+  fromConditions,
+  joinOf,
+  resolveDataType,
+  resolveTypeMeta,
+  toConditions,
+} from '../filters/registry'
+import type { FilterCondition, FilterOperator } from '../filters/types'
 import { formatMessage } from '../locale'
 import { getColumnLabel, normalizeOptions, stringifyValue } from '../utils'
-import type {
-  DataTableColumnInstance,
-  DataTableFilterVariant,
-  DataTableInstance,
-} from '../types'
-
-/** Filter fns offered by default for each variant, in menu order. */
-const DEFAULT_FILTER_MODES: Record<DataTableFilterVariant, string[]> = {
-  text: [
-    'includesString',
-    'includesStringSensitive',
-    'equalsString',
-    'startsWith',
-    'endsWith',
-    'empty',
-    'notEmpty',
-  ],
-  autocomplete: ['includesString', 'equalsString', 'startsWith', 'endsWith'],
-  select: ['equalsString', 'weakEquals', 'empty', 'notEmpty'],
-  'multi-select': ['arrIncludesSome', 'arrIncludesAll'],
-  checkbox: ['arrIncludesSome'],
-  range: ['inNumberRange', 'greaterThan', 'lessThan', 'between', 'betweenInclusive'],
-  'range-slider': ['inNumberRange'],
-  date: ['equalsString', 'greaterThan', 'lessThan'],
-  'date-range': ['inNumberRange'],
-}
-
-const RANGE_MODES = ['inNumberRange', 'between', 'betweenInclusive']
-/** Operators that take no operand at all. */
-const NULLARY_MODES = ['empty', 'notEmpty']
-
-export function inferFilterVariant<TData extends RowData>(
-  column: DataTableColumnInstance<TData, any>,
-): DataTableFilterVariant {
-  const declared = column.columnDef.meta?.filterVariant
-  if (declared) return declared
-  const filterFn = column.columnDef.filterFn
-  if (typeof filterFn === 'string' && RANGE_MODES.includes(filterFn)) return 'range'
-  return 'text'
-}
+import type { DataTableColumnInstance, DataTableInstance } from '../types'
 
 /**
- * The filter fn currently applied to a column, whether default or chosen.
+ * The editor for one column's filter.
  *
- * `'auto'` is TanStack's sentinel for "resolve from the data", not a concrete
- * operator, so it is treated as unset and falls through to the variant's
- * default — otherwise the operator menu would show "auto" with nothing ticked.
+ * It renders an operator picker plus whatever operand the chosen operator
+ * declares. Because operators come from the column's data type, this component
+ * has no knowledge of dates, numbers or coordinates — adding a type does not
+ * change it.
  */
-export function currentFilterMode<TData extends RowData>(
-  table: DataTableInstance<TData>,
-  column: DataTableColumnInstance<TData, any>,
-): string {
-  const chosen = table.ui.columnFilterFns[column.id]
-  if (chosen) return chosen
-  const declared = column.columnDef.filterFn
-  if (typeof declared === 'string' && declared !== 'auto') return declared
-  return DEFAULT_FILTER_MODES[inferFilterVariant(column)][0] ?? 'includesString'
+
+/**
+ * Whether an operand carries nothing the user has entered.
+ *
+ * Recurses one level into tuples and structured operands so `[undefined,
+ * undefined]` and `{ lat: undefined }` both read as blank.
+ */
+function isBlankOperand(value: unknown): boolean {
+  if (value == null || value === '') return true
+  if (Array.isArray(value)) return value.every(isBlankOperand)
+  if (typeof value === 'object') return Object.values(value).every(isBlankOperand)
+  return false
 }
 
-function useFacetOptions<TData extends RowData>(
+/** Faceted values, recomputed whenever the surrounding filter state changes. */
+function useFacets<TData extends RowData>(
   table: DataTableInstance<TData>,
   column: DataTableColumnInstance<TData, any>,
-): RtcOption[] {
+  enabled: boolean,
+): { options: RtcOption[]; bounds?: [number, number] } {
   const meta = column.columnDef.meta
   const enableFaceting = table.dataTableOptions.enableFaceting ?? true
-  // Faceted values narrow with the other active filters, so this has to
-  // recompute whenever filter state changes.
   const filterSignal = table.state.columnFilters
   const globalSignal = table.state.globalFilter
 
   return useMemo(() => {
-    if (meta?.filterSelectOptions) return normalizeOptions(meta.filterSelectOptions)
-    if (!enableFaceting) return []
+    const bounds = column.getFacetedMinMaxValues?.() ?? undefined
+    if (meta?.filterSelectOptions) {
+      return { options: normalizeOptions(meta.filterSelectOptions), bounds }
+    }
+    if (!enabled || !enableFaceting) return { options: [], bounds }
     const unique = column.getFacetedUniqueValues()
-    if (!unique) return []
-    return Array.from(unique.keys())
+    if (!unique) return { options: [], bounds }
+    const options = Array.from(unique.keys())
       .flatMap((key) => (Array.isArray(key) ? key : [key]))
       .filter((key) => key != null && key !== '')
       .map((key) => stringifyValue(key))
       .filter((key, index, all) => all.indexOf(key) === index)
       .sort((a, b) => a.localeCompare(b))
       .map((key) => ({ label: key, value: key }))
-  }, [column, meta?.filterSelectOptions, enableFaceting, filterSignal, globalSignal])
+    return { options, bounds }
+  }, [column, meta?.filterSelectOptions, enabled, enableFaceting, filterSignal, globalSignal])
+}
+
+/** Operators available for a column, honouring `meta.filterOperators`. */
+export function columnOperators<TData extends RowData>(
+  table: DataTableInstance<TData>,
+  column: DataTableColumnInstance<TData, any>,
+): FilterOperator[] {
+  const dataType = resolveDataType(table, column)
+  const allowed = column.columnDef.meta?.filterOperators
+  if (!allowed) return dataType.operators
+  return allowed
+    .map((id) => findOperator(dataType, id))
+    .filter((operator): operator is FilterOperator => !!operator)
+}
+
+/** The operator a column's editor should currently show. */
+export function currentOperatorId<TData extends RowData>(
+  table: DataTableInstance<TData>,
+  column: DataTableColumnInstance<TData, any>,
+  conditionIndex = 0,
+): string {
+  const dataType = resolveDataType(table, column)
+  const existing = toConditions(column.getFilterValue(), dataType)[conditionIndex]
+  if (existing) return existing.op
+  // The draft only applies to the first row: any later condition was added
+  // explicitly and therefore always has a stored operator of its own.
+  const draft = conditionIndex === 0 ? table.ui.columnFilterOperators[column.id] : undefined
+  if (draft) return draft
+  const operators = columnOperators(table, column)
+  return operators.some((operator) => operator.id === dataType.defaultOperator)
+    ? dataType.defaultOperator
+    : (operators[0]?.id ?? dataType.defaultOperator)
+}
+
+function localizedOperatorLabel<TData extends RowData>(
+  table: DataTableInstance<TData>,
+  operator: FilterOperator,
+): string {
+  return table.dataTableOptions.localization.filterOperators[operator.id] ?? operator.label
 }
 
 export interface FilterEditorProps<TData extends RowData> {
@@ -94,230 +111,150 @@ export interface FilterEditorProps<TData extends RowData> {
   column: DataTableColumnInstance<TData, any>
   /** Compact controls, for the popover. */
   size?: 'sm' | 'md'
+  /** Index of the condition being edited, for multi-condition columns. */
+  conditionIndex?: number
 }
 
-/**
- * The value editor for one column's filter.
- *
- * Shared by the header popover and the filter panel so the two can never drift
- * apart. It renders only the control — the operator menu and clear button are
- * the caller's, because their placement differs between the two surfaces.
- */
 export function FilterEditor<TData extends RowData>({
   table,
   column,
   size = 'md',
+  conditionIndex = 0,
 }: FilterEditorProps<TData>) {
-  const ui = useComponents()
-  const { localization } = table.dataTableOptions
-  const meta = column.columnDef.meta
-  const variant = inferFilterVariant(column)
-  const mode = currentFilterMode(table, column)
-  const value = column.getFilterValue()
-  const options = useFacetOptions(table, column)
+  const dataType = resolveDataType(table, column)
+  const typeMeta = resolveTypeMeta(column, dataType)
+  const filterValue = column.getFilterValue()
+  const conditions = toConditions(filterValue, dataType)
 
-  const placeholder =
-    meta?.filterPlaceholder ??
-    formatMessage(localization.filterByColumn, { column: getColumnLabel(column) })
+  const operatorId = currentOperatorId(table, column, conditionIndex)
+  const operator = findOperator(dataType, operatorId) ?? dataType.operators[0]!
+  const operand = conditions[conditionIndex]?.value
 
-  if (NULLARY_MODES.includes(mode)) {
-    return (
-      <span className="rtc-group-count">
-        {mode === 'empty' ? localization.filterVariantEmpty : localization.filterVariantNotEmpty}
-      </span>
+  const { options, bounds } = useFacets(table, column, !!operator.usesFacets)
+
+  const label = formatMessage(table.dataTableOptions.localization.filterByColumn, {
+    column: getColumnLabel(column),
+  })
+
+  const setOperand = (next: unknown) => {
+    const updated = [...conditions]
+    updated[conditionIndex] = { op: operatorId, value: next }
+    // Emptying every operand removes the filter, rather than leaving a shell
+    // behind that would still count as "filtered". Note this tests for *blank*,
+    // not for incomplete: a structured operand such as the geo centre is built
+    // up one field at a time, and discarding it while it is half-entered would
+    // make it impossible ever to finish. Incomplete conditions are skipped at
+    // evaluation time instead, so rows are never hidden mid-edit.
+    const allBlank = updated.every((condition) => {
+      const conditionOperator = findOperator(dataType, condition.op)
+      return conditionOperator?.arity !== 0 && isBlankOperand(condition.value)
+    })
+    column.setFilterValue(
+      allBlank ? undefined : fromConditions(updated, joinOf(filterValue)),
     )
   }
 
-  // A scalar column switched to a range operator needs the range editor.
-  const effective: DataTableFilterVariant =
-    variant === 'range' || variant === 'range-slider' || variant === 'date-range'
-      ? variant
-      : RANGE_MODES.includes(mode)
-        ? 'range'
-        : variant
+  const Operand = operator.Operand ?? dataType.Operand
 
-  switch (effective) {
-    case 'select':
-      return (
-        <ui.Select
-          label={placeholder}
-          size={size}
-          value={stringifyValue(value)}
-          placeholder={localization.showAll}
-          options={options}
-          onChange={(next) => column.setFilterValue(next || undefined)}
-          dataAttributes={{ 'data-rtc-filter-input': column.id }}
-        />
-      )
-
-    case 'multi-select':
-    case 'checkbox': {
-      const selected = Array.isArray(value) ? (value as string[]) : []
-      if (effective === 'multi-select') {
-        return (
-          <ui.MultiSelect
-            label={placeholder}
-            size={size}
-            value={selected}
-            options={options}
-            onChange={(next) => column.setFilterValue(next.length > 0 ? next : undefined)}
-          />
-        )
-      }
-      return (
-        <div className="rtc-filter-checkboxes" role="group" aria-label={placeholder}>
-          {options.map((option) => {
-            const checked = selected.includes(option.value)
-            return (
-              <label key={option.value} className="rtc-filter-chip" data-rtc-active={checked}>
-                <ui.Checkbox
-                  checked={checked}
-                  label={option.label}
-                  onChange={() => {
-                    const next = checked
-                      ? selected.filter((item) => item !== option.value)
-                      : [...selected, option.value]
-                    column.setFilterValue(next.length > 0 ? next : undefined)
-                  }}
-                />
-                {option.label}
-              </label>
-            )
-          })}
-        </div>
-      )
-    }
-
-    case 'range-slider': {
-      const bounds = column.getFacetedMinMaxValues()
-      const min = bounds?.[0] ?? 0
-      const max = bounds?.[1] ?? 100
-      const range = Array.isArray(value) ? (value as Array<number | undefined>) : []
-      return (
-        <ui.RangeSlider
-          label={placeholder}
-          min={min}
-          max={max}
-          value={[range[0] ?? min, range[1] ?? max]}
-          onChange={(next) => column.setFilterValue(next)}
-        />
-      )
-    }
-
-    case 'range':
-    case 'date-range': {
-      const range = Array.isArray(value) ? (value as Array<string | number | undefined>) : []
-      const isDate = effective === 'date-range'
-      const setBound = (index: 0 | 1, next: string | number | undefined) => {
-        const updated: Array<string | number | undefined> = [range[0], range[1]]
-        updated[index] = next === '' ? undefined : next
-        column.setFilterValue(
-          updated[0] === undefined && updated[1] === undefined ? undefined : updated,
-        )
-      }
-      return (
-        <div className="rtc-filter-range">
-          {isDate ? (
-            <>
-              <ui.TextInput
-                type="date"
-                size={size}
-                label={`${placeholder} ${localization.min}`}
-                placeholder={localization.min}
-                value={stringifyValue(range[0])}
-                onChange={(next) => setBound(0, next)}
-              />
-              <ui.TextInput
-                type="date"
-                size={size}
-                label={`${placeholder} ${localization.max}`}
-                placeholder={localization.max}
-                value={stringifyValue(range[1])}
-                onChange={(next) => setBound(1, next)}
-              />
-            </>
-          ) : (
-            <>
-              <ui.NumberInput
-                size={size}
-                label={`${placeholder} ${localization.min}`}
-                placeholder={localization.min}
-                value={typeof range[0] === 'number' ? range[0] : undefined}
-                onChange={(next) => setBound(0, next)}
-              />
-              <ui.NumberInput
-                size={size}
-                label={`${placeholder} ${localization.max}`}
-                placeholder={localization.max}
-                value={typeof range[1] === 'number' ? range[1] : undefined}
-                onChange={(next) => setBound(1, next)}
-              />
-            </>
-          )}
-        </div>
-      )
-    }
-
-    case 'date':
-      return (
-        <ui.TextInput
-          type="date"
-          size={size}
-          label={placeholder}
-          value={stringifyValue(value)}
-          onChange={(next) => column.setFilterValue(next || undefined)}
-          dataAttributes={{ 'data-rtc-filter-input': column.id }}
-        />
-      )
-
-    case 'autocomplete':
-    default:
-      return (
-        <ui.TextInput
-          size={size}
-          label={placeholder}
-          placeholder={placeholder}
-          value={stringifyValue(value)}
-          onChange={(next) => column.setFilterValue(next || undefined)}
-          dataAttributes={{ 'data-rtc-filter-input': column.id }}
-        />
-      )
-  }
+  return (
+    <Operand
+      value={operand}
+      onChange={setOperand}
+      operator={operator}
+      table={table as never}
+      column={column as never}
+      options={options}
+      bounds={bounds}
+      size={size}
+      meta={typeMeta}
+      label={label}
+      localization={table.dataTableOptions.localization}
+    />
+  )
 }
 
-/** Menu items for switching a column's filter operator. */
-export function filterModeItems<TData extends RowData>(
+/** Menu items for switching a column's operator. */
+export function filterOperatorItems<TData extends RowData>(
   table: DataTableInstance<TData>,
   column: DataTableColumnInstance<TData, any>,
+  conditionIndex = 0,
 ): RtcMenuItem[] {
-  const { localization } = table.dataTableOptions
-  const meta = column.columnDef.meta
-  const modes = meta?.filterModeOptions ?? DEFAULT_FILTER_MODES[inferFilterVariant(column)]
-  const current = currentFilterMode(table, column)
+  const dataType = resolveDataType(table, column)
+  const filterValue = column.getFilterValue()
+  const conditions = toConditions(filterValue, dataType)
+  const current = currentOperatorId(table, column, conditionIndex)
 
-  return modes.map((mode) => ({
+  return columnOperators(table, column).map((operator) => ({
     type: 'checkbox' as const,
-    id: mode,
-    checked: current === mode,
-    label: localization.filterOperators[mode] ?? mode,
+    id: operator.id,
+    checked: current === operator.id,
+    label: localizedOperatorLabel(table, operator),
     onSelect: () => {
-      table.setColumnFilterFn(column.id, mode)
-      // Scalar and range operators take incompatible value shapes.
-      const wasRange = RANGE_MODES.includes(current)
-      const isRange = RANGE_MODES.includes(mode)
-      if (wasRange !== isRange) column.setFilterValue(undefined)
-      if (NULLARY_MODES.includes(mode)) column.setFilterValue('')
+      if (conditionIndex === 0) table.setColumnFilterOperator(column.id, operator.id)
+      // Operand shapes differ per operator (scalar, tuple, object), so the
+      // value is reseeded rather than carried across incompatible shapes.
+      const seeded = operator.initialValue?.(conditions[conditionIndex]?.value)
+      const updated = [...conditions]
+      updated[conditionIndex] = { op: operator.id, value: seeded }
+      // An arity-0 operator ("is empty") is complete the moment it is chosen
+      // and must be stored even though it carries no operand; anything else
+      // waits for a value before it becomes a filter.
+      const pending = operator.arity !== 0 && isBlankOperand(seeded)
+      column.setFilterValue(
+        pending && updated.length === 1
+          ? undefined
+          : fromConditions(updated, joinOf(filterValue)),
+      )
     },
   }))
 }
 
-export function hasFilterModes<TData extends RowData>(
+export function hasFilterOperatorChoice<TData extends RowData>(
   table: DataTableInstance<TData>,
   column: DataTableColumnInstance<TData, any>,
 ): boolean {
-  const meta = column.columnDef.meta
-  const enabled = meta?.enableFilterModes ?? table.dataTableOptions.enableFilterModes ?? false
-  if (!enabled) return false
-  const modes = meta?.filterModeOptions ?? DEFAULT_FILTER_MODES[inferFilterVariant(column)]
-  return modes.length > 1
+  const enabled =
+    column.columnDef.meta?.enableFilterModes ?? table.dataTableOptions.enableFilterModes ?? true
+  return enabled && columnOperators(table, column).length > 1
+}
+
+export function currentOperatorLabel<TData extends RowData>(
+  table: DataTableInstance<TData>,
+  column: DataTableColumnInstance<TData, any>,
+  conditionIndex = 0,
+): string {
+  const dataType = resolveDataType(table, column)
+  const id = currentOperatorId(table, column, conditionIndex)
+  const operator = findOperator(dataType, id)
+  return operator ? localizedOperatorLabel(table, operator) : id
+}
+
+/** Human summary of a column's active filter, used by the toolbar chips. */
+export function describeFilter<TData extends RowData>(
+  table: DataTableInstance<TData>,
+  column: DataTableColumnInstance<TData, any>,
+): string {
+  const dataType = resolveDataType(table, column)
+  const typeMeta = resolveTypeMeta(column, dataType)
+  const columnLabel = getColumnLabel(column)
+  const conditions = toConditions(column.getFilterValue(), dataType)
+  if (conditions.length === 0) return columnLabel
+
+  const describeOne = (condition: FilterCondition) => {
+    const operator = findOperator(dataType, condition.op)
+    const operatorLabel = operator ? localizedOperatorLabel(table, operator) : condition.op
+    const described = dataType.describe?.(condition, {
+      operatorLabel,
+      columnLabel,
+      meta: typeMeta,
+      // Presets are localised, so the summary needs the table's strings.
+      presetLabels: table.dataTableOptions.localization.datePresets,
+    } as never)
+    return typeof described === 'string'
+      ? described
+      : `${columnLabel} ${operatorLabel.toLowerCase()}`
+  }
+
+  const joiner = joinOf(column.getFilterValue()) === 'or' ? ' or ' : ' and '
+  return conditions.map(describeOne).join(joiner)
 }

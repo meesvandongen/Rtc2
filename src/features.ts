@@ -64,6 +64,9 @@ import {
   tableFeatures,
 } from '@tanstack/react-table'
 
+import { STRUCTURED_FILTER_FN } from './filters/filterFn'
+import type { DataTableTableMeta } from './filters/registry'
+import { structuredFilterFn } from './filters/tanstack'
 import type { DataTableColumnMeta } from './types'
 
 /**
@@ -91,6 +94,11 @@ export const dataTableFilterFns = {
   notEmpty: filterFn_notEmpty,
   startsWith: filterFn_startsWith,
   weakEquals: filterFn_weakEquals,
+  /**
+   * The structured filter used by every column. The built-ins above stay
+   * registered so a caller can still opt a column into a raw TanStack filter.
+   */
+  [STRUCTURED_FILTER_FN]: structuredFilterFn,
 } as const
 
 export const dataTableSortFns = {
@@ -158,6 +166,7 @@ export const dataTableFeatures = tableFeatures({
   aggregationFns: dataTableAggregationFns,
 
   columnMeta: metaHelper<DataTableColumnMeta>(),
+  tableMeta: metaHelper<DataTableTableMeta>(),
 })
 
 export type DataTableFeatures = typeof dataTableFeatures

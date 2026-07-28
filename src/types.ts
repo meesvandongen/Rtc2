@@ -21,6 +21,7 @@ import type {
 } from '@tanstack/react-table'
 
 import type { DataTableComponentsOverride, RtcMenuItem } from './components/registry'
+import type { ColumnDataType, ColumnDataTypes, FilterTypeMeta } from './filters/types'
 import type { DataTableFeatures } from './features'
 import type { DataTableLocalization } from './locale'
 
@@ -67,7 +68,17 @@ export interface DataTableSelectOption {
  * typed as this interface everywhere in the component.
  */
 export interface DataTableColumnMeta {
-  /** Which filter editor to render in the column filter row / menu. */
+  /**
+   * The column's filter data type: a registered id, or an inline definition
+   * for a one-off column. Determines which operators are offered and how the
+   * operand is edited. Inferred from the data when omitted.
+   */
+  dataType?: string | ColumnDataType
+  /** Restrict the operators offered, by id, in menu order. */
+  filterOperators?: string[]
+  /** Type-specific configuration: date granularity, timezone, units. */
+  filterTypeMeta?: FilterTypeMeta
+  /** @deprecated Superseded by `dataType`; still mapped for compatibility. */
   filterVariant?: DataTableFilterVariant
   /** Options for `select` / `multi-select` / `autocomplete` filters. Falls back to faceted unique values. */
   filterSelectOptions?: Array<DataTableSelectOption | string>
@@ -75,6 +86,8 @@ export interface DataTableColumnMeta {
   filterPlaceholder?: string
   /** Hide the filter-operator (filter mode) menu for this column. */
   enableFilterModes?: boolean
+  /** Allow stacking several conditions on this column, overriding the table option. */
+  enableMultipleFilterConditions?: boolean
   /** Filter fn names offered in this column's operator menu. */
   filterModeOptions?: Array<keyof typeof import('./features').dataTableFilterFns>
   /** Which editor to render when the cell is in edit mode. */
@@ -116,8 +129,13 @@ export interface DataTableUiState {
   editingCellId: string | null
   /** Row ids, in display order, when `enableRowOrdering` is on. */
   rowOrder: string[]
-  /** Per-column filter fn overrides chosen from the operator menu. */
-  columnFilterFns: Record<string, string>
+  /**
+   * Operator chosen per column *before* a value has been entered.
+   *
+   * Once a filter has a value the operator lives inside it; this is only the
+   * draft the editor shows while the column is still unfiltered.
+   */
+  columnFilterOperators: Record<string, string>
 }
 
 export interface DataTableTanStackState {
@@ -237,7 +255,7 @@ export interface DataTableOptions<TData extends RowData> {
   onShowFilterPanelChange?: (show: boolean) => void
   onShowGlobalFilterChange?: (show: boolean) => void
   onRowOrderChange?: (rowOrder: string[]) => void
-  onColumnFilterFnsChange?: (fns: Record<string, string>) => void
+  onColumnFilterOperatorsChange?: (operators: Record<string, string>) => void
 
   // ------------------------------------------------------------ behaviour ----
   enableSorting?: boolean
@@ -266,6 +284,21 @@ export interface DataTableOptions<TData extends RowData> {
   filterPanelPosition?: 'start' | 'end'
   /** Removable chips in the toolbar for each active column filter. Defaults to on. */
   showActiveFilterChips?: boolean
+  /**
+   * Extra filter data types, merged over the built-ins. Register a type here
+   * to use it by id from `meta.dataType` across every column.
+   */
+  dataTypes?: ColumnDataTypes
+  /**
+   * Allow several conditions on one column (`age > 20 AND age < 30`).
+   * Off by default: one condition is what most tables need.
+   */
+  enableMultipleFilterConditions?: boolean
+  /**
+   * Fixes the clock used by relative date operators. Supply it to make
+   * "in the last 7 days" deterministic in tests and snapshots.
+   */
+  filterNow?: Date
   enableGlobalFilter?: boolean
   globalFilterFn?: keyof typeof import('./features').dataTableFilterFns
   enableFaceting?: boolean
@@ -453,7 +486,7 @@ export type DataTableInstance<TData extends RowData> = import('@tanstack/react-t
   setEditingRowId: (rowId: string | null) => void
   setEditingCellId: (cellId: string | null) => void
   setRowOrder: (order: string[] | ((old: string[]) => string[])) => void
-  setColumnFilterFn: (columnId: string, fn: string) => void
+  setColumnFilterOperator: (columnId: string, operatorId: string) => void
   /** Pending edit values, keyed `rowId` → `columnId` → value. */
   editValues: Record<string, Record<string, unknown>>
   setEditValue: (rowId: string, columnId: string, value: unknown) => void

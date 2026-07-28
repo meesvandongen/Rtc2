@@ -97,23 +97,26 @@ export function createAntComponents(defaults: DataTableComponents): DataTableCom
     ),
 
     TextInput: ({ value, onChange, label, placeholder, type, size, autoFocus, disabled, onBlur, onKeyDown, dataAttributes }) => {
-      if (type === 'date') {
+      if (type === 'date' || type === 'datetime-local') {
+        const withTime = type === 'datetime-local'
         return (
           <DatePicker
             value={value ? dayjs(value) : null}
+            showTime={withTime ? { format: 'HH:mm' } : false}
             size={size === 'sm' ? 'small' : 'middle'}
             disabled={disabled}
             placeholder={placeholder}
             aria-label={label}
-            onChange={(date) => onChange(date ? date.format('YYYY-MM-DD') : '')}
+            onChange={(date) =>
+              onChange(date ? date.format(withTime ? 'YYYY-MM-DDTHH:mm' : 'YYYY-MM-DD') : '')
+            }
             style={{ width: '100%' }}
             {...dataAttributes}
           />
         )
       }
-      const Component = type === 'search' ? Input : Input
       return (
-        <Component
+        <Input
           value={value}
           size={size === 'sm' ? 'small' : 'middle'}
           placeholder={placeholder}
@@ -124,6 +127,7 @@ export function createAntComponents(defaults: DataTableComponents): DataTableCom
           onChange={(event) => onChange(event.target.value)}
           onBlur={onBlur}
           onKeyDown={onKeyDown}
+          type={type === 'time' ? 'time' : undefined}
           {...dataAttributes}
         />
       )

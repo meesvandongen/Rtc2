@@ -1,4 +1,4 @@
-import { createDataTableColumnHelper, type DataTableColumn } from '../src'
+import { createDataTableColumnHelper, numberDataType, type DataTableColumn } from '../src'
 
 export interface Person {
   id: string
@@ -11,6 +11,14 @@ export interface Person {
   salary: number
   active: boolean
   startDate: string
+  /** Full timestamp, to exercise time-of-day and granularity filtering. */
+  lastSeen: string
+  /** A list-valued cell, for the `collection` data type. */
+  skills: string[]
+  /** Coordinates, for the `geoPoint` data type. */
+  location: { lat: number; lng: number }
+  /** Milliseconds, for the `duration` data type. */
+  responseMs: number
   subRows?: Person[]
 }
 
@@ -18,6 +26,17 @@ export type Department = 'Engineering' | 'Design' | 'Sales' | 'Support' | 'Finan
 
 const DEPARTMENTS: Department[] = ['Engineering', 'Design', 'Sales', 'Support', 'Finance']
 const CITIES = ['Amsterdam', 'Berlin', 'Lisbon', 'Oslo', 'Madrid', 'Dublin', 'Prague']
+/** Rough city centres, so the geo filter has meaningful distances. */
+const CITY_COORDS: Record<string, { lat: number; lng: number }> = {
+  Amsterdam: { lat: 52.3676, lng: 4.9041 },
+  Berlin: { lat: 52.52, lng: 13.405 },
+  Lisbon: { lat: 38.7223, lng: -9.1393 },
+  Oslo: { lat: 59.9139, lng: 10.7522 },
+  Madrid: { lat: 40.4168, lng: -3.7038 },
+  Dublin: { lat: 53.3498, lng: -6.2603 },
+  Prague: { lat: 50.0755, lng: 14.4378 },
+}
+const SKILLS = ['React', 'TypeScript', 'CSS', 'Go', 'SQL', 'Figma', 'Rust']
 const FIRST_NAMES = [
   'Ada', 'Grace', 'Alan', 'Linus', 'Barbara', 'Ken', 'Margaret', 'Dennis',
   'Katherine', 'Tim', 'Radia', 'Vint', 'Anita', 'Donald', 'Frances', 'Edsger',
@@ -54,6 +73,16 @@ export function makePeople(count: number, seed = 1): Person[] {
     const year = 2015 + Math.floor(random() * 10)
     const month = 1 + Math.floor(random() * 12)
     const day = 1 + Math.floor(random() * 28)
+    const city = CITIES[Math.floor(random() * CITIES.length)]!
+    // Spread across the past year so relative date filters have something to
+    // find in every window.
+    const daysAgo = Math.floor(random() * 400)
+    const lastSeen = new Date(Date.UTC(2026, 6, 28) - daysAgo * 86_400_000)
+    lastSeen.setUTCHours(6 + Math.floor(random() * 14), Math.floor(random() * 60), 0, 0)
+    const skillCount = 1 + Math.floor(random() * 3)
+    const skills = Array.from(
+      new Set(Array.from({ length: skillCount }, () => SKILLS[Math.floor(random() * SKILLS.length)]!)),
+    )
     return {
       id: `p${index + 1}`,
       firstName,
@@ -61,10 +90,17 @@ export function makePeople(count: number, seed = 1): Person[] {
       email: `${firstName.toLowerCase()}.${lastName.toLowerCase().replace(/[^a-z]/g, '')}${index + 1}@example.com`,
       age: 22 + Math.floor(random() * 43),
       department: DEPARTMENTS[Math.floor(random() * DEPARTMENTS.length)]!,
-      city: CITIES[Math.floor(random() * CITIES.length)]!,
-      salary: 40000 + Math.floor(random() * 90000),
+      city,
+      // Rounded to the nearest 500, as salary bands usually are — which also
+      // gives the "is a round number" operator in the data-type stories
+      // something to find.
+      salary: 40000 + Math.floor((random() * 90000) / 500) * 500,
       active: random() > 0.3,
       startDate: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+      lastSeen: lastSeen.toISOString(),
+      skills,
+      location: CITY_COORDS[city]!,
+      responseMs: 50 + Math.floor(random() * 4000),
     }
   })
 }
@@ -99,32 +135,36 @@ export const personColumns: Array<DataTableColumn<Person, any>> = helper.columns
   helper.accessor('department', {
     header: 'Department',
     size: 150,
-    meta: { filterVariant: 'select' },
+    meta: { dataType: 'enum' },
   }),
-  helper.accessor('city', { header: 'City', size: 130, meta: { filterVariant: 'autocomplete' } }),
+  helper.accessor('city', { header: 'City', size: 130, meta: { dataType: 'enum' } }),
   helper.accessor('age', {
     header: 'Age',
     size: 90,
-    filterFn: 'inNumberRange',
-    meta: { filterVariant: 'range', align: 'right', editVariant: 'number' },
+    meta: { dataType: 'number', align: 'right', editVariant: 'number' },
   }),
   helper.accessor('salary', {
     header: 'Salary',
     size: 130,
-    filterFn: 'inNumberRange',
     cell: ({ getValue }) => currency(getValue()),
-    meta: { filterVariant: 'range-slider', align: 'right', editVariant: 'number' },
+    meta: {
+      // Same numeric operators, but the editor opens on the dual-thumb slider
+      // rather than two boxes, since salary has a meaningful faceted min/max.
+      dataType: { ...numberDataType, id: 'salary', defaultOperator: 'inRangeSlider' },
+      align: 'right',
+      editVariant: 'number',
+    },
   }),
   helper.accessor('startDate', {
     header: 'Start date',
     size: 140,
-    meta: { filterVariant: 'date-range', editVariant: 'date' },
+    meta: { dataType: 'date', editVariant: 'date' },
   }),
   helper.accessor('active', {
     header: 'Active',
     size: 100,
     cell: ({ getValue }) => (getValue() ? 'Yes' : 'No'),
-    meta: { filterVariant: 'checkbox', align: 'center', editVariant: 'checkbox' },
+    meta: { dataType: 'boolean', align: 'center', editVariant: 'checkbox' },
   }),
 ])
 

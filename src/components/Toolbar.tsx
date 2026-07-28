@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { RowData } from '@tanstack/react-table'
 
+import { describeFilter } from './FilterEditor'
 import { GroupingChips } from './GroupingChips'
 import { Pagination } from './Pagination'
 import { useComponents, type RtcMenuItem } from './registry'
@@ -105,7 +106,7 @@ function ActiveFilterChips<TData extends RowData>({ table }: { table: DataTableI
               onRemove={() => column.setFilterValue(undefined)}
               removeLabel={`${options.localization.clearFilter}: ${getColumnLabel(column)}`}
             >
-              {getColumnLabel(column)}
+              {describeFilter(table, column as never)}
             </ui.Badge>
           </span>
         )

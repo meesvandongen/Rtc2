@@ -25,6 +25,22 @@ export interface DataTableLocalization {
   filterByColumn: string
   filterMode: string
   filters: string
+  from: string
+  to: string
+  selectPeriod: string
+  booleanTrue: string
+  booleanFalse: string
+  latitude: string
+  longitude: string
+  radiusKm: string
+  addCondition: string
+  removeCondition: string
+  matchAll: string
+  matchAny: string
+  bounds: Record<'north' | 'south' | 'east' | 'west', string>
+  weekdays: string[]
+  dateUnits: Record<string, string>
+  datePresets: Record<string, string>
   clearAllFilters: string
   noFilterableColumns: string
   goToFirstPage: string
@@ -103,6 +119,43 @@ export const defaultLocalization: DataTableLocalization = {
   filterByColumn: 'Filter by {column}',
   filterMode: 'Filter mode: {filterType}',
   filters: 'Filters',
+  from: 'From',
+  to: 'To',
+  selectPeriod: 'Select period',
+  booleanTrue: 'Yes',
+  booleanFalse: 'No',
+  latitude: 'Latitude',
+  longitude: 'Longitude',
+  radiusKm: 'Radius (km)',
+  addCondition: 'Add condition',
+  removeCondition: 'Remove condition',
+  matchAll: 'Match all',
+  matchAny: 'Match any',
+  bounds: { north: 'North', south: 'South', east: 'East', west: 'West' },
+  weekdays: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+  dateUnits: {
+    day: 'days',
+    week: 'weeks',
+    month: 'months',
+    quarter: 'quarters',
+    year: 'years',
+  },
+  datePresets: {
+    today: 'Today',
+    yesterday: 'Yesterday',
+    tomorrow: 'Tomorrow',
+    thisWeek: 'This week',
+    lastWeek: 'Last week',
+    nextWeek: 'Next week',
+    thisMonth: 'This month',
+    lastMonth: 'Last month',
+    nextMonth: 'Next month',
+    thisQuarter: 'This quarter',
+    lastQuarter: 'Last quarter',
+    thisYear: 'This year',
+    lastYear: 'Last year',
+    yearToDate: 'Year to date',
+  },
   clearAllFilters: 'Clear all',
   noFilterableColumns: 'No filterable columns',
   goToFirstPage: 'Go to first page',
@@ -159,25 +212,58 @@ export const defaultLocalization: DataTableLocalization = {
   filterVariantEmpty: 'Is empty',
   filterVariantNotEmpty: 'Is not empty',
   filterOperators: {
+    // Structured data-type operators.
+    contains: 'Contains',
+    equals: 'Equals',
+    notEquals: 'Does not equal',
+    startsWith: 'Starts with',
+    endsWith: 'Ends with',
+    matchesRegex: 'Matches regex',
+    isAnyOf: 'Is any of',
+    isOneOfChecklist: 'Is any of (checklist)',
+    isEmpty: 'Is empty',
+    isNotEmpty: 'Is not empty',
+    greaterThan: 'Greater than',
+    greaterThanOrEqual: 'Greater than or equal to',
+    lessThan: 'Less than',
+    lessThanOrEqual: 'Less than or equal to',
+    between: 'Between',
+    betweenExclusive: 'Between (exclusive)',
+    inRangeSlider: 'In range',
+    booleanIs: 'Is',
+    dateIs: 'Is on',
+    dateBefore: 'Is before',
+    dateOnOrBefore: 'Is on or before',
+    dateAfter: 'Is after',
+    dateOnOrAfter: 'Is on or after',
+    dateBetween: 'Is between',
+    dateInPeriod: 'Is in period',
+    dateInLast: 'Is in the last',
+    dateInNext: 'Is in the next',
+    dateWeekdayIs: 'Day of week is',
+    dateTimeOfDayBetween: 'Time of day between',
+    containsAnyOf: 'Contains any of',
+    containsAllOf: 'Contains all of',
+    containsNoneOf: 'Contains none of',
+    countEquals: 'Item count equals',
+    countAtLeast: 'Item count at least',
+    geoWithinRadius: 'Within radius of',
+    geoWithinBounds: 'Within bounding box',
+    // Raw TanStack filter fns, still selectable per column via `filterFn`.
+    // Ids shared with the structured operators above are not repeated.
     arrIncludes: 'Includes',
     arrIncludesAll: 'Includes all',
     arrIncludesSome: 'Includes some',
-    between: 'Between',
     betweenInclusive: 'Between inclusive',
     empty: 'Is empty',
-    endsWith: 'Ends with',
-    equals: 'Equals',
     equalsString: 'Equals',
     equalsStringSensitive: 'Equals (case sensitive)',
-    greaterThan: 'Greater than',
     greaterThanOrEqualTo: 'Greater than or equal to',
     inNumberRange: 'Between',
     includesString: 'Contains',
     includesStringSensitive: 'Contains (case sensitive)',
-    lessThan: 'Less than',
     lessThanOrEqualTo: 'Less than or equal to',
     notEmpty: 'Is not empty',
-    startsWith: 'Starts with',
     weakEquals: 'Equals (loose)',
   },
 }

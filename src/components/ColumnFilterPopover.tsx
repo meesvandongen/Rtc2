@@ -1,6 +1,6 @@
 import type { RowData } from '@tanstack/react-table'
 
-import { FilterEditor, currentFilterMode, filterModeItems, hasFilterModes } from './FilterEditor'
+import { FilterConditions } from './FilterConditions'
 import { useComponents } from './registry'
 import { formatMessage } from '../locale'
 import { getColumnLabel } from '../utils'
@@ -54,23 +54,7 @@ export function ColumnFilterPopover<TData extends RowData>({
           ) : null}
         </div>
 
-        {hasFilterModes(table, column) ? (
-          <div className="rtc-filter-popover-mode">
-            <ui.Menu
-              align="start"
-              label={localization.changeFilterMode}
-              items={filterModeItems(table, column)}
-              trigger={
-                <ui.Button size="sm" variant="quiet">
-                  {localization.filterOperators[currentFilterMode(table, column)] ??
-                    currentFilterMode(table, column)}
-                </ui.Button>
-              }
-            />
-          </div>
-        ) : null}
-
-        <FilterEditor table={table} column={column} size="sm" />
+        <FilterConditions table={table} column={column} size="sm" />
       </div>
     </ui.Popover>
   )

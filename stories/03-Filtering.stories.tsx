@@ -127,16 +127,17 @@ export const FilterPanelOutsideTheTable: Story = {
 }
 
 /**
- * Every filter editor at once. The variant is chosen per column via
- * `meta.filterVariant`; select, autocomplete and checkbox populate their
- * options from TanStack's faceted unique values.
+ * Every editor at once. Each column declares a `meta.dataType`, and the type
+ * supplies both the operator list and the operand editor — select and
+ * checkbox operands populate from TanStack's faceted unique values.
  */
 export const FilterVariants: Story = {
   render: () => (
     <>
       <p className="sb-note">
-        Text, autocomplete, select, checkbox, numeric range, range slider and date range. The date
-        range and slider are exactly the editors that made an in-table filter row unworkable.
+        Text, enum, number, boolean and date. Switch the operator on any column to change the
+        operand: the date range and the salary slider are exactly the editors that made an in-table
+        filter row unworkable.
       </p>
       <DataTable
         columns={personColumns}
@@ -158,9 +159,9 @@ export const MultiSelectFilter: Story = {
         (column as { accessorKey?: string }).accessorKey === 'department'
           ? {
               ...column,
-              filterFn: 'arrIncludesSome' as const,
               meta: {
-                filterVariant: 'multi-select' as const,
+                dataType: 'enum' as const,
+                filterOperators: ['isAnyOf'],
                 filterSelectOptions: ['Engineering', 'Design', 'Sales', 'Support', 'Finance'],
               },
             }
@@ -176,7 +177,8 @@ export const MultiSelectFilter: Story = {
 
 /**
  * `enableFilterModes` adds an operator menu to each filter, so a text column
- * can switch between contains / starts with / equals / is empty.
+ * can switch between contains / starts with / equals / is empty — and the
+ * chosen operator is stored inside the filter value, not beside it.
  */
 export const FilterModes: Story = {
   render: () => (
