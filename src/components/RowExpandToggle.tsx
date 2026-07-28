@@ -1,7 +1,7 @@
 import type { RowData } from '@tanstack/react-table'
 import { Subscribe } from '@tanstack/react-table'
 
-import { ChevronRightIcon } from './primitives/Icons'
+import { useComponents } from './registry'
 import type { DataTableInstance, DataTableRow } from '../types'
 
 /**
@@ -15,6 +15,7 @@ export function RowExpandToggle<TData extends RowData>({
   table: DataTableInstance<TData>
   row?: DataTableRow<TData>
 }) {
+  const ui = useComponents()
   const { localization } = table.dataTableOptions
 
   if (!row) {
@@ -23,18 +24,20 @@ export function RowExpandToggle<TData extends RowData>({
         {() => {
           const allExpanded = table.getIsAllRowsExpanded()
           return (
-            <button
-              type="button"
-              className="rtc-expand-button"
+            <span
+              className="rtc-expand-slot"
               data-rtc-expanded={allExpanded ? 'true' : 'false'}
-              aria-label={allExpanded ? localization.collapseAll : localization.expandAll}
-              title={allExpanded ? localization.collapseAll : localization.expandAll}
-              aria-expanded={allExpanded}
-              disabled={!table.getCanSomeRowsExpand()}
-              onClick={table.getToggleAllRowsExpandedHandler()}
             >
-              <ChevronRightIcon className="rtc-expand-icon" />
-            </button>
+              <ui.IconButton
+                size="sm"
+                label={allExpanded ? localization.collapseAll : localization.expandAll}
+                disabled={!table.getCanSomeRowsExpand()}
+                onClick={() => table.toggleAllRowsExpanded()}
+                className="rtc-expand-button"
+              >
+                <ui.Icon name="chevronRight" className="rtc-expand-icon" />
+              </ui.IconButton>
+            </span>
           )
         }}
       </Subscribe>
@@ -47,21 +50,20 @@ export function RowExpandToggle<TData extends RowData>({
         const expanded = row.getIsExpanded()
         const canExpand = row.getCanExpand()
         return (
-          <button
-            type="button"
-            className="rtc-expand-button"
-            data-rtc-expanded={expanded ? 'true' : 'false'}
-            aria-label={expanded ? localization.collapse : localization.expand}
-            title={expanded ? localization.collapse : localization.expand}
-            aria-expanded={canExpand ? expanded : undefined}
-            disabled={!canExpand}
-            onClick={(event) => {
-              event.stopPropagation()
-              row.toggleExpanded()
-            }}
-          >
-            <ChevronRightIcon className="rtc-expand-icon" />
-          </button>
+          <span className="rtc-expand-slot" data-rtc-expanded={expanded ? 'true' : 'false'}>
+            <ui.IconButton
+              size="sm"
+              label={expanded ? localization.collapse : localization.expand}
+              disabled={!canExpand}
+              onClick={(event) => {
+                event.stopPropagation()
+                row.toggleExpanded()
+              }}
+              className="rtc-expand-button"
+            >
+              <ui.Icon name="chevronRight" className="rtc-expand-icon" />
+            </ui.IconButton>
+          </span>
         )
       }}
     </Subscribe>

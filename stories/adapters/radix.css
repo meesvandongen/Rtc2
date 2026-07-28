@@ -1,0 +1,274 @@
+/* Radix ships unstyled, so this is the shadcn-ish visual layer for the
+   adapter. It reads the table's own `--rtc-*` variables, so the adapter
+   inherits whatever theme the table is using. */
+
+.rx-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  color: var(--rtc-color-text);
+  font: inherit;
+  font-size: var(--rtc-font-size-sm);
+  background: var(--rtc-color-surface);
+  border: 1px solid var(--rtc-color-border-strong);
+  border-radius: var(--rtc-radius-sm);
+  cursor: pointer;
+}
+
+.rx-button[data-size="sm"] {
+  height: 24px;
+  padding: 0 8px;
+}
+
+.rx-button[data-variant="primary"] {
+  color: var(--rtc-color-accent-contrast);
+  background: var(--rtc-color-accent);
+  border-color: var(--rtc-color-accent);
+}
+
+.rx-button[data-variant="quiet"] {
+  height: auto;
+  padding: 2px 6px;
+  color: var(--rtc-color-accent);
+  background: none;
+  border-color: transparent;
+}
+
+.rx-button:hover:not(:disabled),
+.rx-icon-button:hover:not(:disabled) {
+  background: var(--rtc-row-bg-hover);
+}
+
+.rx-button:disabled,
+.rx-icon-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.rx-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  color: var(--rtc-color-text-muted);
+  background: none;
+  border: 0;
+  border-radius: var(--rtc-radius-sm);
+  cursor: pointer;
+}
+
+.rx-icon-button[data-size="sm"] {
+  width: 24px;
+  height: 24px;
+}
+
+.rx-icon-button[data-active="true"] {
+  color: var(--rtc-color-accent);
+  background: var(--rtc-color-accent-subtle);
+}
+
+.rx-checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  background: var(--rtc-color-surface);
+  border: 1px solid var(--rtc-color-border-strong);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.rx-checkbox[data-state="checked"],
+.rx-checkbox[data-state="indeterminate"] {
+  color: var(--rtc-color-accent-contrast);
+  background: var(--rtc-color-accent);
+  border-color: var(--rtc-color-accent);
+}
+
+.rx-checkbox-indicator {
+  font-size: 11px;
+  line-height: 1;
+}
+
+.rx-switch {
+  position: relative;
+  width: 32px;
+  height: 18px;
+  padding: 0;
+  background: var(--rtc-color-border-strong);
+  border: 0;
+  border-radius: var(--rtc-radius-pill);
+  cursor: pointer;
+}
+
+.rx-switch[data-state="checked"] {
+  background: var(--rtc-color-accent);
+}
+
+.rx-switch-thumb {
+  display: block;
+  width: 14px;
+  height: 14px;
+  background: var(--rtc-color-surface);
+  border-radius: 50%;
+  transition: transform 120ms;
+  transform: translateX(2px);
+}
+
+.rx-switch-thumb[data-state="checked"] {
+  transform: translateX(16px);
+}
+
+.rx-slider {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 20px;
+  touch-action: none;
+  user-select: none;
+}
+
+.rx-slider-track {
+  position: relative;
+  flex-grow: 1;
+  height: 4px;
+  background: var(--rtc-color-border-strong);
+  border-radius: var(--rtc-radius-pill);
+}
+
+.rx-slider-range {
+  position: absolute;
+  height: 100%;
+  background: var(--rtc-color-accent);
+  border-radius: var(--rtc-radius-pill);
+}
+
+.rx-slider-thumb {
+  display: block;
+  width: 14px;
+  height: 14px;
+  background: var(--rtc-color-surface);
+  border: 2px solid var(--rtc-color-accent);
+  border-radius: 50%;
+  cursor: grab;
+}
+
+.rx-surface {
+  z-index: 1300;
+  color: var(--rtc-color-text);
+  font-family: var(--rtc-font-family);
+  font-size: var(--rtc-font-size-sm);
+  background: var(--rtc-color-surface-raised);
+  border: 1px solid var(--rtc-color-border);
+  border-radius: var(--rtc-radius);
+  box-shadow: var(--rtc-shadow-menu);
+}
+
+.rx-popover {
+  min-width: 240px;
+  padding: 12px;
+}
+
+.rx-menu {
+  min-width: 200px;
+  max-height: min(60vh, 420px);
+  padding: 4px;
+  overflow: auto;
+}
+
+.rx-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--rtc-radius-sm);
+  cursor: pointer;
+  outline: none;
+}
+
+.rx-menu-item[data-highlighted] {
+  background: var(--rtc-row-bg-hover);
+}
+
+.rx-menu-item[data-state="checked"],
+.rx-menu-item[data-active="true"] {
+  color: var(--rtc-color-accent);
+}
+
+.rx-menu-item[data-danger="true"] {
+  color: var(--rtc-color-danger);
+}
+
+.rx-menu-item[data-disabled] {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.rx-menu-icon {
+  display: inline-flex;
+  color: var(--rtc-color-text-muted);
+}
+
+.rx-menu-label {
+  padding: 6px 8px 4px;
+  color: var(--rtc-color-text-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.rx-menu-separator {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--rtc-color-border);
+}
+
+.rx-menu-custom {
+  padding: 8px;
+}
+
+.rx-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  background: var(--rtc-color-overlay);
+}
+
+.rx-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 1401;
+  width: min(480px, calc(100vw - 32px));
+  max-height: 85vh;
+  padding: 20px;
+  overflow: auto;
+  transform: translate(-50%, -50%);
+}
+
+.rx-dialog-title {
+  margin: 0 0 16px;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.rx-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rx-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}

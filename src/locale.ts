@@ -24,6 +24,9 @@ export interface DataTableLocalization {
   expandAll: string
   filterByColumn: string
   filterMode: string
+  filters: string
+  clearAllFilters: string
+  noFilterableColumns: string
   goToFirstPage: string
   goToLastPage: string
   goToNextPage: string
@@ -99,6 +102,9 @@ export const defaultLocalization: DataTableLocalization = {
   expandAll: 'Expand all',
   filterByColumn: 'Filter by {column}',
   filterMode: 'Filter mode: {filterType}',
+  filters: 'Filters',
+  clearAllFilters: 'Clear all',
+  noFilterableColumns: 'No filterable columns',
   goToFirstPage: 'Go to first page',
   goToLastPage: 'Go to last page',
   goToNextPage: 'Go to next page',

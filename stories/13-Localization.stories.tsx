@@ -108,7 +108,9 @@ export const LocalizedFilterOperators: Story = {
       data={data}
       getRowId={(row) => row.id}
       enableFilterModes
-      initialState={{ showColumnFilters: true }}
+      filterDisplayMode="panel"
+      height={520}
+      initialState={{ showFilterPanel: true }}
       localization={{
         ...dutch,
         filterOperators: {

@@ -1,0 +1,200 @@
+import * as Checkbox from '@radix-ui/react-checkbox'
+import * as Dialog from '@radix-ui/react-dialog'
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
+import * as Popover from '@radix-ui/react-popover'
+import * as Slider from '@radix-ui/react-slider'
+import * as Switch from '@radix-ui/react-switch'
+
+import type { DataTableComponents } from '../../src'
+import './radix.css'
+
+/**
+ * Radix adapter, in a shadcn/ui-like flavour.
+ *
+ * The constraint this one exercises is `asChild`: Radix wants the trigger to
+ * be a real element it can merge props and a ref onto. Because the registry
+ * passes a rendered node, `<Popover.Trigger asChild>{trigger}</Popover.Trigger>`
+ * just works — but only if the element forwards its ref, which is why the
+ * built-in Button and IconButton use `forwardRef`.
+ *
+ * Radix is unstyled by design, so the visual layer is `radix.css`, written
+ * against the same `--rtc-*` variables as the table itself.
+ */
+export function createRadixComponents(defaults: DataTableComponents): DataTableComponents {
+  const Icon = defaults.Icon
+
+  return {
+    ...defaults,
+    Icon,
+
+    Button: ({ children, onClick, disabled, variant = 'default', size, className }) => (
+      <button
+        type="button"
+        className={['rx-button', className].filter(Boolean).join(' ')}
+        data-variant={variant}
+        data-size={size}
+        disabled={disabled}
+        onClick={onClick}
+      >
+        {children}
+      </button>
+    ),
+
+    IconButton: ({ label, children, active, size, className, disabled, ...rest }) => (
+      <button
+        type="button"
+        className={['rx-icon-button', className].filter(Boolean).join(' ')}
+        aria-label={label}
+        title={label}
+        data-active={active ? 'true' : undefined}
+        data-size={size}
+        disabled={disabled}
+        {...rest}
+      >
+        {children}
+      </button>
+    ),
+
+    Checkbox: ({ checked, indeterminate, onChange, label, disabled, onClick }) => (
+      <Checkbox.Root
+        className="rx-checkbox"
+        checked={!checked && indeterminate ? 'indeterminate' : checked}
+        disabled={disabled}
+        aria-label={label}
+        onCheckedChange={(next) => onChange(next === true)}
+        onClick={onClick}
+      >
+        <Checkbox.Indicator className="rx-checkbox-indicator">
+          {!checked && indeterminate ? '–' : '✓'}
+        </Checkbox.Indicator>
+      </Checkbox.Root>
+    ),
+
+    Switch: ({ checked, onChange, label, disabled, onClick }) => (
+      <Switch.Root
+        className="rx-switch"
+        checked={checked}
+        disabled={disabled}
+        aria-label={label}
+        onCheckedChange={onChange}
+        onClick={onClick}
+      >
+        <Switch.Thumb className="rx-switch-thumb" />
+      </Switch.Root>
+    ),
+
+    RangeSlider: ({ value, onChange, min, max, step, label }) => (
+      <Slider.Root
+        className="rx-slider"
+        value={value}
+        min={min}
+        max={max}
+        step={step ?? 1}
+        minStepsBetweenThumbs={0}
+        onValueChange={(next) => onChange([next[0]!, next[1]!])}
+      >
+        <Slider.Track className="rx-slider-track">
+          <Slider.Range className="rx-slider-range" />
+        </Slider.Track>
+        <Slider.Thumb className="rx-slider-thumb" aria-label={`${label} minimum`} />
+        <Slider.Thumb className="rx-slider-thumb" aria-label={`${label} maximum`} />
+      </Slider.Root>
+    ),
+
+    Popover: ({ trigger, children, label, align = 'start', open, onOpenChange }) => (
+      <Popover.Root open={open} onOpenChange={onOpenChange}>
+        {/* asChild merges Radix's props and ref onto our own element. */}
+        <Popover.Trigger asChild>{trigger}</Popover.Trigger>
+        <Popover.Portal>
+          <Popover.Content
+            className="rx-surface rx-popover"
+            align={align}
+            sideOffset={4}
+            aria-label={label}
+          >
+            {children}
+          </Popover.Content>
+        </Popover.Portal>
+      </Popover.Root>
+    ),
+
+    Menu: ({ trigger, items, label, align = 'start' }) => (
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger asChild>{trigger}</DropdownMenu.Trigger>
+        <DropdownMenu.Portal>
+          <DropdownMenu.Content
+            className="rx-surface rx-menu"
+            align={align}
+            sideOffset={4}
+            aria-label={label}
+          >
+            {items.map((item) => {
+              if (item.type === 'separator') {
+                return <DropdownMenu.Separator key={item.id} className="rx-menu-separator" />
+              }
+              if (item.type === 'label') {
+                return (
+                  <DropdownMenu.Label key={item.id} className="rx-menu-label">
+                    {item.label}
+                  </DropdownMenu.Label>
+                )
+              }
+              if (item.type === 'custom') {
+                return (
+                  <div key={item.id} className="rx-menu-custom">
+                    {item.content}
+                  </div>
+                )
+              }
+              if (item.type === 'checkbox') {
+                return (
+                  <DropdownMenu.CheckboxItem
+                    key={item.id}
+                    className="rx-menu-item"
+                    checked={item.checked}
+                    disabled={item.disabled}
+                    // Radix closes on select by default; keep the menu open so
+                    // several columns can be toggled in one pass.
+                    onSelect={(event) => {
+                      event.preventDefault()
+                      item.onSelect?.()
+                    }}
+                  >
+                    {item.icon ? <span className="rx-menu-icon">{item.icon}</span> : null}
+                    {item.label}
+                  </DropdownMenu.CheckboxItem>
+                )
+              }
+              return (
+                <DropdownMenu.Item
+                  key={item.id}
+                  className="rx-menu-item"
+                  disabled={item.disabled}
+                  data-danger={item.danger ? 'true' : undefined}
+                  data-active={item.active ? 'true' : undefined}
+                  onSelect={() => item.onSelect?.()}
+                >
+                  {item.icon ? <span className="rx-menu-icon">{item.icon}</span> : null}
+                  {item.label}
+                </DropdownMenu.Item>
+              )
+            })}
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
+      </DropdownMenu.Root>
+    ),
+
+    Dialog: ({ open, onClose, title, children, footer, label }) => (
+      <Dialog.Root open={open} onOpenChange={(next) => !next && onClose()}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="rx-overlay" />
+          <Dialog.Content className="rx-surface rx-dialog" aria-label={label}>
+            <Dialog.Title className="rx-dialog-title">{title}</Dialog.Title>
+            <div className="rx-dialog-body">{children}</div>
+            <div className="rx-dialog-footer">{footer}</div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+    ),
+  }
+}

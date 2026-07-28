@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 
-import { DataTable, MenuItem } from '../src'
+import { DataTable } from '../src'
 import { makePeople, personColumns } from './fixtures'
 
 const data = makePeople(20)
@@ -66,17 +66,21 @@ export const RowActionMenu: Story = {
       data={data}
       getRowId={(row) => row.id}
       enableRowActions
-      renderRowActionMenuItems={({ row }) => (
-        <>
-          <MenuItem onClick={() => alert(`Edit ${row.original.firstName}`)}>Edit</MenuItem>
-          <MenuItem onClick={() => alert(`Duplicate ${row.original.firstName}`)}>
-            Duplicate
-          </MenuItem>
-          <MenuItem danger onClick={() => alert(`Delete ${row.original.firstName}`)}>
-            Delete
-          </MenuItem>
-        </>
-      )}
+      rowActionMenuItems={({ row }) => [
+        { id: 'edit', label: 'Edit', onSelect: () => alert(`Edit ${row.original.firstName}`) },
+        {
+          id: 'duplicate',
+          label: 'Duplicate',
+          onSelect: () => alert(`Duplicate ${row.original.firstName}`),
+        },
+        { type: 'separator', id: 'sep' },
+        {
+          id: 'delete',
+          label: 'Delete',
+          danger: true,
+          onSelect: () => alert(`Delete ${row.original.firstName}`),
+        },
+      ]}
     />
   ),
 }

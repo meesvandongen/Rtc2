@@ -1,12 +1,6 @@
 import type { RowData } from '@tanstack/react-table'
-import { formatMessage } from '../locale'
-import { IconButton, Select } from './primitives/Controls'
-import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  ChevronsLeftIcon,
-  ChevronsRightIcon,
-} from './primitives/Icons'
+
+import { useComponents } from './registry'
 import type { DataTableInstance } from '../types'
 
 const DEFAULT_PAGE_SIZES = [5, 10, 25, 50, 100]
@@ -30,7 +24,12 @@ function pageWindow(pageIndex: number, pageCount: number): number[] {
   return result
 }
 
-export function Pagination<TData extends RowData>({ table }: { table: DataTableInstance<TData> }) {
+export function Pagination<TData extends RowData>({
+  table,
+}: {
+  table: DataTableInstance<TData>
+}) {
+  const ui = useComponents()
   const options = table.dataTableOptions
   const { localization } = options
   const { pageIndex, pageSize } = table.state.pagination
@@ -40,22 +39,20 @@ export function Pagination<TData extends RowData>({ table }: { table: DataTableI
 
   const firstRow = rowCount === 0 ? 0 : pageIndex * pageSize + 1
   const lastRow = Math.min((pageIndex + 1) * pageSize, rowCount)
-
   const pageSizes = options.pageSizeOptions ?? DEFAULT_PAGE_SIZES
 
   return (
     <nav className="rtc-pagination" aria-label={localization.pagination} data-rtc-pagination="">
       {displayMode !== 'simple' ? (
         <div className="rtc-pagination-group">
-          <label className="rtc-group-count" htmlFor="rtc-page-size">
-            {localization.rowsPerPage}
-          </label>
-          <Select
-            id="rtc-page-size"
+          <span className="rtc-group-count">{localization.rowsPerPage}</span>
+          <ui.Select
+            size="sm"
             label={localization.rowsPerPage}
             value={String(pageSize)}
             options={pageSizes.map((size) => ({ label: String(size), value: String(size) }))}
-            onChange={(event) => table.setPageSize(Number(event.target.value))}
+            onChange={(next) => table.setPageSize(Number(next))}
+            dataAttributes={{ 'data-rtc-page-size': '' }}
           />
         </div>
       ) : null}
@@ -68,22 +65,22 @@ export function Pagination<TData extends RowData>({ table }: { table: DataTableI
 
       <div className="rtc-pagination-group">
         {displayMode === 'default' || displayMode === 'pages' ? (
-          <IconButton
+          <ui.IconButton
             label={localization.goToFirstPage}
             disabled={!table.getCanPreviousPage()}
             onClick={() => table.firstPage()}
           >
-            <ChevronsLeftIcon />
-          </IconButton>
+            <ui.Icon name="chevronsLeft" />
+          </ui.IconButton>
         ) : null}
 
-        <IconButton
+        <ui.IconButton
           label={localization.goToPreviousPage}
           disabled={!table.getCanPreviousPage()}
           onClick={() => table.previousPage()}
         >
-          <ChevronLeftIcon />
-        </IconButton>
+          <ui.Icon name="chevronLeft" />
+        </ui.IconButton>
 
         {displayMode === 'pages'
           ? pageWindow(pageIndex, pageCount).map((page, index) =>
@@ -106,31 +103,27 @@ export function Pagination<TData extends RowData>({ table }: { table: DataTableI
             )
           : null}
 
-        <IconButton
+        <ui.IconButton
           label={localization.goToNextPage}
           disabled={!table.getCanNextPage()}
           onClick={() => table.nextPage()}
         >
-          <ChevronRightIcon />
-        </IconButton>
+          <ui.Icon name="chevronRight" />
+        </ui.IconButton>
 
         {displayMode === 'default' || displayMode === 'pages' ? (
-          <IconButton
+          <ui.IconButton
             label={localization.goToLastPage}
             disabled={!table.getCanNextPage()}
             onClick={() => table.lastPage()}
           >
-            <ChevronsRightIcon />
-          </IconButton>
+            <ui.Icon name="chevronsRight" />
+          </ui.IconButton>
         ) : null}
       </div>
 
       <span className="rtc-visually-hidden" aria-live="polite">
-        {formatMessage('{page} {of} {total}', {
-          page: pageIndex + 1,
-          of: localization.of,
-          total: Math.max(pageCount, 1),
-        })}
+        {`${pageIndex + 1} ${localization.of} ${Math.max(pageCount, 1)}`}
       </span>
     </nav>
   )

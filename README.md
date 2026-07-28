@@ -35,6 +35,8 @@ export function People({ data }: { data: Person[] }) {
 
 - [Install](#install)
 - [Features](#features)
+- [Bring your own components](#bring-your-own-components)
+- [Filtering](#filtering)
 - [Theming](#theming)
 - [Server-side data](#server-side-data)
 - [Editing](#editing)
@@ -65,7 +67,7 @@ Each of these has a dedicated Storybook story.
 | Area | Options |
 | --- | --- |
 | Sorting | `enableSorting`¹, `enableMultiSort`¹, `enableSortingRemoval`¹, `sortDescFirst`, `maxMultiSortColCount`, `manualSorting`, per-column `sortFn` |
-| Column filtering | `enableColumnFilters`¹, `columnFilterDisplayMode` (`subheader` \| `popover`), `enableFilterModes`, `manualFiltering`, 9 filter variants |
+| Column filtering | `enableColumnFilters`¹, `filterDisplayMode` (`popover` \| `panel` \| `popover-and-panel` \| `none`), `filterPanelPosition`, `enableFilterModes`, `showActiveFilterChips`¹, `manualFiltering`, 9 filter variants |
 | Global filtering | `enableGlobalFilter`¹, `globalFilterFn`, `enableGlobalFilterToggle`¹ |
 | Faceting | `enableFaceting`¹ — auto-populates select/autocomplete/checkbox filter options |
 | Pagination | `enablePagination`¹, `paginationDisplayMode`, `paginationPosition`, `pageSizeOptions`, `manualPagination`, `rowCount`, `pageCount`, `autoResetPageIndex` |
@@ -79,14 +81,14 @@ Each of these has a dedicated Storybook story.
 | Grouping | `enableGrouping`, `enableGroupingChips` (drag-to-group), `groupedColumnMode` |
 | Aggregation | `enableAggregation`¹, per-column `aggregationFn` + `aggregatedCell` |
 | Expanding | `enableExpanding`, `enableExpandAll`¹, `getRowCanExpand`, `paginateExpandedRows`¹, `renderDetailPanel` |
-| Row utilities | `enableRowNumbers`, `rowNumberDisplayMode`, `enableRowActions`, `renderRowActions`, `renderRowActionMenuItems`, `positionActionsColumn`, `enableRowOrdering` |
+| Row utilities | `enableRowNumbers`, `rowNumberDisplayMode`, `enableRowActions`, `renderRowActions`, `rowActionMenuItems`, `positionActionsColumn`, `enableRowOrdering` |
 | Editing | `enableEditing` (bool or predicate), `editMode` (`cell` \| `row` \| `table` \| `modal`), 5 editor variants, `onEditingRowSave`, `onCellEditComplete`, `onDataChange` |
 | Virtualization | `enableRowVirtualization`, `rowVirtualizerOptions` |
 | Layout | `layoutMode` (`semantic` \| `grid` \| `grid-no-grow`), `density`, `height`, `maxHeight`, `direction` (LTR/RTL) |
 | Chrome | `enableTopToolbar`¹, `enableBottomToolbar`¹, `enableToolbarInternalActions`¹, `enableDensityToggle`¹, `enableFullScreenToggle`¹, `enableColumnActions`, `enableStickyHeader`, `enableStickyFooter`, `enableStripes`, `enableRowHover`¹, `enableBorders` |
 | States | `isLoading`, `showProgressBars`, `isSaving`, `isLoadingError`, `errorMessage`, `skeletonRowCount`, `renderEmptyState` |
 | i18n | `localization` — every string, including filter operator names |
-| Escape hatches | `classNames`, `cssVars`, `tableProps`, `containerProps`, `rowProps`, `cellProps`, `headCellProps`, `renderTopToolbarActions`, `renderBottomToolbarActions`, `renderToolbarInternalActions`, `renderCaption` |
+| Escape hatches | `components`, `classNames`, `cssVars`, `tableProps`, `containerProps`, `rowProps`, `cellProps`, `headCellProps`, `renderTopToolbarActions`, `renderBottomToolbarActions`, `renderToolbarInternalActions`, `renderCaption` |
 
 ¹ on by default; everything else is opt-in.
 
@@ -112,6 +114,92 @@ behaviour with `enable*` props instead. That trades v9's per-feature
 tree-shaking for one stable table type and a single prop surface — if you need
 a minimal bundle for one narrow table, build your own `tableFeatures({ … })`
 and use `useTable` directly.
+
+## Bring your own components
+
+Every interactive control the table renders — buttons, inputs, selects,
+popovers, menus, the modal editor — comes from a component registry. Supply
+your design system once and the whole table adopts it:
+
+```tsx
+import { DataTable, defaultComponents } from '@rtc2/react-table'
+
+<DataTable columns={columns} data={data} components={myComponents} />
+```
+
+`components` is a partial override: anything omitted keeps its built-in
+implementation, so replacing one control is as valid as replacing all of them.
+
+Three constraints shaped the contract, each learned from making a real library
+satisfy it:
+
+- **Overlays take a rendered `trigger` element, not a render prop.** Radix
+  clones it with `asChild`, MUI anchors to it, Ant wraps it. A render prop
+  would suit none of them.
+- **Lists are data, not children.** Ant's `Dropdown` takes `menu={{ items }}`
+  and `Select` takes `options`; a children-based menu API simply cannot be
+  backed by it. So `Menu` takes `RtcMenuItem[]` and `Select` takes options.
+- **Overlays own their open state by default.** Each library manages focus,
+  dismissal and portalling differently; `open`/`onOpenChange` exist only for
+  when the table genuinely needs control.
+
+Structural markup — `table`, `tr`, `th`, `td` — is deliberately *not* in the
+registry. Column pinning, resizing and virtualization all depend on the exact
+DOM and data attributes the table emits, so those stay ours and are styled
+with CSS variables instead.
+
+Working adapters for **MUI**, **Radix/shadcn** and **Ant Design** live in
+`stories/adapters/` and are exercised by both Storybook (*15 UI Libraries*) and
+the Playwright suite, which runs the same interaction tests against all three.
+
+```tsx
+import type { DataTableComponents } from '@rtc2/react-table'
+
+const myComponents: Partial<DataTableComponents> = {
+  Button: ({ children, onClick, variant, disabled }) => (
+    <MyButton kind={variant} onPress={onClick} isDisabled={disabled}>
+      {children}
+    </MyButton>
+  ),
+}
+```
+
+## Filtering
+
+**There is no in-table filter row.** A row of filter inputs forces every row to
+the height of the tallest editor, and the useful editors — date ranges,
+checkbox groups, range sliders — are tall. Filters live in two places instead,
+selected with `filterDisplayMode`:
+
+| Mode | Behaviour |
+| --- | --- |
+| `popover` (default) | A funnel button in each header opens that column's editor in a popover. |
+| `panel` | A vertical, independently scrolling pane docked beside the table. |
+| `popover-and-panel` | Both. |
+| `none` | No built-in UI; drive `columnFilters` yourself. |
+
+Because the editors are hidden until opened, active filters surface as
+removable chips in the toolbar (`showActiveFilterChips`, on by default) and the
+filtered column's header carries `data-rtc-filtered`.
+
+The panel is also a standalone export, so it does not have to live inside the
+table at all:
+
+```tsx
+const table = useDataTable({ columns, data, filterDisplayMode: 'none' })
+
+return (
+  <Layout>
+    <Sidebar>
+      <DataTableFilterPanel table={table} />
+    </Sidebar>
+    <DataTable table={table} />
+  </Layout>
+)
+```
+
+It installs its own component registry from the table's options, so it works
+anywhere in the tree.
 
 ## Theming
 
@@ -258,7 +346,7 @@ it up automatically).
 
 ```bash
 pnpm install
-pnpm run storybook        # http://localhost:6006 — 95 stories
+pnpm run storybook        # http://localhost:6006 — 105 stories
 pnpm run typecheck
 pnpm run build:lib        # dist/index.js + dist/style.css + dist/index.d.ts
 pnpm run build:storybook  # → storybook-static/
@@ -269,7 +357,7 @@ pnpm run test:e2e         # Playwright, against the built Storybook
 on the approved list because Storybook's core needs its postinstall to link a
 platform binary; without it `build:storybook` fails.
 
-The Playwright suite (69 tests) drives the real Storybook build: it starts
+The Playwright suite (108 tests) drives the real Storybook build: it starts
 `vite preview` over `storybook-static/`, so run `pnpm run build:storybook`
 first. The remote-pagination specs intercept `/api/people` with Mock Service
 Worker.
@@ -323,7 +411,13 @@ src/
   displayColumns.tsx   generated select/expand/number/actions columns
   dragContext.tsx      pointer-based drag reordering
   components/          head, body, toolbar, filters, menus, primitives
+  components/
+    registry.tsx       the component contract + provider
+    defaultComponents  the built-in, dependency-free implementation
+    FilterPanel.tsx    standalone filter pane
+    FilterEditor.tsx   per-variant editor, shared by popover and panel
 stories/               one file per feature area
+stories/adapters/      MUI, Radix and Ant Design registry adapters
 e2e/                   Playwright specs
 tsdown.config.ts       library build (rolldown + lightningcss)
 ```

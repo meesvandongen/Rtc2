@@ -1,6 +1,17 @@
 import { expect, test } from '@playwright/test'
 
-import { bodyRows, columnText, dragTo, header, openMenu, openStory, toolbarAction } from './helpers'
+import {
+  bodyRows,
+  columnText,
+  dragTo,
+  filterPopover,
+  header,
+  openColumnFilter,
+  openMenu,
+  openStory,
+  panelField,
+  toolbarAction,
+} from './helpers'
 
 test.describe('rendering and appearance', () => {
   test('renders headers and rows', async ({ page }) => {
@@ -100,16 +111,80 @@ test.describe('sorting', () => {
 })
 
 test.describe('filtering', () => {
-  test('a column filter narrows the rows', async ({ page }) => {
-    const root = await openStory(page, 'datatable-03-filtering--column-filters')
+  test('a column filter popover narrows the rows', async ({ page }) => {
+    const root = await openStory(page, 'datatable-03-filtering--column-filter-popovers')
 
-    const before = await bodyRows(root).count()
-    await root.getByLabel('Filter by Department').selectOption('Engineering')
+    const popover = await openColumnFilter(root, page, 'department')
+    await popover.getByLabel('Filter by Department').selectOption('Engineering')
 
     await expect.poll(async () => new Set(await columnText(root, 'department'))).toEqual(
       new Set(['Engineering']),
     )
-    expect(await bodyRows(root).count()).toBeLessThanOrEqual(before)
+  })
+
+  test('the header funnel reflects an active filter', async ({ page }) => {
+    const root = await openStory(page, 'datatable-03-filtering--column-filter-popovers')
+
+    await expect(header(root, 'department')).not.toHaveAttribute('data-rtc-filtered', 'true')
+
+    const popover = await openColumnFilter(root, page, 'department')
+    await popover.getByLabel('Filter by Department').selectOption('Design')
+    await expect(header(root, 'department')).toHaveAttribute('data-rtc-filtered', 'true')
+  })
+
+  test('an active filter shows a removable chip in the toolbar', async ({ page }) => {
+    const root = await openStory(page, 'datatable-03-filtering--column-filter-popovers')
+
+    const popover = await openColumnFilter(root, page, 'department')
+    await popover.getByLabel('Filter by Department').selectOption('Sales')
+    await page.keyboard.press('Escape')
+
+    const chip = root.locator('[data-rtc-filter-chip="department"]')
+    await expect(chip).toBeVisible()
+
+    await chip.getByRole('button').click()
+    await expect(chip).toHaveCount(0)
+    await expect(header(root, 'department')).not.toHaveAttribute('data-rtc-filtered', 'true')
+  })
+
+  test('the docked panel filters and clears', async ({ page }) => {
+    const root = await openStory(page, 'datatable-03-filtering--docked-filter-panel')
+
+    const panel = root.locator('[data-rtc-filter-panel]')
+    await expect(panel).toBeVisible()
+
+    await panelField(root, 'department').getByLabel('Filter by Department').selectOption('Design')
+    await expect.poll(async () => new Set(await columnText(root, 'department'))).toEqual(
+      new Set(['Design']),
+    )
+
+    await panel.getByRole('button', { name: 'Clear all' }).click()
+    await expect.poll(async () => (await columnText(root, 'department')).length).toBeGreaterThan(1)
+  })
+
+  test('a tall range editor lives in the panel without changing row height', async ({ page }) => {
+    const root = await openStory(page, 'datatable-03-filtering--docked-filter-panel')
+
+    // The reason the filter row was removed: this editor is far taller than a row.
+    const sliderField = panelField(root, 'salary')
+    await expect(sliderField).toBeVisible()
+
+    const rowHeight = (await bodyRows(root).first().boundingBox())!.height
+    expect(rowHeight).toBeLessThan(60)
+  })
+
+  test('the standalone panel drives a table it is not inside', async ({ page }) => {
+    const root = await openStory(page, 'datatable-03-filtering--filter-panel-outside-the-table')
+
+    // The panel is a sibling of the table, so scope to the page not the root.
+    await page
+      .locator('[data-rtc-filter-field="department"]')
+      .getByLabel('Filter by Department')
+      .selectOption('Engineering')
+
+    await expect.poll(async () => new Set(await columnText(root, 'department'))).toEqual(
+      new Set(['Engineering']),
+    )
   })
 
   test('the global filter searches across columns', async ({ page }) => {
@@ -122,9 +197,9 @@ test.describe('filtering', () => {
   })
 
   test('a range filter bounds a numeric column', async ({ page }) => {
-    const root = await openStory(page, 'datatable-03-filtering--column-filters')
+    const root = await openStory(page, 'datatable-03-filtering--docked-filter-panel')
 
-    await root.getByLabel('Filter by Age Min').fill('50')
+    await panelField(root, 'age').getByLabel('Filter by Age Min').fill('50')
     await expect
       .poll(async () => (await columnText(root, 'age')).every((age) => Number(age) >= 50))
       .toBe(true)
@@ -133,10 +208,11 @@ test.describe('filtering', () => {
   test('the filter mode menu switches the operator', async ({ page }) => {
     const root = await openStory(page, 'datatable-03-filtering--filter-modes')
 
-    await root.locator('.rtc-filter-row [data-rtc-column-id="firstName"] button').first().click()
+    const popover = await openColumnFilter(root, page, 'firstName')
+    await popover.getByRole('button', { name: 'Contains' }).click()
     await openMenu(page).getByRole('menuitemcheckbox', { name: 'Starts with' }).click()
 
-    await root.getByLabel('Filter by First name').fill('A')
+    await filterPopover(page).getByLabel('Filter by First name').fill('A')
     await expect
       .poll(async () =>
         (await columnText(root, 'firstName')).every((name) => name.toLowerCase().startsWith('a')),
@@ -144,18 +220,23 @@ test.describe('filtering', () => {
       .toBe(true)
   })
 
-  test('the filter row can be toggled from the toolbar', async ({ page }) => {
-    const root = await openStory(page, 'datatable-03-filtering--global-filter')
+  test('the panel can be toggled from the toolbar', async ({ page }) => {
+    const root = await openStory(page, 'datatable-03-filtering--popover-and-panel')
 
-    await expect(root.locator('.rtc-filter-row')).toHaveCount(0)
+    await expect(root.locator('[data-rtc-filter-panel]')).toHaveCount(1)
     await toolbarAction(root, 'toggle-filters').click()
-    await expect(root.locator('.rtc-filter-row')).toHaveCount(1)
+    await expect(root.locator('[data-rtc-filter-panel]')).toHaveCount(0)
+    await toolbarAction(root, 'toggle-filters').click()
+    await expect(root.locator('[data-rtc-filter-panel]')).toHaveCount(1)
   })
 
   test('faceted options come from the data', async ({ page }) => {
     const root = await openStory(page, 'datatable-03-filtering--faceting')
 
-    const options = await root.getByLabel('Filter by Department').locator('option').allInnerTexts()
+    const options = await panelField(root, 'department')
+      .getByLabel('Filter by Department')
+      .locator('option')
+      .allInnerTexts()
     expect(options).toContain('Engineering')
     expect(options).toContain('Finance')
   })
@@ -627,7 +708,7 @@ test.describe('state and composition', () => {
 
     await expect(bodyRows(root).first()).toBeVisible()
     await expect(root.locator('[data-rtc-global-filter]')).toBeVisible()
-    await expect(root.locator('.rtc-filter-row')).toHaveCount(1)
+    await expect(root.locator('[data-rtc-filter-panel]')).toHaveCount(1)
     expect(errors).toEqual([])
   })
 })

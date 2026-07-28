@@ -34,7 +34,7 @@ const DEFAULT_TANSTACK_STATE: DataTableTanStackState = {
 const DEFAULT_UI_STATE: DataTableUiState = {
   density: 'comfortable',
   isFullScreen: false,
-  showColumnFilters: false,
+  showFilterPanel: false,
   showGlobalFilter: false,
   editingRowId: null,
   editingCellId: null,
@@ -96,9 +96,10 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
   const [ownUiState, setOwnUiState] = useState<DataTableUiState>(() => ({
     ...DEFAULT_UI_STATE,
     density: options.density ?? DEFAULT_UI_STATE.density,
-    showColumnFilters: options.columnFilterDisplayMode === 'subheader' && !!options.enableColumnFilters
-      ? (options.initialState?.showColumnFilters ?? true)
-      : DEFAULT_UI_STATE.showColumnFilters,
+    // The docked panel starts open only when it is the sole filter surface.
+    showFilterPanel:
+      options.initialState?.showFilterPanel ??
+      (options.filterDisplayMode === 'panel' && options.enableColumnFilters !== false),
     ...compact(options.initialState as Partial<DataTableUiState>),
   }))
 
@@ -220,7 +221,7 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
     options.rowNumberDisplayMode,
     options.enableRowActions,
     options.renderRowActions,
-    options.renderRowActionMenuItems,
+    options.rowActionMenuItems,
     options.enableEditing,
     options.editMode,
     options.enableRowOrdering,
@@ -313,9 +314,9 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
       setUi('isFullScreen', value, 'onIsFullScreenChange'),
     [setUi],
   )
-  instance.setShowColumnFilters = useCallback(
+  instance.setShowFilterPanel = useCallback(
     (value: boolean | ((old: boolean) => boolean)) =>
-      setUi('showColumnFilters', value, 'onShowColumnFiltersChange'),
+      setUi('showFilterPanel', value, 'onShowFilterPanelChange'),
     [setUi],
   )
   instance.setShowGlobalFilter = useCallback(

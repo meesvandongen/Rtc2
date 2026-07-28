@@ -71,7 +71,7 @@ export const ObserveAllState: Story = {
                   sorting: state.sorting,
                   pagination: state.pagination,
                   density: state.density,
-                  showColumnFilters: state.showColumnFilters,
+                  showFilterPanel: state.showFilterPanel,
                   rowSelection: Object.keys(state.rowSelection).length,
                 },
                 null,
@@ -97,7 +97,7 @@ export const RestoredInitialState: Story = {
       columnPinning: { start: ['firstName'], end: [] },
       pagination: { pageIndex: 1, pageSize: 5 },
       density: 'compact',
-      showColumnFilters: true,
+      showFilterPanel: true,
     }
     return (
       <>
@@ -112,6 +112,7 @@ export const RestoredInitialState: Story = {
           initialState={saved}
           enableColumnPinning
           enableColumnActions
+          filterDisplayMode="popover-and-panel"
         />
       </>
     )
@@ -222,7 +223,8 @@ export const KitchenSink: Story = {
             {row.original.firstName} {row.original.lastName} — {row.original.email}
           </span>
         )}
-        initialState={{ showColumnFilters: true, showGlobalFilter: true }}
+        filterDisplayMode="popover-and-panel"
+        initialState={{ showFilterPanel: true, showGlobalFilter: true }}
       />
     )
   },

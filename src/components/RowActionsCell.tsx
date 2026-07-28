@@ -1,8 +1,7 @@
 import type { RowData } from '@tanstack/react-table'
+
+import { useComponents } from './registry'
 import { commitRowEdit, isRowEditable } from '../editing'
-import { IconButton } from './primitives/Controls'
-import { Menu, MenuItem } from './primitives/Menu'
-import { CloseIcon, EditIcon, MoreVerticalIcon, SaveIcon } from './primitives/Icons'
 import type { DataTableInstance, DataTableRow } from '../types'
 
 /**
@@ -16,6 +15,7 @@ export function RowActionsCell<TData extends RowData>({
   table: DataTableInstance<TData>
   row: DataTableRow<TData>
 }) {
+  const ui = useComponents()
   const options = table.dataTableOptions
   const { localization } = options
   const isEditing = table.ui.editingRowId === row.id
@@ -27,14 +27,10 @@ export function RowActionsCell<TData extends RowData>({
   if (isEditing && options.editMode === 'row') {
     return (
       <div className="rtc-edit-actions">
-        <IconButton
-          size="sm"
-          label={localization.save}
-          onClick={() => commitRowEdit(table, row)}
-        >
-          <SaveIcon />
-        </IconButton>
-        <IconButton
+        <ui.IconButton size="sm" label={localization.save} onClick={() => commitRowEdit(table, row)}>
+          <ui.Icon name="save" />
+        </ui.IconButton>
+        <ui.IconButton
           size="sm"
           label={localization.cancel}
           onClick={() => {
@@ -43,8 +39,8 @@ export function RowActionsCell<TData extends RowData>({
             table.setEditingRowId(null)
           }}
         >
-          <CloseIcon />
-        </IconButton>
+          <ui.Icon name="close" />
+        </ui.IconButton>
       </div>
     )
   }
@@ -52,7 +48,7 @@ export function RowActionsCell<TData extends RowData>({
   return (
     <div className="rtc-row-actions">
       {showEditButton ? (
-        <IconButton
+        <ui.IconButton
           size="sm"
           label={localization.edit}
           onClick={(event) => {
@@ -60,31 +56,24 @@ export function RowActionsCell<TData extends RowData>({
             table.setEditingRowId(row.id)
           }}
         >
-          <EditIcon />
-        </IconButton>
+          <ui.Icon name="edit" />
+        </ui.IconButton>
       ) : null}
 
       {options.renderRowActions?.({ table, row })}
 
-      {options.renderRowActionMenuItems ? (
-        <Menu
+      {options.rowActionMenuItems ? (
+        <ui.Menu
           align="end"
           label={localization.rowActions}
-          trigger={(triggerProps) => (
-            <IconButton size="sm" label={localization.rowActions} {...(triggerProps as any)}>
-              <MoreVerticalIcon />
-            </IconButton>
-          )}
-        >
-          {(close) => (
-            <div onClick={close} role="none">
-              {options.renderRowActionMenuItems?.({ table, row })}
-            </div>
-          )}
-        </Menu>
+          items={options.rowActionMenuItems({ table, row })}
+          trigger={
+            <ui.IconButton size="sm" label={localization.rowActions}>
+              <ui.Icon name="more" />
+            </ui.IconButton>
+          }
+        />
       ) : null}
     </div>
   )
 }
-
-export { MenuItem as RowActionMenuItem }

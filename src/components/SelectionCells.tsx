@@ -1,7 +1,7 @@
 import type { RowData } from '@tanstack/react-table'
 import { Subscribe } from '@tanstack/react-table'
 
-import { Checkbox } from './primitives/Controls'
+import { useComponents } from './registry'
 import type { DataTableInstance, DataTableRow } from '../types'
 
 /**
@@ -18,37 +18,41 @@ export function SelectRowCheckbox<TData extends RowData>({
   table: DataTableInstance<TData>
   row: DataTableRow<TData>
 }) {
+  const ui = useComponents()
   const { localization, selectDisplayMode, enableMultiRowSelection } = table.dataTableOptions
-  const variant =
-    selectDisplayMode === 'radio' ? 'radio' : selectDisplayMode === 'switch' ? 'switch' : 'checkbox'
+  const Control =
+    selectDisplayMode === 'radio' ? ui.Radio : selectDisplayMode === 'switch' ? ui.Switch : ui.Checkbox
 
   return (
     <Subscribe source={row.table.atoms.rowSelection} selector={(selection) => !!selection[row.id]}>
       {(selected) => (
-        <Checkbox
-          variant={variant}
-          name={variant === 'radio' ? 'rtc-row-select' : undefined}
+        <Control
+          {...(selectDisplayMode === 'radio' ? { name: 'rtc-row-select' } : {})}
           checked={selected}
           indeterminate={row.getIsSomeSelected()}
           disabled={!row.getCanSelect()}
           label={localization.toggleSelectRow}
-          onChange={row.getToggleSelectedHandler()}
-          onClick={(event) => {
-            // Radio mode is single-select: clear siblings before selecting.
-            if (variant === 'radio' && enableMultiRowSelection === false) {
-              event.stopPropagation()
+          onChange={(checked) => {
+            // Radio mode is single-select: replace rather than merge.
+            if (selectDisplayMode === 'radio' && enableMultiRowSelection === false) {
               table.setRowSelection({ [row.id]: true })
               return
             }
-            event.stopPropagation()
+            row.toggleSelected(checked)
           }}
+          onClick={(event) => event.stopPropagation()}
         />
       )}
     </Subscribe>
   )
 }
 
-export function SelectAllCheckbox<TData extends RowData>({ table }: { table: DataTableInstance<TData> }) {
+export function SelectAllCheckbox<TData extends RowData>({
+  table,
+}: {
+  table: DataTableInstance<TData>
+}) {
+  const ui = useComponents()
   const { localization, enablePagination } = table.dataTableOptions
   // Select-all follows what the user can actually see: the page when
   // paginating, the whole filtered set otherwise.
@@ -57,16 +61,16 @@ export function SelectAllCheckbox<TData extends RowData>({ table }: { table: Dat
   return (
     <Subscribe source={table.atoms.rowSelection}>
       {() => (
-        <Checkbox
+        <ui.Checkbox
           checked={pageScoped ? table.getIsAllPageRowsSelected() : table.getIsAllRowsSelected()}
           indeterminate={
             pageScoped ? table.getIsSomePageRowsSelected() : table.getIsSomeRowsSelected()
           }
           label={localization.toggleSelectAll}
-          onChange={
+          onChange={(checked) =>
             pageScoped
-              ? table.getToggleAllPageRowsSelectedHandler()
-              : table.getToggleAllRowsSelectedHandler()
+              ? table.toggleAllPageRowsSelected(checked)
+              : table.toggleAllRowsSelected(checked)
           }
           onClick={(event) => event.stopPropagation()}
         />

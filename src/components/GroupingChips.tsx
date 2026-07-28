@@ -1,8 +1,9 @@
 import type { RowData } from '@tanstack/react-table'
+
+import { useComponents } from './registry'
 import { useDrag } from '../dragContext'
-import { cx, getColumnLabel } from '../utils'
-import { CloseIcon, GroupIcon } from './primitives/Icons'
-import { IconButton } from './primitives/Controls'
+import { formatMessage } from '../locale'
+import { getColumnLabel } from '../utils'
 import type { DataTableInstance } from '../types'
 
 /**
@@ -11,22 +12,25 @@ import type { DataTableInstance } from '../types'
  * Dragging a column header into the zone groups by it; the zone highlights
  * while a column is being dragged over it.
  */
-export function GroupingChips<TData extends RowData>({ table }: { table: DataTableInstance<TData> }) {
+export function GroupingChips<TData extends RowData>({
+  table,
+}: {
+  table: DataTableInstance<TData>
+}) {
+  const ui = useComponents()
   const { localization } = table.dataTableOptions
   const drag = useDrag()
   const grouping = table.state.grouping
 
   return (
     <div
-      className={cx('rtc-group-chips')}
+      className="rtc-group-chips"
       data-rtc-grouping-zone="true"
-      data-rtc-drop-target={
-        drag.kind === 'column' && drag.overGroupingZone ? 'true' : undefined
-      }
+      data-rtc-drop-target={drag.kind === 'column' && drag.overGroupingZone ? 'true' : undefined}
       role="group"
       aria-label={localization.groupedBy}
     >
-      <GroupIcon />
+      <ui.Icon name="group" />
       {grouping.length === 0 ? (
         <span className="rtc-group-chips-empty">{localization.groupedBy}&hellip;</span>
       ) : (
@@ -34,15 +38,13 @@ export function GroupingChips<TData extends RowData>({ table }: { table: DataTab
           const column = table.getColumn(columnId)
           const label = column ? getColumnLabel(column) : columnId
           return (
-            <span className="rtc-chip" key={columnId} data-rtc-group-chip={columnId}>
-              {label}
-              <IconButton
-                size="sm"
-                label={`${localization.ungroupByColumn.replace('{column}', label)}`}
-                onClick={() => column?.toggleGrouping()}
+            <span key={columnId} data-rtc-group-chip={columnId}>
+              <ui.Badge
+                onRemove={() => column?.toggleGrouping()}
+                removeLabel={formatMessage(localization.ungroupByColumn, { column: label })}
               >
-                <CloseIcon />
-              </IconButton>
+                {label}
+              </ui.Badge>
             </span>
           )
         })

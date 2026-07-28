@@ -55,7 +55,7 @@ test.describe('remote pagination (MSW)', () => {
       if (request.url().includes('/api/people')) requests.push(request.url())
     })
 
-    await root.locator('#rtc-page-size').selectOption('25')
+    await root.locator('[data-rtc-page-size]').selectOption('25')
 
     await expect(bodyRows(root)).toHaveCount(25)
     await expect(root.locator('[data-rtc-page-range]')).toHaveText('1–25 of 137')

@@ -1,9 +1,8 @@
 import type { RowData } from '@tanstack/react-table'
-import { useEffect, useRef } from 'react'
 
+import { useComponents } from './registry'
 import { commitCellEdit, getEditValue } from '../editing'
 import { getColumnLabel, normalizeOptions, stringifyValue } from '../utils'
-import { Select, TextInput } from './primitives/Controls'
 import type { DataTableInstance, DataTableRow } from '../types'
 
 export interface CellEditorProps<TData extends RowData> {
@@ -29,81 +28,89 @@ export function CellEditor<TData extends RowData>({
   autoFocus,
   onFinish,
 }: CellEditorProps<TData>) {
+  const ui = useComponents()
   const column = table.getColumn(columnId)
   const meta = column?.columnDef.meta
   const variant = meta?.editVariant ?? 'text'
   const value = getEditValue(table, row, columnId)
-  const ref = useRef<HTMLInputElement | HTMLSelectElement>(null)
-
-  useEffect(() => {
-    if (autoFocus) ref.current?.focus()
-  }, [autoFocus])
+  const label = column ? getColumnLabel(column) : columnId
 
   const stage = (next: unknown) => table.setEditValue(row.id, columnId, next)
-
   const commit = (next: unknown) => {
     commitCellEdit(table, row, columnId, next)
     onFinish?.()
   }
 
-  const label = column ? getColumnLabel(column) : columnId
-
   if (variant === 'checkbox') {
     return (
-      <input
-        ref={ref as React.Ref<HTMLInputElement>}
-        className="rtc-checkbox"
-        type="checkbox"
-        aria-label={label}
+      <ui.Checkbox
         checked={!!value}
-        onChange={(event) => {
-          stage(event.target.checked)
-          commit(event.target.checked)
+        label={label}
+        onChange={(checked) => {
+          stage(checked)
+          commit(checked)
         }}
       />
     )
   }
 
   if (variant === 'select') {
-    const options = normalizeOptions(meta?.editSelectOptions)
     return (
-      <Select
-        ref={ref as never}
+      <ui.Select
         label={label}
+        size="sm"
         value={stringifyValue(value)}
-        options={[{ label: '', value: '' }, ...options]}
-        onChange={(event) => {
-          stage(event.target.value)
-          commit(event.target.value)
+        placeholder=""
+        options={normalizeOptions(meta?.editSelectOptions)}
+        onChange={(next) => {
+          stage(next)
+          commit(next)
         }}
       />
     )
   }
 
-  const inputType = variant === 'number' ? 'number' : variant === 'date' ? 'date' : 'text'
+  if (variant === 'number') {
+    return (
+      <ui.NumberInput
+        label={label}
+        size="sm"
+        autoFocus={autoFocus}
+        value={typeof value === 'number' ? value : undefined}
+        onChange={stage}
+        onBlur={() => commit(getEditValue(table, row, columnId))}
+        onKeyDown={(event) => handleKeys(event, table, row, onFinish)}
+      />
+    )
+  }
 
   return (
-    <TextInput
-      ref={ref as React.Ref<HTMLInputElement>}
-      type={inputType}
-      aria-label={label}
+    <ui.TextInput
+      label={label}
+      size="sm"
+      type={variant === 'date' ? 'date' : 'text'}
+      autoFocus={autoFocus}
       value={stringifyValue(value)}
-      onChange={(event) => {
-        stage(inputType === 'number' ? event.target.valueAsNumber : event.target.value)
-      }}
-      onBlur={(event) =>
-        commit(inputType === 'number' ? event.target.valueAsNumber : event.target.value)
-      }
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') {
-          event.preventDefault()
-          ;(event.target as HTMLInputElement).blur()
-        } else if (event.key === 'Escape') {
-          event.preventDefault()
-          table.clearEditValues(row.id)
-          onFinish?.()
-        }
-      }}
+      onChange={stage}
+      onBlur={() => commit(getEditValue(table, row, columnId))}
+      onKeyDown={(event) => handleKeys(event, table, row, onFinish)}
     />
   )
+}
+
+/** Enter commits via blur; Escape discards the staged edit. */
+function handleKeys<TData extends RowData>(
+  event: React.KeyboardEvent,
+  table: DataTableInstance<TData>,
+  row: DataTableRow<TData>,
+  onFinish?: () => void,
+) {
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    ;(event.target as HTMLInputElement).blur()
+  } else if (event.key === 'Escape') {
+    event.preventDefault()
+    table.clearEditValues(row.id)
+    onFinish?.()
+  }
 }

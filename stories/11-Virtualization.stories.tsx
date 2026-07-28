@@ -48,10 +48,11 @@ export const VirtualizedWithFeatures: Story = {
       enableRowSelection
       enableColumnActions
       enableColumnPinning
+      filterDisplayMode="popover-and-panel"
       enablePagination={false}
       enableStickyHeader
       height={520}
-      initialState={{ showColumnFilters: true, columnPinning: { start: ['rtc-select'], end: [] } }}
+      initialState={{ showFilterPanel: true, columnPinning: { start: ['rtc-select'], end: [] } }}
     />
   ),
 }

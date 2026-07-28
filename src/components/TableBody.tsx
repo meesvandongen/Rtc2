@@ -2,7 +2,7 @@ import type { RowData } from '@tanstack/react-table'
 import { useVirtualizer } from '@tanstack/react-virtual'
 
 import { BodyRow } from './BodyRow'
-import { Skeleton } from './primitives/Controls'
+import { useComponents } from './registry'
 import { cx } from '../utils'
 import type { DataTableInstance, DataTableRow } from '../types'
 
@@ -15,6 +15,7 @@ export interface TableBodyProps<TData extends RowData> {
 const DENSITY_ROW_HEIGHT = { compact: 32, comfortable: 44, spacious: 60 } as const
 
 export function TableBody<TData extends RowData>({ table, containerRef, columnCount }: TableBodyProps<TData>) {
+  const ui = useComponents()
   const options = table.dataTableOptions
   const { localization } = options
 
@@ -42,7 +43,7 @@ export function TableBody<TData extends RowData>({ table, containerRef, columnCo
           <tr className="rtc-tr" key={rowIndex}>
             {Array.from({ length: columnCount }, (_, cellIndex) => (
               <td className="rtc-td" key={cellIndex}>
-                <Skeleton width={`${50 + ((rowIndex * 7 + cellIndex * 13) % 45)}%`} />
+                <ui.Skeleton width={`${50 + ((rowIndex * 7 + cellIndex * 13) % 45)}%`} />
               </td>
             ))}
           </tr>

@@ -1,8 +1,10 @@
-import type { RowData } from '@tanstack/react-table'
 import { useCallback, useEffect, useRef } from 'react'
+import type { RowData } from '@tanstack/react-table'
 
+import { defaultComponents } from './components/defaultComponents'
 import { EditRowDialog } from './components/EditRowDialog'
-import { LinearProgress } from './components/primitives/Controls'
+import { DataTableFilterPanel } from './components/FilterPanel'
+import { DataTableComponentsProvider, useComponents } from './components/registry'
 import { TableBody } from './components/TableBody'
 import { TableFoot } from './components/TableFoot'
 import { TableHead } from './components/TableHead'
@@ -37,13 +39,24 @@ function DataTableWithOwnInstance<TData extends RowData>(options: DataTableOptio
 }
 
 function DataTableView<TData extends RowData>({ table }: { table: DataTableInstance<TData> }) {
+  return (
+    <DataTableComponentsProvider
+      base={defaultComponents}
+      components={table.dataTableOptions.components}
+    >
+      <DataTableShell table={table} />
+    </DataTableComponentsProvider>
+  )
+}
+
+function DataTableShell<TData extends RowData>({ table }: { table: DataTableInstance<TData> }) {
+  const ui = useComponents()
   const options = table.dataTableOptions
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Virtualization positions rows absolutely, which the browser's native table
   // layout cannot do; fall back to the grid layout automatically.
-  const layoutMode =
-    options.layoutMode ?? (options.enableRowVirtualization ? 'grid' : 'semantic')
+  const layoutMode = options.layoutMode ?? (options.enableRowVirtualization ? 'grid' : 'semantic')
 
   const showTopToolbar = (options.enableToolbar ?? true) && (options.enableTopToolbar ?? true)
   const showBottomToolbar = (options.enableToolbar ?? true) && (options.enableBottomToolbar ?? true)
@@ -52,6 +65,13 @@ function DataTableView<TData extends RowData>({ table }: { table: DataTableInsta
 
   const borders = options.enableBorders ?? 'horizontal'
   const bordersValue = borders === true ? 'all' : borders === false ? 'none' : borders
+
+  const filterMode = options.filterDisplayMode ?? 'popover'
+  const showPanel =
+    (options.enableColumnFilters ?? true) &&
+    (filterMode === 'panel' || filterMode === 'popover-and-panel') &&
+    table.ui.showFilterPanel
+  const panelPosition = options.filterPanelPosition ?? 'end'
 
   const handleDropColumn = useCallback(
     (activeId: string, overId: string) => {
@@ -90,7 +110,6 @@ function DataTableView<TData extends RowData>({ table }: { table: DataTableInsta
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
       if (!options.enableKeyboardNavigation) return
-      const key = event.key
       const target = event.target as HTMLElement
       if (!target.matches('td.rtc-td')) return
 
@@ -100,7 +119,7 @@ function DataTableView<TData extends RowData>({ table }: { table: DataTableInsta
         ArrowLeft: [0, -1],
         ArrowRight: [0, 1],
       }
-      const delta = deltas[key]
+      const delta = deltas[event.key]
       if (!delta) return
 
       event.preventDefault()
@@ -152,40 +171,49 @@ function DataTableView<TData extends RowData>({ table }: { table: DataTableInsta
           ...(options.cssVars as React.CSSProperties),
           ...(table.ui.isFullScreen
             ? {}
-            : {
-                height: toCssSize(options.height),
-                maxHeight: toCssSize(options.maxHeight),
-              }),
+            : { height: toCssSize(options.height), maxHeight: toCssSize(options.maxHeight) }),
           ...options.style,
         }}
       >
-        {showProgress ? <LinearProgress label={options.localization.loading} /> : null}
+        {showProgress ? <ui.ProgressBar label={options.localization.loading} /> : null}
 
         {showTopToolbar ? <TopToolbar table={table} /> : null}
 
-        <div
-          ref={containerRef}
-          className={cx('rtc-container', options.classNames?.container)}
-          onKeyDown={onKeyDown}
-          {...options.containerProps}
-        >
-          <table
-            className={cx('rtc-table', options.classNames?.table)}
-            {...options.tableProps}
-            aria-rowcount={table.getRowCount() || undefined}
-            aria-colcount={columnCount || undefined}
-            aria-busy={showProgress || undefined}
+        {/* The panel sits beside the scroll container, not inside it, so it
+            stays put while the table scrolls and can scroll independently. */}
+        <div className="rtc-body-area" data-rtc-panel={showPanel ? panelPosition : undefined}>
+          {showPanel && panelPosition === 'start' ? (
+            <DataTableFilterPanel table={table} className="rtc-filter-panel-docked" />
+          ) : null}
+
+          <div
+            ref={containerRef}
+            className={cx('rtc-container', options.classNames?.container)}
+            onKeyDown={onKeyDown}
+            {...options.containerProps}
           >
-            {options.caption || options.renderCaption ? (
-              <caption>{options.renderCaption?.({ table }) ?? options.caption}</caption>
-            ) : null}
+            <table
+              className={cx('rtc-table', options.classNames?.table)}
+              {...options.tableProps}
+              aria-rowcount={table.getRowCount() || undefined}
+              aria-colcount={columnCount || undefined}
+              aria-busy={showProgress || undefined}
+            >
+              {options.caption || options.renderCaption ? (
+                <caption>{options.renderCaption?.({ table }) ?? options.caption}</caption>
+              ) : null}
 
-            {(options.enableTableHead ?? true) ? <TableHead table={table} /> : null}
+              {(options.enableTableHead ?? true) ? <TableHead table={table} /> : null}
 
-            <TableBody table={table} containerRef={containerRef} columnCount={columnCount} />
+              <TableBody table={table} containerRef={containerRef} columnCount={columnCount} />
 
-            {(options.enableTableFooter ?? true) ? <TableFoot table={table} /> : null}
-          </table>
+              {(options.enableTableFooter ?? true) ? <TableFoot table={table} /> : null}
+            </table>
+          </div>
+
+          {showPanel && panelPosition === 'end' ? (
+            <DataTableFilterPanel table={table} className="rtc-filter-panel-docked" />
+          ) : null}
         </div>
 
         {showBottomToolbar ? <BottomToolbar table={table} /> : null}

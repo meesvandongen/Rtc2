@@ -1,8 +1,13 @@
 import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 
-import { DataTable, type ColumnFiltersState } from '../src'
-import { makePeople, personColumns } from './fixtures'
+import {
+  DataTable,
+  DataTableFilterPanel,
+  useDataTable,
+  type ColumnFiltersState,
+} from '../src'
+import { makePeople, personColumns, type Person } from './fixtures'
 
 const data = makePeople(60)
 
@@ -14,44 +19,138 @@ const meta: Meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-/** Filter inputs live in a row under the header, toggled from the toolbar. */
-export const ColumnFilters: Story = {
+/**
+ * The default. Each column gets a funnel button in its header that opens the
+ * editor in a popover, so a tall control costs no row height.
+ */
+export const ColumnFilterPopovers: Story = {
+  render: () => (
+    <>
+      <p className="sb-note">
+        Click the funnel icon in any header. Active filters appear as removable chips in the
+        toolbar, since the editors themselves are hidden until opened.
+      </p>
+      <DataTable
+        columns={personColumns}
+        data={data}
+        getRowId={(row) => row.id}
+        filterDisplayMode="popover"
+      />
+    </>
+  ),
+}
+
+/**
+ * A vertical, scrollable pane docked beside the table.
+ *
+ * This is the mode to use when several filters are edited together, or when
+ * the editors are large: the pane scrolls independently of the rows.
+ */
+export const DockedFilterPanel: Story = {
   render: () => (
     <DataTable
       columns={personColumns}
       data={data}
       getRowId={(row) => row.id}
-      enableColumnFilters
-      initialState={{ showColumnFilters: true }}
+      filterDisplayMode="panel"
+      height={560}
+      enableStickyHeader
+    />
+  ),
+}
+
+export const PanelOnTheStartEdge: Story = {
+  render: () => (
+    <DataTable
+      columns={personColumns}
+      data={data}
+      getRowId={(row) => row.id}
+      filterDisplayMode="panel"
+      filterPanelPosition="start"
+      height={560}
+      enableStickyHeader
+    />
+  ),
+}
+
+/** Both surfaces: quick single-column edits in the header, everything in the pane. */
+export const PopoverAndPanel: Story = {
+  render: () => (
+    <DataTable
+      columns={personColumns}
+      data={data}
+      getRowId={(row) => row.id}
+      filterDisplayMode="popover-and-panel"
+      height={560}
+      enableStickyHeader
+      initialState={{ showFilterPanel: true }}
     />
   ),
 }
 
 /**
- * Every built-in filter editor at once. The variant is chosen per column via
- * `meta.filterVariant`; `select`, `autocomplete` and `checkbox` populate their
+ * The panel is a standalone component. Give it an instance from `useDataTable`
+ * and render it anywhere — a drawer, a sidebar, another column of the page.
+ */
+export const FilterPanelOutsideTheTable: Story = {
+  render: function FilterPanelOutsideTheTable() {
+    const table = useDataTable<Person>({
+      columns: personColumns,
+      data,
+      getRowId: (row) => row.id,
+      filterDisplayMode: 'none',
+    })
+
+    return (
+      <>
+        <p className="sb-note">
+          The pane below lives outside <code>&lt;DataTable /&gt;</code> entirely and drives it
+          through the shared instance.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 16 }}>
+          <aside
+            style={{
+              border: '1px solid var(--rtc-color-border, #e2e8f0)',
+              borderRadius: 8,
+              overflow: 'hidden',
+              maxHeight: 560,
+              display: 'flex',
+            }}
+          >
+            <DataTableFilterPanel table={table} />
+          </aside>
+          <DataTable table={table} />
+        </div>
+      </>
+    )
+  },
+}
+
+/**
+ * Every filter editor at once. The variant is chosen per column via
+ * `meta.filterVariant`; select, autocomplete and checkbox populate their
  * options from TanStack's faceted unique values.
  */
 export const FilterVariants: Story = {
   render: () => (
     <>
       <p className="sb-note">
-        Text, autocomplete, select, checkbox, numeric range, range slider and date range — each
-        column below uses a different <code>meta.filterVariant</code>.
+        Text, autocomplete, select, checkbox, numeric range, range slider and date range. The date
+        range and slider are exactly the editors that made an in-table filter row unworkable.
       </p>
       <DataTable
         columns={personColumns}
         data={data}
         getRowId={(row) => row.id}
-        enableColumnFilters
-        enableFaceting
-        initialState={{ showColumnFilters: true }}
+        filterDisplayMode="panel"
+        height={620}
+        enableStickyHeader
       />
     </>
   ),
 }
 
-/** A multi-select variant driven by explicit options rather than facets. */
+/** A multi-select driven by explicit options rather than facets. */
 export const MultiSelectFilter: Story = {
   render: () => (
     <DataTable
@@ -69,15 +168,15 @@ export const MultiSelectFilter: Story = {
       )}
       data={data}
       getRowId={(row) => row.id}
-      initialState={{ showColumnFilters: true }}
+      filterDisplayMode="panel"
+      height={560}
     />
   ),
 }
 
 /**
  * `enableFilterModes` adds an operator menu to each filter, so a text column
- * can switch between contains / starts with / equals / is empty, and a numeric
- * one between between / greater than / less than.
+ * can switch between contains / starts with / equals / is empty.
  */
 export const FilterModes: Story = {
   render: () => (
@@ -86,21 +185,9 @@ export const FilterModes: Story = {
       data={data}
       getRowId={(row) => row.id}
       enableFilterModes
-      initialState={{ showColumnFilters: true }}
-    />
-  ),
-}
-
-/** Filters moved into each column's actions menu instead of a filter row. */
-export const FiltersInColumnMenu: Story = {
-  render: () => (
-    <DataTable
-      columns={personColumns}
-      data={data}
-      getRowId={(row) => row.id}
-      columnFilterDisplayMode="popover"
-      enableColumnActions
-      enableFilterModes
+      filterDisplayMode="popover-and-panel"
+      height={560}
+      initialState={{ showFilterPanel: true }}
     />
   ),
 }
@@ -118,7 +205,6 @@ export const GlobalFilter: Story = {
   ),
 }
 
-/** The search box can be permanently visible by disabling its toggle. */
 export const AlwaysVisibleSearch: Story = {
   render: () => (
     <DataTable
@@ -147,11 +233,12 @@ export const ControlledFilters: Story = {
           columns={personColumns}
           data={data}
           getRowId={(row) => row.id}
+          filterDisplayMode="popover-and-panel"
           state={{ columnFilters }}
           onColumnFiltersChange={(updater) =>
             setColumnFilters((old) => (typeof updater === 'function' ? updater(old) : updater))
           }
-          initialState={{ showColumnFilters: true }}
+          height={520}
         />
         <pre className="sb-panel">{JSON.stringify(columnFilters, null, 2)}</pre>
       </>
@@ -175,8 +262,41 @@ export const Faceting: Story = {
         data={data}
         getRowId={(row) => row.id}
         enableFaceting
-        initialState={{ showColumnFilters: true }}
+        filterDisplayMode="panel"
+        height={560}
       />
     </>
   ),
+}
+
+/** No built-in filter UI at all; filters are driven entirely from outside. */
+export const NoBuiltInFilterUi: Story = {
+  render: function NoBuiltInFilterUi() {
+    const [department, setDepartment] = useState('')
+    return (
+      <>
+        <div className="sb-row">
+          {['', 'Engineering', 'Design', 'Sales'].map((value) => (
+            <button
+              key={value || 'all'}
+              type="button"
+              className="rtc-button"
+              onClick={() => setDepartment(value)}
+            >
+              {value || 'All'}
+            </button>
+          ))}
+        </div>
+        <DataTable
+          columns={personColumns.slice(0, 6)}
+          data={data}
+          getRowId={(row) => row.id}
+          filterDisplayMode="none"
+          state={{
+            columnFilters: department ? [{ id: 'department', value: department }] : [],
+          }}
+        />
+      </>
+    )
+  },
 }

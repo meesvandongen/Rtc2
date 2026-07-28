@@ -1,8 +1,8 @@
 import type { RowData } from '@tanstack/react-table'
+
+import { useComponents } from './registry'
 import { useDrag } from '../dragContext'
 import { reorder } from '../utils'
-import { DragIcon } from './primitives/Icons'
-import { IconButton } from './primitives/Controls'
 import type { DataTableInstance, DataTableRow } from '../types'
 
 /**
@@ -16,6 +16,7 @@ export function RowDragHandle<TData extends RowData>({
   table: DataTableInstance<TData>
   row: DataTableRow<TData>
 }) {
+  const ui = useComponents()
   const drag = useDrag()
   const { localization } = table.dataTableOptions
 
@@ -28,11 +29,11 @@ export function RowDragHandle<TData extends RowData>({
   }
 
   return (
-    <IconButton
+    <ui.IconButton
       className="rtc-drag-handle"
       size="sm"
-      label={`${localization.move} ${localization.rowNumber}${row.index + 1}`}
-      data-rtc-active={drag.kind === 'row' && drag.activeId === row.id}
+      label={`${localization.move} ${row.index + 1}`}
+      active={drag.kind === 'row' && drag.activeId === row.id}
       onPointerDown={(event) => drag.start('row', row.id, event)}
       onKeyDown={(event) => {
         if (event.key === 'ArrowUp') {
@@ -44,7 +45,7 @@ export function RowDragHandle<TData extends RowData>({
         }
       }}
     >
-      <DragIcon />
-    </IconButton>
+      <ui.Icon name="drag" />
+    </ui.IconButton>
   )
 }

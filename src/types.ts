@@ -20,6 +20,7 @@ import type {
   ColumnVisibilityState,
 } from '@tanstack/react-table'
 
+import type { DataTableComponentsOverride, RtcMenuItem } from './components/registry'
 import type { DataTableFeatures } from './features'
 import type { DataTableLocalization } from './locale'
 
@@ -106,7 +107,8 @@ export type DataTableHeader<TData extends RowData, TValue = unknown> = Header<Da
 export interface DataTableUiState {
   density: DataTableDensity
   isFullScreen: boolean
-  showColumnFilters: boolean
+  /** Whether the docked filter panel is open. */
+  showFilterPanel: boolean
   showGlobalFilter: boolean
   /** Row id currently in row/modal edit mode, or `null`. */
   editingRowId: string | null
@@ -232,7 +234,7 @@ export interface DataTableOptions<TData extends RowData> {
   ) => void
   onDensityChange?: (density: DataTableDensity) => void
   onIsFullScreenChange?: (isFullScreen: boolean) => void
-  onShowColumnFiltersChange?: (show: boolean) => void
+  onShowFilterPanelChange?: (show: boolean) => void
   onShowGlobalFilterChange?: (show: boolean) => void
   onRowOrderChange?: (rowOrder: string[]) => void
   onColumnFilterFnsChange?: (fns: Record<string, string>) => void
@@ -248,8 +250,22 @@ export interface DataTableOptions<TData extends RowData> {
   enableFilters?: boolean
   /** Show the per-column operator (filter mode) menu. */
   enableFilterModes?: boolean
-  /** Render filter inputs in a row under the header instead of inside the column menu. */
-  columnFilterDisplayMode?: 'subheader' | 'popover'
+  /**
+   * Where column filters are edited.
+   *
+   * There is deliberately no in-table filter row: tall editors (date ranges,
+   * checkbox groups, sliders) force every row to their height.
+   * - `popover` — a funnel button per header column.
+   * - `panel` — a vertical scrollable pane docked beside the table.
+   * - `popover-and-panel` — both.
+   * - `none` — no built-in UI; drive filters yourself, or render
+   *   `<DataTableFilterPanel table={table} />` wherever you like.
+   */
+  filterDisplayMode?: 'popover' | 'panel' | 'popover-and-panel' | 'none'
+  /** Which side the docked filter panel appears on. */
+  filterPanelPosition?: 'start' | 'end'
+  /** Removable chips in the toolbar for each active column filter. Defaults to on. */
+  showActiveFilterChips?: boolean
   enableGlobalFilter?: boolean
   globalFilterFn?: keyof typeof import('./features').dataTableFilterFns
   enableFaceting?: boolean
@@ -384,12 +400,24 @@ export interface DataTableOptions<TData extends RowData> {
 
   localization?: Partial<DataTableLocalization>
 
+  /**
+   * Swap the interactive components the table renders — buttons, inputs,
+   * overlays — for your own design system. Anything omitted falls back to the
+   * built-in primitive. See `DataTableComponents`.
+   */
+  components?: DataTableComponentsOverride
+
   // ----------------------------------------------------------------- slots ----
   renderTopToolbarActions?: (ctx: DataTableRenderContext<TData>) => ReactNode
   renderBottomToolbarActions?: (ctx: DataTableRenderContext<TData>) => ReactNode
   renderToolbarInternalActions?: (ctx: DataTableRenderContext<TData>) => ReactNode
   renderEmptyState?: (ctx: DataTableRenderContext<TData>) => ReactNode
-  renderRowActionMenuItems?: (ctx: DataTableRowRenderContext<TData>) => ReactNode
+  /**
+   * Overflow-menu entries for a row, as data rather than children — the
+   * registry's `Menu` takes an items array so config-object libraries can
+   * back it.
+   */
+  rowActionMenuItems?: (ctx: DataTableRowRenderContext<TData>) => RtcMenuItem[]
   renderCaption?: (ctx: DataTableRenderContext<TData>) => ReactNode
 
   // ------------------------------------------------------------ prop slots ----
@@ -420,7 +448,7 @@ export type DataTableInstance<TData extends RowData> = import('@tanstack/react-t
   ui: DataTableUiState
   setDensity: (density: DataTableDensity) => void
   setIsFullScreen: (value: boolean | ((old: boolean) => boolean)) => void
-  setShowColumnFilters: (value: boolean | ((old: boolean) => boolean)) => void
+  setShowFilterPanel: (value: boolean | ((old: boolean) => boolean)) => void
   setShowGlobalFilter: (value: boolean | ((old: boolean) => boolean)) => void
   setEditingRowId: (rowId: string | null) => void
   setEditingCellId: (cellId: string | null) => void

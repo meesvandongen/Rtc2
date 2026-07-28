@@ -50,9 +50,44 @@ export {
   type DataTableThemeName,
 } from './themes'
 
-/** Re-exported primitives so consumers can build matching custom toolbars. */
-export { Button, Checkbox, IconButton, Select, TextInput } from './components/primitives/Controls'
-export { Menu, MenuItem, MenuLabel, MenuSeparator } from './components/primitives/Menu'
+/**
+ * The component registry: swap the table's buttons, inputs and overlays for
+ * your own design system.
+ */
+export {
+  DataTableComponentsProvider,
+  useComponents,
+  type DataTableComponents,
+  type DataTableComponentsOverride,
+  type RtcBadgeProps,
+  type RtcButtonProps,
+  type RtcCheckboxProps,
+  type RtcDialogProps,
+  type RtcIconButtonProps,
+  type RtcIconName,
+  type RtcIconProps,
+  type RtcMenuItem,
+  type RtcMenuProps,
+  type RtcMultiSelectProps,
+  type RtcNumberInputProps,
+  type RtcOption,
+  type RtcPopoverProps,
+  type RtcProgressBarProps,
+  type RtcRadioProps,
+  type RtcRangeSliderProps,
+  type RtcSelectProps,
+  type RtcSize,
+  type RtcSkeletonProps,
+  type RtcSwitchProps,
+  type RtcTextInputProps,
+  type RtcTooltipProps,
+} from './components/registry'
+export { defaultComponents } from './components/defaultComponents'
+
+/** Filter surfaces, usable standalone with an instance from `useDataTable`. */
+export { DataTableFilterPanel, type DataTableFilterPanelProps } from './components/FilterPanel'
+export { ColumnFilterPopover } from './components/ColumnFilterPopover'
+export { FilterEditor, type FilterEditorProps } from './components/FilterEditor'
 
 export type {
   DataTableCell,

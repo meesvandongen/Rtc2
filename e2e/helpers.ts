@@ -28,14 +28,41 @@ export function bodyRows(root: Locator): Locator {
   return root.locator('tbody tr[data-rtc-row-id]')
 }
 
-/** A toolbar control by its `data-rtc-action` marker. */
+/**
+ * A toolbar control by its `data-rtc-action` marker.
+ *
+ * The marker sits on a span inside the button because the button itself now
+ * comes from the component registry and cannot take arbitrary attributes.
+ */
 export function toolbarAction(root: Locator, action: string): Locator {
-  return root.locator(`[data-rtc-action="${action}"]`)
+  return root.locator(`button:has([data-rtc-action="${action}"])`)
 }
 
 /** The portalled menu currently open. Menus render into `document.body`. */
 export function openMenu(page: Page): Locator {
   return page.locator('.rtc-menu[role="menu"]')
+}
+
+/** The portalled filter popover currently open. */
+export function filterPopover(page: Page): Locator {
+  return page.locator('[data-rtc-filter-popover]')
+}
+
+/** Opens a column's filter popover from its header. */
+export async function openColumnFilter(
+  root: Locator,
+  page: Page,
+  columnId: string,
+): Promise<Locator> {
+  await header(root, columnId).locator('.rtc-filter-trigger').click()
+  const popover = filterPopover(page)
+  await expect(popover).toBeVisible()
+  return popover
+}
+
+/** A field in the docked or standalone filter panel. */
+export function panelField(root: Locator, columnId: string): Locator {
+  return root.locator(`[data-rtc-filter-field="${columnId}"]`)
 }
 
 /** Drives a pointer-based drag from one element to another. */

@@ -123,7 +123,7 @@ export function buildDisplayColumns<TData extends RowData>({
   }
 
   const showActions = options.enableRowActions || !!options.renderRowActions ||
-    !!options.renderRowActionMenuItems ||
+    !!options.rowActionMenuItems ||
     (!!options.enableEditing && (options.editMode === 'row' || options.editMode === 'modal'))
 
   if (showActions) {

@@ -69,6 +69,7 @@
   --rtc-toolbar-padding: 8px;
   --rtc-control-height: 32px;
   --rtc-icon-size: 16px;
+  --rtc-filter-panel-width: 280px;
 
   /* ---------------------------------------------------------- surfaces ---- */
   --rtc-row-bg: transparent;
@@ -207,6 +208,7 @@
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
+  min-width: 0;
   overflow: auto;
   scrollbar-color: var(--rtc-scrollbar-thumb) var(--rtc-scrollbar-track);
   scrollbar-width: thin;
@@ -734,6 +736,24 @@
   cursor: not-allowed;
 }
 
+.rtc-button[data-rtc-variant="quiet"] {
+  height: auto;
+  padding: 2px 6px;
+  color: var(--rtc-color-accent);
+  background: none;
+  border-color: transparent;
+}
+
+.rtc-button[data-rtc-size="sm"] {
+  height: 24px;
+  padding: 0 8px;
+}
+
+.rtc-input[data-rtc-size="sm"],
+.rtc-select[data-rtc-size="sm"] {
+  height: 26px;
+}
+
 .rtc-button[data-rtc-variant="primary"] {
   color: var(--rtc-color-accent-contrast);
   background: var(--rtc-color-accent);
@@ -942,30 +962,133 @@
   padding: 4px 8px 8px;
 }
 
-/* ------------------------------------------------------------ filters ---- */
-
-.rtc-filter-row .rtc-th {
-  padding-block: 4px;
-  background: var(--rtc-header-bg);
-  border-bottom: var(--rtc-border-width) solid var(--rtc-color-border-strong);
+.rtc-popover {
+  padding: 12px;
 }
 
-.rtc-filter {
+/* ------------------------------------------------------------ filters ---- */
+
+/* Filters live in popovers and a docked panel rather than a table row: a tall
+   editor (date range, checkbox group, slider) would otherwise set the height
+   of every row in the table. */
+
+.rtc-body-area {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+}
+
+.rtc-filter-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 var(--rtc-filter-panel-width);
+  width: var(--rtc-filter-panel-width);
+  min-height: 0;
+  background: var(--rtc-color-surface-sunken);
+}
+
+.rtc-filter-panel-docked {
+  border-inline-end: var(--rtc-border-width) solid var(--rtc-color-border);
+}
+
+.rtc-body-area[data-rtc-panel="end"] .rtc-filter-panel-docked {
+  border-inline-end: 0;
+  border-inline-start: var(--rtc-border-width) solid var(--rtc-color-border);
+}
+
+.rtc-filter-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  padding: var(--rtc-toolbar-padding);
+  border-bottom: var(--rtc-border-width) solid var(--rtc-color-border);
+}
+
+.rtc-filter-panel-title {
+  font-weight: 600;
+}
+
+.rtc-filter-clear-all {
+  margin-inline-start: auto;
+}
+
+.rtc-filter-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 12px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.rtc-filter-panel-empty {
+  margin: 0;
+  color: var(--rtc-color-text-muted);
+  font-size: var(--rtc-font-size-sm);
+}
+
+.rtc-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rtc-filter-field-header {
   display: flex;
   align-items: center;
   gap: 4px;
-  width: 100%;
+  min-height: 24px;
 }
 
-.rtc-filter .rtc-input,
-.rtc-filter .rtc-select {
-  height: 28px;
+.rtc-filter-field-label {
+  font-size: var(--rtc-font-size-sm);
+  font-weight: 600;
+}
+
+.rtc-filter-field[data-rtc-active="true"] .rtc-filter-field-label {
+  color: var(--rtc-color-accent);
+}
+
+.rtc-filter-field-header > :nth-child(2) {
+  margin-inline-start: auto;
+}
+
+/* The popover surface. Bounded so a long faceted list scrolls rather than
+   growing past the viewport. */
+.rtc-filter-popover {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 220px;
+}
+
+.rtc-filter-popover-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rtc-filter-popover-header .rtc-button {
+  margin-inline-start: auto;
+}
+
+.rtc-filter-popover-mode {
+  display: flex;
+}
+
+.rtc-th[data-rtc-filtered="true"] .rtc-filter-trigger {
+  color: var(--rtc-color-accent);
+  opacity: 1;
 }
 
 .rtc-filter-range {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   width: 100%;
 }
 
@@ -973,17 +1096,17 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  max-height: 200px;
-  overflow: auto;
+  max-height: 220px;
+  overflow-y: auto;
 }
 
 .rtc-filter-chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   padding: 2px 8px;
   font-size: var(--rtc-font-size-sm);
-  background: var(--rtc-color-surface-sunken);
+  background: var(--rtc-color-surface);
   border: var(--rtc-border-width) solid var(--rtc-color-border);
   border-radius: var(--rtc-radius-pill);
   cursor: pointer;
@@ -993,6 +1116,15 @@
   color: var(--rtc-color-accent);
   background: var(--rtc-color-accent-subtle);
   border-color: var(--rtc-color-accent);
+}
+
+/* Active-filter chips in the toolbar. With the editors behind popovers these
+   are the only always-visible indication that filters are applied. */
+.rtc-filter-chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 .rtc-slider {
@@ -1062,16 +1194,26 @@
   transition: transform var(--rtc-transition);
 }
 
-.rtc-expand-button[data-rtc-expanded="true"] .rtc-expand-icon {
+.rtc-expand-slot[data-rtc-expanded="true"] .rtc-expand-icon {
   transform: rotate(90deg);
+}
+
+.rtc-expand-slot {
+  display: inline-flex;
+  flex: 0 0 auto;
 }
 
 [dir="rtl"] .rtc-expand-button .rtc-expand-icon {
   transform: rotate(180deg);
 }
 
-[dir="rtl"] .rtc-expand-button[data-rtc-expanded="true"] .rtc-expand-icon {
+[dir="rtl"] .rtc-expand-slot[data-rtc-expanded="true"] .rtc-expand-icon {
   transform: rotate(90deg);
+}
+
+.rtc-expand-slot {
+  display: inline-flex;
+  flex: 0 0 auto;
 }
 
 .rtc-cell-inner {

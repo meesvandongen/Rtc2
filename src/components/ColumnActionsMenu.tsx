@@ -1,25 +1,16 @@
 import type { RowData } from '@tanstack/react-table'
-import { ColumnFilter } from './ColumnFilter'
+
+import { useComponents, type RtcMenuItem } from './registry'
 import { formatMessage } from '../locale'
 import { getColumnLabel } from '../utils'
-import { IconButton } from './primitives/Controls'
-import { Menu, MenuItem, MenuLabel, MenuSeparator } from './primitives/Menu'
-import {
-  ArrowDownIcon,
-  ArrowUpIcon,
-  CloseIcon,
-  EyeOffIcon,
-  GroupIcon,
-  MoreVerticalIcon,
-  PinIcon,
-  PinOffIcon,
-  ResetIcon,
-} from './primitives/Icons'
 import type { DataTableColumnInstance, DataTableInstance } from '../types'
 
 /**
- * Per-column overflow menu: sorting, grouping, pinning, hiding, sizing, and —
- * when `columnFilterDisplayMode` is `popover` — the column's filter editor.
+ * Per-column overflow menu: sorting, grouping, pinning, hiding, sizing.
+ *
+ * Built as a data array rather than children because the registry's `Menu`
+ * contract is data-driven — that is what lets a config-object library like
+ * Ant Design back it.
  */
 export function ColumnActionsMenu<TData extends RowData>({
   table,
@@ -28,168 +19,120 @@ export function ColumnActionsMenu<TData extends RowData>({
   table: DataTableInstance<TData>
   column: DataTableColumnInstance<TData, any>
 }) {
+  const ui = useComponents()
   const options = table.dataTableOptions
   const { localization } = options
-  const columnLabel = getColumnLabel(column)
-
-  const canSort = column.getCanSort()
-  const canGroup = (options.enableGrouping ?? false) && column.getCanGroup()
-  const canPin = (options.enableColumnPinning ?? false) && column.getCanPin()
-  const canHide = column.getCanHide()
-  const canResize = (options.enableColumnResizing ?? false) && column.getCanResize()
-  const showFilter =
-    (options.enableColumnFilters ?? true) &&
-    column.getCanFilter() &&
-    (options.columnFilterDisplayMode ?? 'subheader') === 'popover'
+  const label = getColumnLabel(column)
 
   const sorted = column.getIsSorted()
   const pinned = column.getIsPinned()
+  const items: RtcMenuItem[] = []
+
+  if ((options.enableSorting ?? true) && column.getCanSort()) {
+    items.push(
+      {
+        id: 'sort-asc',
+        label: formatMessage(localization.sortByColumnAsc, { column: label }),
+        icon: <ui.Icon name="sortAsc" />,
+        active: sorted === 'asc',
+        onSelect: () => column.toggleSorting(false, false),
+      },
+      {
+        id: 'sort-desc',
+        label: formatMessage(localization.sortByColumnDesc, { column: label }),
+        icon: <ui.Icon name="sortDesc" />,
+        active: sorted === 'desc',
+        onSelect: () => column.toggleSorting(true, false),
+      },
+    )
+    if (sorted) {
+      items.push({
+        id: 'sort-clear',
+        label: localization.clearSort,
+        icon: <ui.Icon name="close" />,
+        onSelect: () => column.clearSorting(),
+      })
+    }
+    items.push({ type: 'separator', id: 'sep-sort' })
+  }
+
+  if ((options.enableGrouping ?? false) && column.getCanGroup()) {
+    items.push({
+      id: 'group',
+      label: formatMessage(
+        column.getIsGrouped() ? localization.ungroupByColumn : localization.groupByColumn,
+        { column: label },
+      ),
+      icon: <ui.Icon name="group" />,
+      active: column.getIsGrouped(),
+      onSelect: () => column.toggleGrouping(),
+    })
+  }
+
+  if ((options.enableColumnPinning ?? false) && column.getCanPin()) {
+    items.push(
+      {
+        id: 'pin-start',
+        label: pinned === 'start' ? localization.unpin : localization.pinToStart,
+        icon: <ui.Icon name="pin" />,
+        active: pinned === 'start',
+        onSelect: () => column.pin(pinned === 'start' ? false : 'start'),
+      },
+      {
+        id: 'pin-end',
+        label: pinned === 'end' ? localization.unpin : localization.pinToEnd,
+        icon: <ui.Icon name="pin" />,
+        active: pinned === 'end',
+        onSelect: () => column.pin(pinned === 'end' ? false : 'end'),
+      },
+    )
+    if (pinned) {
+      items.push({
+        id: 'unpin',
+        label: localization.unpin,
+        icon: <ui.Icon name="pinOff" />,
+        onSelect: () => column.pin(false),
+      })
+    }
+  }
+
+  if ((options.enableColumnResizing ?? false) && column.getCanResize()) {
+    items.push({
+      id: 'reset-size',
+      label: localization.resetColumnSize,
+      icon: <ui.Icon name="reset" />,
+      onSelect: () => column.resetSize(),
+    })
+  }
+
+  if (column.getCanHide()) {
+    items.push({
+      id: 'hide',
+      label: formatMessage(localization.hideColumn, { column: label }),
+      icon: <ui.Icon name="eyeOff" />,
+      onSelect: () => column.toggleVisibility(false),
+    })
+  }
+
+  if (column.columnDef.meta?.description) {
+    items.push(
+      { type: 'separator', id: 'sep-desc' },
+      { type: 'label', id: 'desc', label: column.columnDef.meta.description },
+    )
+  }
+
+  if (items.length === 0) return null
 
   return (
-    <Menu
+    <ui.Menu
       align="end"
-      label={formatMessage(localization.columnActions, { column: columnLabel })}
-      trigger={(triggerProps) => (
-        <IconButton size="sm" label={localization.columnActions} {...(triggerProps as any)}>
-          <MoreVerticalIcon />
-        </IconButton>
-      )}
-    >
-      {(close) => (
-        <>
-          {canSort ? (
-            <>
-              <MenuItem
-                icon={<ArrowUpIcon />}
-                active={sorted === 'asc'}
-                onClick={() => {
-                  column.toggleSorting(false, false)
-                  close()
-                }}
-              >
-                {formatMessage(localization.sortByColumnAsc, { column: columnLabel })}
-              </MenuItem>
-              <MenuItem
-                icon={<ArrowDownIcon />}
-                active={sorted === 'desc'}
-                onClick={() => {
-                  column.toggleSorting(true, false)
-                  close()
-                }}
-              >
-                {formatMessage(localization.sortByColumnDesc, { column: columnLabel })}
-              </MenuItem>
-              {sorted ? (
-                <MenuItem
-                  icon={<CloseIcon />}
-                  onClick={() => {
-                    column.clearSorting()
-                    close()
-                  }}
-                >
-                  {localization.clearSort}
-                </MenuItem>
-              ) : null}
-              <MenuSeparator />
-            </>
-          ) : null}
-
-          {canGroup ? (
-            <MenuItem
-              icon={<GroupIcon />}
-              active={column.getIsGrouped()}
-              onClick={() => {
-                column.toggleGrouping()
-                close()
-              }}
-            >
-              {formatMessage(
-                column.getIsGrouped() ? localization.ungroupByColumn : localization.groupByColumn,
-                { column: columnLabel },
-              )}
-            </MenuItem>
-          ) : null}
-
-          {canPin ? (
-            <>
-              <MenuItem
-                icon={<PinIcon />}
-                active={pinned === 'start'}
-                onClick={() => {
-                  column.pin(pinned === 'start' ? false : 'start')
-                  close()
-                }}
-              >
-                {pinned === 'start' ? localization.unpin : localization.pinToStart}
-              </MenuItem>
-              <MenuItem
-                icon={<PinIcon />}
-                active={pinned === 'end'}
-                onClick={() => {
-                  column.pin(pinned === 'end' ? false : 'end')
-                  close()
-                }}
-              >
-                {pinned === 'end' ? localization.unpin : localization.pinToEnd}
-              </MenuItem>
-              {pinned ? (
-                <MenuItem
-                  icon={<PinOffIcon />}
-                  onClick={() => {
-                    column.pin(false)
-                    close()
-                  }}
-                >
-                  {localization.unpin}
-                </MenuItem>
-              ) : null}
-            </>
-          ) : null}
-
-          {canResize ? (
-            <MenuItem
-              icon={<ResetIcon />}
-              onClick={() => {
-                column.resetSize()
-                close()
-              }}
-            >
-              {localization.resetColumnSize}
-            </MenuItem>
-          ) : null}
-
-          {canHide ? (
-            <MenuItem
-              icon={<EyeOffIcon />}
-              onClick={() => {
-                column.toggleVisibility(false)
-                close()
-              }}
-            >
-              {formatMessage(localization.hideColumn, { column: columnLabel })}
-            </MenuItem>
-          ) : null}
-
-          {showFilter ? (
-            <>
-              <MenuSeparator />
-              <MenuLabel>{formatMessage(localization.filterByColumn, { column: columnLabel })}</MenuLabel>
-              <div className="rtc-menu-section">
-                <ColumnFilter table={table} column={column} />
-              </div>
-            </>
-          ) : null}
-
-          {column.columnDef.meta?.description ? (
-            <>
-              <MenuSeparator />
-              <div className="rtc-menu-section rtc-group-count">
-                {column.columnDef.meta.description}
-              </div>
-            </>
-          ) : null}
-        </>
-      )}
-    </Menu>
+      label={formatMessage(localization.columnActions, { column: label })}
+      items={items}
+      trigger={
+        <ui.IconButton size="sm" label={`${localization.columnActions}: ${label}`}>
+          <ui.Icon name="more" />
+        </ui.IconButton>
+      }
+    />
   )
 }

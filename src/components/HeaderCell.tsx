@@ -1,10 +1,11 @@
 import type { RowData } from '@tanstack/react-table'
+
 import { ColumnActionsMenu } from './ColumnActionsMenu'
+import { ColumnFilterPopover } from './ColumnFilterPopover'
+import { useComponents } from './registry'
 import { useDrag } from '../dragContext'
 import { formatMessage } from '../locale'
 import { cx, getColumnLabel } from '../utils'
-import { ArrowDownIcon, ArrowUpIcon, ArrowUpDownIcon, DragIcon } from './primitives/Icons'
-import { IconButton } from './primitives/Controls'
 import type { DataTableHeader, DataTableInstance } from '../types'
 
 /** Sticky-offset and layout attributes shared by header, body and footer cells. */
@@ -36,10 +37,7 @@ export function getCellLayoutProps<TData extends RowData>(
     'data-rtc-pin-edge': isPinEdge ? 'true' : undefined,
     'data-rtc-align': column.columnDef.meta?.align,
     'data-rtc-grow': isGrid && layoutMode === 'grid' && !pinned ? 'true' : undefined,
-    className: cx(
-      kind === 'body' ? 'rtc-td' : 'rtc-th',
-      column.columnDef.meta?.className,
-    ),
+    className: cx(kind === 'body' ? 'rtc-td' : 'rtc-th', column.columnDef.meta?.className),
     style: {
       '--rtc-col-size': `${size}px`,
       ...(pinOffset ? { '--rtc-pin-offset': pinOffset } : {}),
@@ -55,6 +53,7 @@ export function HeaderCell<TData extends RowData>({
   table: DataTableInstance<TData>
   header: DataTableHeader<TData, any>
 }) {
+  const ui = useComponents()
   const options = table.dataTableOptions
   const { localization } = options
   const column = header.column
@@ -71,7 +70,14 @@ export function HeaderCell<TData extends RowData>({
     column.depth === 0
   const showActions = (options.enableColumnActions ?? false) && !header.isPlaceholder
 
-  const columnLabel = getColumnLabel(column)
+  const filterMode = options.filterDisplayMode ?? 'popover'
+  const showFilter =
+    (options.enableColumnFilters ?? true) &&
+    (filterMode === 'popover' || filterMode === 'popover-and-panel') &&
+    !header.isPlaceholder &&
+    column.getCanFilter()
+
+  const label = getColumnLabel(column)
 
   const ariaSort: React.AriaAttributes['aria-sort'] = !canSort
     ? undefined
@@ -93,6 +99,7 @@ export function HeaderCell<TData extends RowData>({
       rowSpan={header.rowSpan > 1 ? header.rowSpan : undefined}
       scope={header.colSpan > 1 ? 'colgroup' : 'col'}
       aria-sort={ariaSort}
+      data-rtc-filtered={column.getIsFiltered() ? 'true' : undefined}
       data-rtc-dragging={drag.kind === 'column' && drag.activeId === column.id ? 'true' : undefined}
       data-rtc-drop-target={
         drag.kind === 'column' && drag.overId === column.id && drag.activeId !== column.id
@@ -103,14 +110,14 @@ export function HeaderCell<TData extends RowData>({
       {header.isPlaceholder ? null : (
         <div className="rtc-th-content">
           {canDrag ? (
-            <IconButton
+            <ui.IconButton
               className="rtc-drag-handle"
               size="sm"
-              label={`${localization.grab} ${columnLabel}`}
+              label={`${localization.grab} ${label}`}
               onPointerDown={(event) => drag.start('column', column.id, event)}
             >
-              <DragIcon />
-            </IconButton>
+              <ui.Icon name="drag" />
+            </ui.IconButton>
           ) : null}
 
           {canSort ? (
@@ -124,22 +131,18 @@ export function HeaderCell<TData extends RowData>({
                       sorted === 'asc'
                         ? localization.sortedByColumnAsc
                         : localization.sortedByColumnDesc,
-                      { column: columnLabel },
+                      { column: label },
                     )
-                  : formatMessage(localization.sortByColumnAsc, { column: columnLabel })
+                  : formatMessage(localization.sortByColumnAsc, { column: label })
               }
             >
               <span className="rtc-th-label">
                 <table.FlexRender header={header} />
               </span>
               <span className="rtc-sort-indicator" data-rtc-active={sorted ? 'true' : undefined}>
-                {sorted === 'asc' ? (
-                  <ArrowUpIcon />
-                ) : sorted === 'desc' ? (
-                  <ArrowDownIcon />
-                ) : (
-                  <ArrowUpDownIcon />
-                )}
+                <ui.Icon
+                  name={sorted === 'asc' ? 'sortAsc' : sorted === 'desc' ? 'sortDesc' : 'sortNone'}
+                />
                 {sortIndex > 0 ? <span className="rtc-sort-index">{sortIndex + 1}</span> : null}
               </span>
             </button>
@@ -151,7 +154,8 @@ export function HeaderCell<TData extends RowData>({
 
           <span className="rtc-th-spacer" />
 
-          {showActions ? <ColumnActionsMenu table={table} column={column} /> : null}
+          {showFilter ? <ColumnFilterPopover table={table} column={column as never} /> : null}
+          {showActions ? <ColumnActionsMenu table={table} column={column as never} /> : null}
         </div>
       )}
 
@@ -163,6 +167,10 @@ export function HeaderCell<TData extends RowData>({
 /**
  * Resize grip. Exposed as a `separator` so keyboard users can resize with the
  * arrow keys — `getResizeHandler` only covers pointer input.
+ *
+ * Deliberately not a registry component: it is a bare hit area with no visual
+ * identity of its own, and swapping in a design-system button would break the
+ * absolute positioning the resize interaction depends on.
  */
 function ColumnResizer<TData extends RowData>({
   table,
@@ -173,7 +181,6 @@ function ColumnResizer<TData extends RowData>({
 }) {
   const { localization } = table.dataTableOptions
   const column = header.column
-  const isResizing = column.getIsResizing()
   const resizeHandler = header.getResizeHandler()
 
   const nudge = (delta: number) => {
@@ -188,7 +195,7 @@ function ColumnResizer<TData extends RowData>({
       role="separator"
       aria-orientation="vertical"
       aria-label={`${localization.resetColumnSize}: ${getColumnLabel(column)}`}
-      data-rtc-resizing={isResizing ? 'true' : undefined}
+      data-rtc-resizing={column.getIsResizing() ? 'true' : undefined}
       onPointerDown={resizeHandler}
       onDoubleClick={() => column.resetSize()}
       onClick={(event) => event.stopPropagation()}
