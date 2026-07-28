@@ -9,7 +9,11 @@
  * or spreadsheet-style table.
  */
 
-.rtc-root {
+/* The variable block is separate from the table's own layout so that a surface
+   rendered outside `<DataTable>` — the standalone filter panel, a menu in the
+   top layer — can opt into the same theme with `rtc-vars` alone. */
+.rtc-root,
+.rtc-vars {
   /* ---------------------------------------------------------- palette ---- */
   --rtc-color-surface: #ffffff;
   --rtc-color-surface-sunken: #f8fafc;
@@ -49,6 +53,7 @@
   /* ---------------------------------------------------------- metrics ---- */
   --rtc-radius: 8px;
   --rtc-radius-sm: 5px;
+  --rtc-radius-lg: 12px;
   --rtc-radius-pill: 999px;
   --rtc-border-width: 1px;
   --rtc-cell-padding-x: 12px;
@@ -97,15 +102,18 @@
   /* Set by the component; not intended as user overrides. */
   --rtc-total-width: auto;
 
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
   color: var(--rtc-color-text);
   font-family: var(--rtc-font-family);
   font-size: var(--rtc-font-size);
   font-weight: var(--rtc-font-weight);
   line-height: var(--rtc-line-height);
+}
+
+.rtc-root {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   background: var(--rtc-color-surface);
   border: var(--rtc-border-width) solid var(--rtc-color-border);
   border-radius: var(--rtc-radius);
@@ -114,7 +122,10 @@
 
 .rtc-root *,
 .rtc-root *::before,
-.rtc-root *::after {
+.rtc-root *::after,
+.rtc-vars *,
+.rtc-vars *::before,
+.rtc-vars *::after {
   box-sizing: border-box;
 }
 
@@ -125,7 +136,8 @@
    `[data-rtc-theme="light"]` on the root or any ancestor wins over the OS. */
 
 @media (prefers-color-scheme: dark) {
-  .rtc-root:not([data-rtc-theme="light"]):not([data-rtc-theme="light"] *) {
+  .rtc-root:not([data-rtc-theme="light"]):not([data-rtc-theme="light"] *),
+  .rtc-vars:not([data-rtc-theme="light"]):not([data-rtc-theme="light"] *) {
     --rtc-color-surface: #0f172a;
     --rtc-color-surface-sunken: #131f36;
     --rtc-color-surface-raised: #1a2740;
@@ -151,7 +163,9 @@
 }
 
 .rtc-root[data-rtc-theme="dark"],
-[data-rtc-theme="dark"] .rtc-root:not([data-rtc-theme="light"]) {
+.rtc-vars[data-rtc-theme="dark"],
+[data-rtc-theme="dark"] .rtc-root:not([data-rtc-theme="light"]),
+[data-rtc-theme="dark"] .rtc-vars:not([data-rtc-theme="light"]) {
   --rtc-color-surface: #0f172a;
   --rtc-color-surface-sunken: #131f36;
   --rtc-color-surface-raised: #1a2740;
@@ -278,6 +292,9 @@
   align-items: center;
   flex: 0 0 auto;
   width: var(--rtc-col-size);
+  /* Set from the header's measured content by `enableHeaderContentFit`, and
+     applied to body and footer cells too so the columns stay aligned. */
+  min-width: var(--rtc-col-min-size, 0);
 }
 
 .rtc-root[data-rtc-layout="grid"] .rtc-th[data-rtc-grow="true"],
@@ -551,9 +568,17 @@
   background: var(--rtc-row-bg-hover);
 }
 
+/* Reserves the icon's box whether or not the glyph is showing, so revealing
+   the indicator on hover does not shift the header label sideways. */
 .rtc-sort-indicator {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: var(--rtc-icon-size);
+  height: var(--rtc-icon-size);
+  line-height: 0;
   color: var(--rtc-color-text-muted);
   opacity: 0;
   transition: opacity var(--rtc-transition);
@@ -881,21 +906,54 @@
   inset-inline-end: 2px;
 }
 
-/* --------------------------------------------------------------- menu ---- */
+/* ------------------------------------------------------------ overlays ---- */
 
-.rtc-menu {
+/* Menus and popovers are native `[popover]` elements, so they render in the
+   top layer: no portal, no z-index, and no clipping by the table's scroll
+   containers. The UA stylesheet centres a popover with `inset: 0; margin:
+   auto` and gives it a 1px solid border and 0.25em padding — all of which has
+   to be undone before the anchored position below can take effect. */
+.rtc-surface {
   position: fixed;
-  z-index: 1300;
-  min-width: 200px;
-  max-width: 320px;
-  max-height: min(60vh, 420px);
-  padding: 4px;
+  inset: auto;
+  width: max-content;
+  max-width: min(360px, calc(100vw - 16px));
+  max-height: min(60vh, 460px);
+  margin: 0;
+  padding: 0;
   overflow: auto;
+  overscroll-behavior: contain;
   color: var(--rtc-color-text);
+  font-family: var(--rtc-font-family);
+  font-size: var(--rtc-font-size);
   background: var(--rtc-color-surface-raised);
   border: var(--rtc-border-width) solid var(--rtc-color-border);
-  border-radius: var(--rtc-radius);
+  border-radius: var(--rtc-radius-lg);
   box-shadow: var(--rtc-shadow-menu);
+}
+
+.rtc-surface:not(:popover-open) {
+  display: none;
+}
+
+/* A short, transform-free entry: overlays are anchored by inline `top`/`left`,
+   so animating position would fight the measurement. */
+@media (prefers-reduced-motion: no-preference) {
+  .rtc-surface:popover-open {
+    animation: rtc-surface-in 120ms ease-out;
+  }
+}
+
+@keyframes rtc-surface-in {
+  from {
+    opacity: 0;
+    translate: 0 -2px;
+  }
+}
+
+.rtc-menu {
+  min-width: 200px;
+  padding: 4px;
 }
 
 .rtc-menu-item {
@@ -964,6 +1022,7 @@
 
 .rtc-popover {
   padding: 12px;
+  min-width: 240px;
 }
 
 /* ------------------------------------------------------------ filters ---- */
@@ -1062,18 +1121,50 @@
 .rtc-filter-popover {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  min-width: 220px;
+  gap: 10px;
 }
 
 .rtc-filter-popover-header {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: var(--rtc-border-width) solid var(--rtc-color-border);
+}
+
+.rtc-filter-popover-header .rtc-filter-field-label {
+  font-weight: 600;
 }
 
 .rtc-filter-popover-header .rtc-button {
   margin-inline-start: auto;
+}
+
+/* The operator picker is the one control in a filter that opens something
+   else, so it reads as a chip with a disclosure rather than as body text —
+   the previous flat link gave no sign it was interactive. */
+/* Doubled selector to outrank `.rtc-button[data-rtc-variant="quiet"]`, which
+   is one attribute selector more specific than a bare class. */
+.rtc-filter-operator.rtc-filter-operator {
+  gap: 4px;
+  padding-inline: 8px;
+  color: var(--rtc-color-text-muted);
+  font-size: var(--rtc-font-size-sm);
+  font-weight: 500;
+  background: var(--rtc-color-surface-sunken);
+  border: var(--rtc-border-width) solid var(--rtc-color-border);
+  border-radius: var(--rtc-radius-pill);
+}
+
+.rtc-filter-operator.rtc-filter-operator:hover:not(:disabled) {
+  color: var(--rtc-color-text);
+  background: var(--rtc-row-bg-hover);
+}
+
+.rtc-filter-operator .rtc-icon {
+  --rtc-icon-size: 12px;
+
+  opacity: 0.7;
 }
 
 .rtc-th[data-rtc-filtered="true"] .rtc-filter-trigger {
@@ -1086,6 +1177,31 @@
   align-items: center;
   gap: 6px;
   width: 100%;
+  min-width: 0;
+}
+
+/* A flex item defaults to `min-width: auto`, so a control with an intrinsic
+   minimum — an Ant `InputNumber`, a MUI `TextField` — refuses to shrink and
+   pushes its sibling out of the field. Filter editors come from whatever
+   design system the host installed, so the containment is enforced here
+   rather than trusted to each adapter. */
+.rtc-filter-range > * {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.rtc-filter-field,
+.rtc-filter-conditions,
+.rtc-filter-condition,
+.rtc-filter-popover {
+  min-width: 0;
+}
+
+.rtc-filter-field > *,
+.rtc-filter-condition > *,
+.rtc-filter-popover > * {
+  max-width: 100%;
+  min-width: 0;
 }
 
 /* Operands that need their inputs on separate lines — date ranges, radius
@@ -1095,6 +1211,12 @@
   flex-direction: column;
   gap: 6px;
   width: 100%;
+  min-width: 0;
+}
+
+.rtc-filter-stack > * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .rtc-filter-conditions {

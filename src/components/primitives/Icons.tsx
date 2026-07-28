@@ -39,9 +39,17 @@ export const ArrowDownIcon = (p: SVGProps<SVGSVGElement>) => (
   </Icon>
 )
 
+/**
+ * The "unsorted" glyph.
+ *
+ * Two half-height arrows, mirrored about the centre of the 24-unit box, so it
+ * occupies the same optical space as the single up/down arrows it alternates
+ * with. The previous drawing shared one shaft between both heads and sat a
+ * unit off-centre, which read as misalignment next to the sorted states.
+ */
 export const ArrowUpDownIcon = (p: SVGProps<SVGSVGElement>) => (
   <Icon {...p}>
-    <path d="M8 7l3-3 3 3M11 4v16M16 17l-3 3-3-3" />
+    <path d="M7 20V4M4 7l3-3 3 3M17 4v16M20 17l-3 3-3-3" />
   </Icon>
 )
 

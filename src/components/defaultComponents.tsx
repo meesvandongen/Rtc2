@@ -1,5 +1,6 @@
 import {
   forwardRef,
+  useCallback,
   useEffect,
   useId,
   useLayoutEffect,
@@ -7,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { createPortal } from 'react-dom'
+import { createPortal, flushSync } from 'react-dom'
 
 import * as Icons from './primitives/Icons'
 import type {
@@ -302,20 +303,28 @@ function RangeSlider({ value, onChange, min, max, step, label }: RtcRangeSliderP
 // ------------------------------------------------------------- overlays ----
 
 /**
- * Shared positioning for the built-in popover and menu.
+ * The built-in overlays are native popovers.
  *
- * Portalled because both are opened from inside a scroll container with
- * `overflow: auto`, which would otherwise clip them.
+ * `popover` puts the surface in the **top layer**, so it escapes the table's
+ * `overflow: auto` scroll containers and every `z-index` stack without being
+ * portalled. Not portalling is the point: a menu opened from inside a filter
+ * popover stays a real DOM descendant of it, which is how the platform decides
+ * that one popover is nested inside another. Light dismiss, Escape, and
+ * "closing me closes my children but not the other way round" then come from
+ * the browser instead of a hand-rolled overlay stack.
+ *
+ * Positioning is still JavaScript. CSS anchor positioning would replace it,
+ * but it is not yet in Firefox or Safari, and an overlay that lands in the
+ * corner is a worse failure than a few lines of measurement.
  */
-function useOverlay(open: boolean, align: 'start' | 'center' | 'end') {
+function useAnchoredPopover(align: 'start' | 'center' | 'end', open: boolean) {
   const triggerRef = useRef<HTMLElement | null>(null)
   const surfaceRef = useRef<HTMLDivElement | null>(null)
-  const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
 
   const update = () => {
     const anchor = triggerRef.current
     const surface = surfaceRef.current
-    if (!anchor || !surface) return
+    if (!anchor || !surface || !surface.matches(':popover-open')) return
     const rect = anchor.getBoundingClientRect()
     const box = surface.getBoundingClientRect()
     const gutter = 8
@@ -331,14 +340,17 @@ function useOverlay(open: boolean, align: 'start' | 'center' | 'end') {
           ? rect.left + rect.width / 2 - box.width / 2
           : rect.left
     left = Math.max(gutter, Math.min(left, window.innerWidth - box.width - gutter))
-    setPosition({ top, left })
+    surface.style.top = `${Math.round(top)}px`
+    surface.style.left = `${Math.round(left)}px`
+    surface.style.visibility = 'visible'
   }
 
+  // Before the first measurement the surface would flash at the origin, so it
+  // is shown hidden and revealed once positioned.
   useLayoutEffect(() => {
-    if (!open) {
-      setPosition(null)
-      return
-    }
+    if (!open) return
+    const surface = surfaceRef.current
+    if (surface) surface.style.visibility = 'hidden'
     update()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, align])
@@ -348,76 +360,93 @@ function useOverlay(open: boolean, align: 'start' | 'center' | 'end') {
     const onReflow = () => update()
     window.addEventListener('resize', onReflow)
     window.addEventListener('scroll', onReflow, true)
+    // The surface is sized by its content, which can change while open — a
+    // faceted list arriving, an operand editor swapping shape.
+    const observer =
+      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => update())
+    if (observer && surfaceRef.current) observer.observe(surfaceRef.current)
     return () => {
       window.removeEventListener('resize', onReflow)
       window.removeEventListener('scroll', onReflow, true)
+      observer?.disconnect()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, align])
 
-  return { triggerRef, surfaceRef, position }
+  return { triggerRef, surfaceRef, reposition: update }
 }
 
 /**
- * Monotonic id per opened overlay, used to order the overlay stack.
+ * Keeps a native popover's open state and React's in step.
  *
- * Overlays are portalled to `document.body`, so a menu opened from inside a
- * popover is a DOM *sibling* of that popover, not a descendant. Without this,
- * clicking the nested menu reads as an outside click and dismisses the popover
- * underneath it — which is exactly what the filter-operator menu does.
+ * The trigger drives the popover through `popovertarget` wherever it can, so
+ * the browser owns the toggle. That matters for the case every hand-rolled
+ * overlay gets wrong: clicking the trigger of an open popover light-dismisses
+ * it *and* fires a click, which a naive handler reads as "open it again".
  */
-let overlayCounter = 0
-
-function useDismiss(
-  open: boolean,
-  close: () => void,
-  refs: Array<React.RefObject<HTMLElement | null>>,
+function useNativePopoverSync(
+  surfaceRef: React.RefObject<HTMLDivElement | null>,
+  triggerRef: React.MutableRefObject<HTMLElement | null>,
+  isOpen: boolean,
+  setOpen: (next: boolean) => void,
+  reposition: () => void,
 ) {
-  const depthRef = useRef(0)
-  if (open && depthRef.current === 0) depthRef.current = ++overlayCounter
-  if (!open) depthRef.current = 0
+  const openRef = useRef(isOpen)
+  openRef.current = isOpen
 
+  // Wire the trigger to the surface declaratively when it is a button; other
+  // elements fall back to the click handler on the wrapper.
   useEffect(() => {
-    if (!open) return
-    const depth = depthRef.current
-
-    const onPointerDown = (event: PointerEvent) => {
-      const target = event.target as Node
-      if (refs.some((ref) => ref.current?.contains(target))) return
-      // Ignore clicks inside an overlay opened after this one: it is nested,
-      // and dismissing its parent would tear it down mid-interaction.
-      const surface = (target as Element).parentElement
-        ? ((target as Element).closest?.('[data-rtc-overlay-depth]') ?? null)
-        : null
-      if (surface) {
-        const other = Number(surface.getAttribute('data-rtc-overlay-depth'))
-        if (other > depth) return
-      }
-      close()
-    }
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      // Only the topmost overlay reacts, so Escape peels one layer at a time.
-      const top = Math.max(
-        0,
-        ...Array.from(document.querySelectorAll('[data-rtc-overlay-depth]')).map((node) =>
-          Number(node.getAttribute('data-rtc-overlay-depth')),
-        ),
-      )
-      if (depth !== top) return
-      event.stopPropagation()
-      close()
-    }
-    document.addEventListener('pointerdown', onPointerDown, true)
-    document.addEventListener('keydown', onKeyDown)
+    const trigger = triggerRef.current
+    const surface = surfaceRef.current
+    if (!surface || !(trigger instanceof HTMLButtonElement)) return
+    trigger.popoverTargetElement = surface
+    trigger.popoverTargetAction = 'toggle'
     return () => {
-      document.removeEventListener('pointerdown', onPointerDown, true)
-      document.removeEventListener('keydown', onKeyDown)
+      trigger.popoverTargetElement = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, close])
+  })
 
-  return depthRef
+  useEffect(() => {
+    const surface = surfaceRef.current
+    if (!surface) return
+
+    // `beforetoggle` runs before the surface enters the top layer, which is
+    // the only moment at which the contents can be committed *first*. The
+    // surface renders its children lazily, so without the synchronous flush
+    // the browser would show an empty box for a frame and then reflow it —
+    // and it would be measured, and mispositioned, while still empty.
+    const onBeforeToggle = (event: Event) => {
+      const next = (event as ToggleEvent).newState === 'open'
+      if (next) surface.style.visibility = 'hidden'
+      if (next !== openRef.current) flushSync(() => setOpen(next))
+    }
+    // Position once the surface is actually in the top layer and measurable.
+    const onToggle = (event: Event) => {
+      const next = (event as ToggleEvent).newState === 'open'
+      if (next !== openRef.current) setOpen(next)
+      if (next) reposition()
+    }
+    surface.addEventListener('beforetoggle', onBeforeToggle)
+    surface.addEventListener('toggle', onToggle)
+    return () => {
+      surface.removeEventListener('beforetoggle', onBeforeToggle)
+      surface.removeEventListener('toggle', onToggle)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setOpen, reposition])
+
+  // Reconcile in the other direction, for controlled `open` and for triggers
+  // that could not be wired declaratively.
+  useEffect(() => {
+    const surface = surfaceRef.current
+    if (!surface || !surface.isConnected) return
+    const shown = surface.matches(':popover-open')
+    if (isOpen && !shown) surface.showPopover()
+    else if (!isOpen && shown) surface.hidePopover()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen])
 }
 
 /** Wraps a rendered trigger so we can attach a ref and a click handler to it. */
@@ -446,6 +475,9 @@ function TriggerSlot({
       style={{ display: 'contents' }}
       onClickCapture={(event) => {
         event.stopPropagation()
+        // A button trigger is wired to the surface with `popovertarget`, so
+        // the browser has already toggled it; toggling again would undo that.
+        if (triggerRef.current instanceof HTMLButtonElement) return
         onToggle()
       }}
       aria-haspopup={haspopup}
@@ -461,13 +493,16 @@ function Popover({ trigger, children, label, align = 'start', open, onOpenChange
   const id = useId()
   const [uncontrolled, setUncontrolled] = useState(false)
   const isOpen = open ?? uncontrolled
-  const setOpen = (next: boolean) => {
-    if (open === undefined) setUncontrolled(next)
-    onOpenChange?.(next)
-  }
+  const setOpen = useCallback(
+    (next: boolean) => {
+      if (open === undefined) setUncontrolled(next)
+      onOpenChange?.(next)
+    },
+    [open, onOpenChange],
+  )
 
-  const { triggerRef, surfaceRef, position } = useOverlay(isOpen, align)
-  const depthRef = useDismiss(isOpen, () => setOpen(false), [surfaceRef, triggerRef])
+  const { triggerRef, surfaceRef, reposition } = useAnchoredPopover(align, isOpen)
+  useNativePopoverSync(surfaceRef, triggerRef, isOpen, setOpen, reposition)
 
   return (
     <>
@@ -475,30 +510,27 @@ function Popover({ trigger, children, label, align = 'start', open, onOpenChange
         node={trigger}
         triggerRef={triggerRef}
         onToggle={() => setOpen(!isOpen)}
-        controls={isOpen ? id : undefined}
+        controls={id}
         expanded={isOpen}
         haspopup="dialog"
       />
-      {isOpen && typeof document !== 'undefined'
-        ? createPortal(
-            <div
-              id={id}
-              ref={surfaceRef}
-              className="rtc-menu rtc-popover"
-              role="dialog"
-              aria-label={label}
-              data-rtc-overlay-depth={depthRef.current}
-              style={{
-                top: position?.top ?? 0,
-                left: position?.left ?? 0,
-                visibility: position ? 'visible' : 'hidden',
-              }}
-            >
-              {children}
-            </div>,
-            document.body,
-          )
-        : null}
+      {/* Always mounted so `popovertarget` has a stable target; the contents
+          are not, so a closed filter editor costs nothing. */}
+      <div
+        id={id}
+        ref={surfaceRef}
+        popover="auto"
+        className="rtc-surface rtc-popover"
+        // Role and name only while shown. A closed surface is `display: none`
+        // and empty, so advertising it as a named dialog would add a phantom
+        // node that assistive tech — and anything querying by accessible
+        // name — has to step over.
+        role={isOpen ? 'dialog' : undefined}
+        aria-label={isOpen ? label : undefined}
+        data-rtc-popover=""
+      >
+        {isOpen ? children : null}
+      </div>
     </>
   )
 }
@@ -506,22 +538,22 @@ function Popover({ trigger, children, label, align = 'start', open, onOpenChange
 function Menu({ trigger, items, label, align = 'start' }: RtcMenuProps) {
   const id = useId()
   const [open, setOpen] = useState(false)
-  const { triggerRef, surfaceRef, position } = useOverlay(open, align)
+  const { triggerRef, surfaceRef, reposition } = useAnchoredPopover(align, open)
+  useNativePopoverSync(surfaceRef, triggerRef, open, setOpen, reposition)
 
   const close = () => {
     setOpen(false)
     triggerRef.current?.focus()
   }
-  const depthRef = useDismiss(open, close, [surfaceRef, triggerRef])
 
   // Focus the first action so keyboard users land inside the menu.
   useEffect(() => {
-    if (!open || !position) return
+    if (!open) return
     surfaceRef.current
       ?.querySelector<HTMLElement>('[role="menuitem"]:not([disabled]), [role="menuitemcheckbox"]:not([disabled])')
       ?.focus()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, position])
+  }, [open])
 
   const onKeyDown = (event: React.KeyboardEvent) => {
     if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
@@ -543,69 +575,60 @@ function Menu({ trigger, items, label, align = 'start' }: RtcMenuProps) {
         node={trigger}
         triggerRef={triggerRef}
         onToggle={() => setOpen((value) => !value)}
-        controls={open ? id : undefined}
+        controls={id}
         expanded={open}
         haspopup="menu"
       />
-      {open && typeof document !== 'undefined'
-        ? createPortal(
-            <div
-              id={id}
-              ref={surfaceRef}
-              className="rtc-menu"
-              role="menu"
-              aria-label={label}
-              data-rtc-overlay-depth={depthRef.current}
-              onKeyDown={onKeyDown}
-              style={{
-                top: position?.top ?? 0,
-                left: position?.left ?? 0,
-                visibility: position ? 'visible' : 'hidden',
-              }}
-            >
-              {items.map((item) => {
-                if (item.type === 'separator') return <hr key={item.id} className="rtc-menu-separator" />
-                if (item.type === 'label') {
-                  return (
-                    <div key={item.id} className="rtc-menu-label">
-                      {item.label}
-                    </div>
-                  )
-                }
-                if (item.type === 'custom') {
-                  return (
-                    <div key={item.id} className="rtc-menu-section">
-                      {item.content}
-                    </div>
-                  )
-                }
-                const isCheckbox = item.type === 'checkbox'
+      <div
+        id={id}
+        ref={surfaceRef}
+        popover="auto"
+        className="rtc-surface rtc-menu"
+        role={open ? 'menu' : undefined}
+        aria-label={open ? label : undefined}
+        data-rtc-menu=""
+        onKeyDown={onKeyDown}
+      >
+        {open
+          ? items.map((item) => {
+              if (item.type === 'separator') return <hr key={item.id} className="rtc-menu-separator" />
+              if (item.type === 'label') {
                 return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    role={isCheckbox ? 'menuitemcheckbox' : 'menuitem'}
-                    aria-checked={isCheckbox ? item.checked : undefined}
-                    className="rtc-menu-item"
-                    disabled={item.disabled}
-                    data-rtc-active={
-                      (isCheckbox ? item.checked : item.active) ? 'true' : undefined
-                    }
-                    data-rtc-danger={!isCheckbox && item.danger ? 'true' : undefined}
-                    onClick={() => {
-                      item.onSelect?.()
-                      close()
-                    }}
-                  >
-                    {item.icon ? <span className="rtc-menu-item-icon">{item.icon}</span> : null}
-                    <span>{item.label}</span>
-                  </button>
+                  <div key={item.id} className="rtc-menu-label">
+                    {item.label}
+                  </div>
                 )
-              })}
-            </div>,
-            document.body,
-          )
-        : null}
+              }
+              if (item.type === 'custom') {
+                return (
+                  <div key={item.id} className="rtc-menu-section">
+                    {item.content}
+                  </div>
+                )
+              }
+              const isCheckbox = item.type === 'checkbox'
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  role={isCheckbox ? 'menuitemcheckbox' : 'menuitem'}
+                  aria-checked={isCheckbox ? item.checked : undefined}
+                  className="rtc-menu-item"
+                  disabled={item.disabled}
+                  data-rtc-active={(isCheckbox ? item.checked : item.active) ? 'true' : undefined}
+                  data-rtc-danger={!isCheckbox && item.danger ? 'true' : undefined}
+                  onClick={() => {
+                    item.onSelect?.()
+                    close()
+                  }}
+                >
+                  {item.icon ? <span className="rtc-menu-item-icon">{item.icon}</span> : null}
+                  <span>{item.label}</span>
+                </button>
+              )
+            })
+          : null}
+      </div>
     </>
   )
 }

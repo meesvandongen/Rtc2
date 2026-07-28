@@ -129,7 +129,11 @@ export function ColumnActionsMenu<TData extends RowData>({
       label={formatMessage(localization.columnActions, { column: label })}
       items={items}
       trigger={
-        <ui.IconButton size="sm" label={`${localization.columnActions}: ${label}`}>
+        <ui.IconButton
+          size="sm"
+          className="rtc-column-actions-trigger"
+          label={`${localization.columnActions}: ${label}`}
+        >
           <ui.Icon name="more" />
         </ui.IconButton>
       }

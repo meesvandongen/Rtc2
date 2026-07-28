@@ -27,7 +27,10 @@ export function createRadixComponents(defaults: DataTableComponents): DataTableC
     ...defaults,
     Icon,
 
-    Button: ({ children, onClick, disabled, variant = 'default', size, className }) => (
+    // `...rest` is not optional decoration: Radix's `asChild` merges its ref
+    // and handlers in through these props, and dropping them leaves a button
+    // that opens nothing.
+    Button: ({ children, onClick, disabled, variant = 'default', size, className, ...rest }) => (
       <button
         type="button"
         className={['rx-button', className].filter(Boolean).join(' ')}
@@ -35,12 +38,13 @@ export function createRadixComponents(defaults: DataTableComponents): DataTableC
         data-size={size}
         disabled={disabled}
         onClick={onClick}
+        {...rest}
       >
         {children}
       </button>
     ),
 
-    IconButton: ({ label, children, active, size, className, disabled, ...rest }) => (
+    IconButton: ({ label, children, active, size, className, disabled, onClick, ...rest }) => (
       <button
         type="button"
         className={['rx-icon-button', className].filter(Boolean).join(' ')}
@@ -49,6 +53,7 @@ export function createRadixComponents(defaults: DataTableComponents): DataTableC
         data-active={active ? 'true' : undefined}
         data-size={size}
         disabled={disabled}
+        onClick={onClick}
         {...rest}
       >
         {children}

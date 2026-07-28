@@ -17,7 +17,7 @@ test.describe('rendering and appearance', () => {
   test('renders headers and rows', async ({ page }) => {
     const root = await openStory(page, 'datatable-01-basics--basic')
 
-    await expect(root.locator('thead th')).toHaveCount(9)
+    await expect(root.locator('thead th')).toHaveCount(10)
     await expect(bodyRows(root)).toHaveCount(10)
     await expect(header(root, 'firstName')).toContainText('First name')
   })

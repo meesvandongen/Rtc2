@@ -170,6 +170,10 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
     [options.localization],
   )
 
+  // Per-column floors measured from the headers. Derived from layout rather
+  // than chosen, so it is kept out of the public UI state.
+  const [headerMinSizes, setHeaderMinSizes] = useState<Record<string, number>>({})
+
   // Pending edits for `cell` / `row` / `modal` edit modes, keyed row → column.
   const [editValues, setEditValues] = useState<Record<string, Record<string, unknown>>>({})
 
@@ -311,6 +315,10 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
 
   instance.dataTableOptions = { ...options, localization }
   instance.ui = ui
+  // Assigned every render, not from an effect: `useTable` hands back a fresh
+  // shallow copy each time, so anything written to the previous one is gone.
+  instance.headerMinSizes = headerMinSizes
+  instance.setHeaderMinSizes = setHeaderMinSizes
   instance.editValues = editValues
   instance.setEditValue = setEditValue
   instance.clearEditValues = clearEditValues

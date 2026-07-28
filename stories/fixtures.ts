@@ -120,6 +120,16 @@ export function makeTree(): Person[] {
 
 const helper = createDataTableColumnHelper<Person>()
 
+/**
+ * Aggregated and grouped rows hand a cell renderer a value of a different
+ * shape — or none at all — so a formatter that assumes one throws and takes
+ * the whole table down with it.
+ */
+export const timestamp = (value: unknown) => {
+  const date = new Date(value as string)
+  return Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 16).replace('T', ' ')
+}
+
 export const currency = (value: number) =>
   new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -159,6 +169,14 @@ export const personColumns: Array<DataTableColumn<Person, any>> = helper.columns
     header: 'Start date',
     size: 140,
     meta: { dataType: 'date', editVariant: 'date' },
+  }),
+  helper.accessor('lastSeen', {
+    header: 'Last seen',
+    size: 180,
+    cell: ({ getValue }) => timestamp(getValue()),
+    // `datetime`, not `date`: the operands are minute-precision
+    // `datetime-local` inputs and the time-of-day operator becomes meaningful.
+    meta: { dataType: 'datetime', filterTypeMeta: { dateTimeZone: 'utc' } },
   }),
   helper.accessor('active', {
     header: 'Active',

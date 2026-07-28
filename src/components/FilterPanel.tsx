@@ -55,8 +55,11 @@ function FilterPanelContent<TData extends RowData>({
 
   const activeCount = table.state.columnFilters.length
 
+  // `rtc-vars` so the panel — and any overlay it opens, which now renders
+  // inline rather than portalled — is themed even outside `<DataTable>`.
+  // Harmless when nested inside one: it redeclares the same variables.
   return (
-    <div className={cx('rtc-filter-panel', className)} data-rtc-filter-panel="">
+    <div className={cx('rtc-vars', 'rtc-filter-panel', className)} data-rtc-filter-panel="">
       {hideHeader ? null : (
         <div className="rtc-filter-panel-header">
           <span className="rtc-filter-panel-title">{localization.filters}</span>

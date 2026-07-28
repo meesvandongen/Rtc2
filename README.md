@@ -86,6 +86,7 @@ Each of these has a dedicated Storybook story.
 | Editing | `enableEditing` (bool or predicate), `editMode` (`cell` \| `row` \| `table` \| `modal`), 5 editor variants, `onEditingRowSave`, `onCellEditComplete`, `onDataChange` |
 | Virtualization | `enableRowVirtualization`, `rowVirtualizerOptions` |
 | Layout | `layoutMode` (`semantic` \| `grid` \| `grid-no-grow`), `density`, `height`, `maxHeight`, `direction` (LTR/RTL) |
+| Header sizing | `enableHeaderContentFit`¹ — a column is never narrower than its own header |
 | Chrome | `enableTopToolbar`¹, `enableBottomToolbar`¹, `enableToolbarInternalActions`¹, `enableDensityToggle`¹, `enableFullScreenToggle`¹, `enableColumnActions`, `enableStickyHeader`, `enableStickyFooter`, `enableStripes`, `enableRowHover`¹, `enableBorders` |
 | States | `isLoading`, `showProgressBars`, `isSaving`, `isLoadingError`, `errorMessage`, `skeletonRowCount`, `renderEmptyState` |
 | i18n | `localization` — every string, including filter operator names |
@@ -143,13 +144,49 @@ the Playwright suite, which runs the same interaction tests against all three.
 import type { DataTableComponents } from '@rtc2/react-table'
 
 const myComponents: Partial<DataTableComponents> = {
-  Button: ({ children, onClick, variant, disabled }) => (
-    <MyButton kind={variant} onPress={onClick} isDisabled={disabled}>
+  // `...rest` is not optional. See below.
+  Button: ({ children, onClick, variant, disabled, ...rest }) => (
+    <MyButton kind={variant} onPress={onClick} isDisabled={disabled} {...rest}>
       {children}
     </MyButton>
   ),
 }
 ```
+
+### The one hard rule
+
+**`Button` and `IconButton` must spread every prop they do not recognise onto
+the underlying element, and accept a `ref`.**
+
+Buttons are what overlays hang off, and each library delivers a trigger
+differently: Radix merges props through `asChild`, MUI clones to attach an
+`anchorEl`, Ant clones to attach its own handlers. An adapter that destructures
+the props it knows and drops the rest renders a button that looks perfect and
+opens nothing — or, with Ant, one whose overlay has no element to measure and
+lands in the corner of the viewport. Nothing about it looks wrong in a
+screenshot.
+
+`e2e/overlays.spec.ts` opens every overlay in every adapter for exactly this
+reason, and it is what actually enforces the rule. A new adapter has to pass
+it, along with the geometry checks that no control overflows its filter field
+and no header truncates its own label.
+
+### The built-in overlays
+
+The defaults use the platform's [Popover
+API](https://developer.mozilla.org/en-US/docs/Web/API/Popover_API): a
+`popover` attribute, `popovertarget` on the trigger, and the top layer. That is
+worth more than novelty here. The top layer means a filter popover opened from
+a header is not clipped by the table's scroll container and needs no
+`z-index`, so nothing has to be portalled — and because it is *not* portalled,
+a menu opened inside a popover is a real DOM descendant of it. That is how the
+platform decides two popovers are nested, so light dismiss, Escape ordering and
+"closing me closes my children" all come from the browser rather than from a
+hand-maintained overlay stack.
+
+Positioning is still JavaScript: CSS anchor positioning would replace it, but
+it is not yet in Firefox or Safari, and an overlay in the wrong corner is a
+worse failure than a few lines of measurement.
 
 ## Filtering
 
@@ -361,6 +398,29 @@ for the full list with defaults.
 
 Dark mode follows `prefers-color-scheme`. Force it either way with
 `data-rtc-theme="dark"` / `"light"` on the table or any ancestor.
+
+### Column widths
+
+A header is not just a label: it carries a sort control, a filter funnel and a
+column menu. Give a column `size: 90` with all three enabled and the label is
+squeezed to nothing, while the table may still have empty space beside it.
+
+So a declared `size` is a preference and the header's own content is a floor.
+When the floor pushes the total past the container the table scrolls
+horizontally — the same trade AG Grid's header auto-size makes, and the right
+one: a scrollbar is recoverable, a header truncated to `A…` is not. Sizing to
+*body* content is deliberately not the default, since one long cell blows the
+column out.
+
+The measurement is a fixed point rather than a layout calculation. Labels
+already render with `text-overflow: ellipsis`, so the clipped amount is exactly
+`scrollWidth - clientWidth`; adding it to the current width gives the width at
+which nothing is clipped, which drives the clipped amount to zero. It settles
+in one pass, only ever raises, and is released the moment a user resizes the
+column by hand.
+
+Set `enableHeaderContentFit={false}` for a table that must fit its container at
+any cost.
 
 ## Server-side data
 

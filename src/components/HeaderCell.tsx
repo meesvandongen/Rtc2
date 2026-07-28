@@ -30,6 +30,10 @@ export function getCellLayoutProps<TData extends RowData>(
   }
 
   const size = column.getSize()
+  // The floor is applied to head, body and footer alike: raising only the
+  // header would slide the columns out of alignment in the grid layouts,
+  // where each row is its own flex container.
+  const minSize = Math.max(column.columnDef.minSize ?? 0, table.headerMinSizes?.[column.id] ?? 0)
 
   return {
     'data-rtc-column-id': column.id,
@@ -40,8 +44,9 @@ export function getCellLayoutProps<TData extends RowData>(
     className: cx(kind === 'body' ? 'rtc-td' : 'rtc-th', column.columnDef.meta?.className),
     style: {
       '--rtc-col-size': `${size}px`,
+      ...(minSize ? { '--rtc-col-min-size': `${minSize}px` } : {}),
       ...(pinOffset ? { '--rtc-pin-offset': pinOffset } : {}),
-      ...(isGrid ? {} : { width: size, minWidth: column.columnDef.minSize }),
+      ...(isGrid ? {} : { width: size, minWidth: minSize || undefined }),
     } as React.CSSProperties,
   }
 }
