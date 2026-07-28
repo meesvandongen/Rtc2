@@ -11,27 +11,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: npm
+          node-version-file: .nvmrc
+          cache: pnpm
 
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
 
       - name: Typecheck
-        run: npm run typecheck
+        run: pnpm run typecheck
 
       - name: Build library
-        run: npm run build
+        run: pnpm run build:lib
 
       - name: Build Storybook
-        run: npm run build-storybook
+        run: pnpm run build:storybook
 
       - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium
 
       - name: End-to-end tests
-        run: npm run test:e2e
+        run: pnpm run test:e2e
 
       - if: failure()
         uses: actions/upload-artifact@v4

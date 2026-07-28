@@ -45,7 +45,7 @@ export function People({ data }: { data: Person[] }) {
 ## Install
 
 ```bash
-npm install @rtc2/react-table
+pnpm add @rtc2/react-table   # or npm install / yarn add
 ```
 
 `react` and `react-dom` (>= 18) are peer dependencies. `@tanstack/react-table`
@@ -253,17 +253,24 @@ return <DataTable table={table} />
 
 ## Development
 
+This repo uses **pnpm** (pinned via `packageManager`; `corepack enable` picks
+it up automatically).
+
 ```bash
-npm install
-npm run storybook       # http://localhost:6006 — 95 stories
-npm run typecheck
-npm run build           # dist/index.js + dist/styles.css + .d.ts
-npm run build-storybook
-npm run test:e2e        # Playwright, against the built Storybook
+pnpm install
+pnpm run storybook        # http://localhost:6006 — 95 stories
+pnpm run typecheck
+pnpm run build:lib        # dist/index.js + dist/style.css + dist/index.d.ts
+pnpm run build:storybook  # → storybook-static/
+pnpm run test:e2e         # Playwright, against the built Storybook
 ```
 
+`pnpm install` will ask to approve build scripts the first time. `esbuild` is
+on the approved list because Storybook's core needs its postinstall to link a
+platform binary; without it `build:storybook` fails.
+
 The Playwright suite (69 tests) drives the real Storybook build: it starts
-`vite preview` over `storybook-static/`, so run `npm run build-storybook`
+`vite preview` over `storybook-static/`, so run `pnpm run build:storybook`
 first. The remote-pagination specs intercept `/api/people` with Mock Service
 Worker.
 
@@ -271,8 +278,35 @@ If your environment provides its own Chromium instead of Playwright's managed
 download, point the suite at it:
 
 ```bash
-CHROMIUM_PATH=/path/to/chromium npm run test:e2e
+CHROMIUM_PATH=/path/to/chromium pnpm run test:e2e
 ```
+
+### Build toolchain
+
+The library is bundled by [tsdown](https://tsdown.dev), which runs on
+**rolldown** and emits declarations through `rolldown-plugin-dts`; CSS goes
+through **lightningcss** via `@tsdown/css`. Storybook builds on Vite 8, which
+is also rolldown-backed. No rollup anywhere; the only remaining esbuild is
+Storybook core's own internal dependency, which cannot be removed without
+dropping Storybook.
+
+Two things about the output worth knowing:
+
+- The bundle is **not minified**. That is deliberate for a library — consumers
+  minify, and shipping readable code plus a sourcemap makes debugging possible.
+- The stylesheet is emitted as `dist/style.css` (tsdown's name) and exposed on
+  the stable `@rtc2/react-table/styles.css` subpath. Importing the package's
+  JS does **not** inject styles; the CSS import is separate and explicit.
+
+### Deployment
+
+Storybook is published to Cloudflare Pages:
+
+| Setting | Value |
+| --- | --- |
+| Build command | `pnpm run build:storybook` |
+| Output directory | `storybook-static` |
+| Node version | from `.nvmrc` (22) |
 
 ### Layout
 
@@ -291,6 +325,7 @@ src/
   components/          head, body, toolbar, filters, menus, primitives
 stories/               one file per feature area
 e2e/                   Playwright specs
+tsdown.config.ts       library build (rolldown + lightningcss)
 ```
 
 ## License
