@@ -1,0 +1,216 @@
+import type { RowData } from '@tanstack/react-table'
+
+import { ColumnActionsMenu } from './ColumnActionsMenu'
+import { ColumnFilterPopover } from './ColumnFilterPopover'
+import { useComponents } from './registry'
+import { useDrag } from '../dragContext'
+import { formatMessage } from '../locale'
+import { cx, getColumnLabel } from '../utils'
+import type { DataTableHeader, DataTableInstance } from '../types'
+
+/** Sticky-offset and layout attributes shared by header, body and footer cells. */
+export function getCellLayoutProps<TData extends RowData>(
+  table: DataTableInstance<TData>,
+  column: DataTableHeader<TData, any>['column'],
+  kind: 'head' | 'body' | 'foot',
+) {
+  const options = table.dataTableOptions
+  const pinned = (options.enableColumnPinning ?? false) ? column.getIsPinned() : false
+  const layoutMode = options.layoutMode ?? 'semantic'
+  const isGrid = layoutMode !== 'semantic'
+
+  let pinOffset: string | undefined
+  let isPinEdge = false
+  if (pinned === 'start') {
+    pinOffset = `${column.getStart('start')}px`
+    isPinEdge = table.getStartVisibleLeafColumns().at(-1)?.id === column.id
+  } else if (pinned === 'end') {
+    pinOffset = `${column.getAfter('end')}px`
+    isPinEdge = table.getEndVisibleLeafColumns().at(0)?.id === column.id
+  }
+
+  const size = column.getSize()
+
+  return {
+    'data-rtc-column-id': column.id,
+    'data-rtc-pinned': pinned || undefined,
+    'data-rtc-pin-edge': isPinEdge ? 'true' : undefined,
+    'data-rtc-align': column.columnDef.meta?.align,
+    'data-rtc-grow': isGrid && layoutMode === 'grid' && !pinned ? 'true' : undefined,
+    className: cx(kind === 'body' ? 'rtc-td' : 'rtc-th', column.columnDef.meta?.className),
+    style: {
+      '--rtc-col-size': `${size}px`,
+      ...(pinOffset ? { '--rtc-pin-offset': pinOffset } : {}),
+      ...(isGrid ? {} : { width: size, minWidth: column.columnDef.minSize }),
+    } as React.CSSProperties,
+  }
+}
+
+export function HeaderCell<TData extends RowData>({
+  table,
+  header,
+}: {
+  table: DataTableInstance<TData>
+  header: DataTableHeader<TData, any>
+}) {
+  const ui = useComponents()
+  const options = table.dataTableOptions
+  const { localization } = options
+  const column = header.column
+  const drag = useDrag()
+
+  const layout = getCellLayoutProps(table, column, 'head')
+  const canSort = (options.enableSorting ?? true) && column.getCanSort()
+  const sorted = column.getIsSorted()
+  const sortIndex = column.getSortIndex()
+  const canResize = (options.enableColumnResizing ?? false) && column.getCanResize()
+  const canDrag =
+    (options.enableColumnDragging ?? options.enableColumnOrdering ?? false) &&
+    !header.isPlaceholder &&
+    column.depth === 0
+  const showActions = (options.enableColumnActions ?? false) && !header.isPlaceholder
+
+  const filterMode = options.filterDisplayMode ?? 'popover'
+  const showFilter =
+    (options.enableColumnFilters ?? true) &&
+    (filterMode === 'popover' || filterMode === 'popover-and-panel') &&
+    !header.isPlaceholder &&
+    column.getCanFilter()
+
+  const label = getColumnLabel(column)
+
+  const ariaSort: React.AriaAttributes['aria-sort'] = !canSort
+    ? undefined
+    : sorted === 'asc'
+      ? 'ascending'
+      : sorted === 'desc'
+        ? 'descending'
+        : 'none'
+
+  const userProps = options.headCellProps?.({ table, header, column })
+
+  return (
+    <th
+      {...layout}
+      {...userProps}
+      className={cx(layout.className, userProps?.className)}
+      style={{ ...layout.style, ...userProps?.style }}
+      colSpan={header.colSpan > 1 ? header.colSpan : undefined}
+      rowSpan={header.rowSpan > 1 ? header.rowSpan : undefined}
+      scope={header.colSpan > 1 ? 'colgroup' : 'col'}
+      aria-sort={ariaSort}
+      data-rtc-filtered={column.getIsFiltered() ? 'true' : undefined}
+      data-rtc-dragging={drag.kind === 'column' && drag.activeId === column.id ? 'true' : undefined}
+      data-rtc-drop-target={
+        drag.kind === 'column' && drag.overId === column.id && drag.activeId !== column.id
+          ? 'true'
+          : undefined
+      }
+    >
+      {header.isPlaceholder ? null : (
+        <div className="rtc-th-content">
+          {canDrag ? (
+            <ui.IconButton
+              className="rtc-drag-handle"
+              size="sm"
+              label={`${localization.grab} ${label}`}
+              onPointerDown={(event) => drag.start('column', column.id, event)}
+            >
+              <ui.Icon name="drag" />
+            </ui.IconButton>
+          ) : null}
+
+          {canSort ? (
+            <button
+              type="button"
+              className="rtc-th-sort"
+              onClick={column.getToggleSortingHandler()}
+              title={
+                sorted
+                  ? formatMessage(
+                      sorted === 'asc'
+                        ? localization.sortedByColumnAsc
+                        : localization.sortedByColumnDesc,
+                      { column: label },
+                    )
+                  : formatMessage(localization.sortByColumnAsc, { column: label })
+              }
+            >
+              <span className="rtc-th-label">
+                <table.FlexRender header={header} />
+              </span>
+              <span className="rtc-sort-indicator" data-rtc-active={sorted ? 'true' : undefined}>
+                <ui.Icon
+                  name={sorted === 'asc' ? 'sortAsc' : sorted === 'desc' ? 'sortDesc' : 'sortNone'}
+                />
+                {sortIndex > 0 ? <span className="rtc-sort-index">{sortIndex + 1}</span> : null}
+              </span>
+            </button>
+          ) : (
+            <span className="rtc-th-label">
+              <table.FlexRender header={header} />
+            </span>
+          )}
+
+          <span className="rtc-th-spacer" />
+
+          {showFilter ? <ColumnFilterPopover table={table} column={column as never} /> : null}
+          {showActions ? <ColumnActionsMenu table={table} column={column as never} /> : null}
+        </div>
+      )}
+
+      {canResize ? <ColumnResizer table={table} header={header} /> : null}
+    </th>
+  )
+}
+
+/**
+ * Resize grip. Exposed as a `separator` so keyboard users can resize with the
+ * arrow keys — `getResizeHandler` only covers pointer input.
+ *
+ * Deliberately not a registry component: it is a bare hit area with no visual
+ * identity of its own, and swapping in a design-system button would break the
+ * absolute positioning the resize interaction depends on.
+ */
+function ColumnResizer<TData extends RowData>({
+  table,
+  header,
+}: {
+  table: DataTableInstance<TData>
+  header: DataTableHeader<TData, any>
+}) {
+  const { localization } = table.dataTableOptions
+  const column = header.column
+  const resizeHandler = header.getResizeHandler()
+
+  const nudge = (delta: number) => {
+    const next = Math.max(column.columnDef.minSize ?? 20, column.getSize() + delta)
+    table.setColumnSizing((old) => ({ ...old, [column.id]: next }))
+  }
+
+  return (
+    <button
+      type="button"
+      className="rtc-resizer"
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={`${localization.resetColumnSize}: ${getColumnLabel(column)}`}
+      data-rtc-resizing={column.getIsResizing() ? 'true' : undefined}
+      onPointerDown={resizeHandler}
+      onDoubleClick={() => column.resetSize()}
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => {
+        if (event.key === 'ArrowLeft') {
+          event.preventDefault()
+          nudge(-16)
+        } else if (event.key === 'ArrowRight') {
+          event.preventDefault()
+          nudge(16)
+        } else if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          column.resetSize()
+        }
+      }}
+    />
+  )
+}

@@ -1,0 +1,320 @@
+import {
+  Button as MuiButton,
+  Checkbox as MuiCheckbox,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton as MuiIconButton,
+  LinearProgress,
+  Menu as MuiMenu,
+  MenuItem as MuiMenuItem,
+  Divider,
+  ListItemIcon,
+  ListItemText,
+  ListSubheader,
+  Popover as MuiPopover,
+  Radio as MuiRadio,
+  Select as MuiSelect,
+  Skeleton as MuiSkeleton,
+  Slider,
+  Switch as MuiSwitch,
+  TextField,
+  Tooltip as MuiTooltip,
+} from '@mui/material'
+import { cloneElement, isValidElement, useState, type ReactElement } from 'react'
+
+import type { DataTableComponents } from '../../src'
+
+/**
+ * Material UI adapter.
+ *
+ * The interesting constraint is the overlay trigger: MUI positions menus and
+ * popovers against an `anchorEl`, so the adapter has to `cloneElement` the
+ * trigger to attach a ref and an onClick. That is exactly why the registry
+ * hands over a *rendered element* rather than a render prop — a render prop
+ * would give MUI nothing to anchor to.
+ */
+
+function useAnchor() {
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null)
+  return {
+    anchor,
+    open: Boolean(anchor),
+    close: () => setAnchor(null),
+    /** Clones the caller's trigger so MUI gets something to anchor against. */
+    bind: (trigger: React.ReactNode) =>
+      isValidElement(trigger)
+        ? cloneElement(trigger as ReactElement<any>, {
+            onClick: (event: React.MouseEvent<HTMLElement>) => setAnchor(event.currentTarget),
+          })
+        : trigger,
+  }
+}
+
+export function createMuiComponents(defaults: DataTableComponents): DataTableComponents {
+  return {
+    // MUI ships no icon set in its base package, so keep the built-in glyphs.
+    Icon: defaults.Icon,
+
+    Button: ({ children, onClick, disabled, variant = 'default', size, className }) => (
+      <MuiButton
+        className={className}
+        size={size === 'sm' ? 'small' : 'medium'}
+        variant={variant === 'primary' ? 'contained' : variant === 'quiet' ? 'text' : 'outlined'}
+        disabled={disabled}
+        onClick={onClick}
+      >
+        {children}
+      </MuiButton>
+    ),
+
+    IconButton: ({ label, children, active, size, className, disabled, ...rest }) => (
+      <MuiTooltip title={label}>
+        <span>
+          <MuiIconButton
+            className={className}
+            aria-label={label}
+            size={size === 'sm' ? 'small' : 'medium'}
+            color={active ? 'primary' : 'default'}
+            disabled={disabled}
+            {...rest}
+          >
+            {children}
+          </MuiIconButton>
+        </span>
+      </MuiTooltip>
+    ),
+
+    TextInput: ({ value, onChange, label, placeholder, type, size, autoFocus, disabled, onBlur, onKeyDown, dataAttributes }) => (
+      <TextField
+        value={value}
+        type={type}
+        label={undefined}
+        placeholder={placeholder}
+        size={size === 'sm' ? 'small' : 'medium'}
+        autoFocus={autoFocus}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={onBlur}
+        onKeyDown={onKeyDown}
+        slotProps={{ htmlInput: { 'aria-label': label, ...dataAttributes } }}
+        fullWidth
+      />
+    ),
+
+    NumberInput: ({ value, onChange, label, placeholder, min, max, size, ...rest }) => (
+      <TextField
+        type="number"
+        value={value ?? ''}
+        placeholder={placeholder}
+        size={size === 'sm' ? 'small' : 'medium'}
+        disabled={rest.disabled}
+        autoFocus={rest.autoFocus}
+        onChange={(event) =>
+          onChange(event.target.value === '' ? undefined : Number(event.target.value))
+        }
+        onBlur={rest.onBlur}
+        onKeyDown={rest.onKeyDown}
+        slotProps={{ htmlInput: { 'aria-label': label, min, max, ...rest.dataAttributes } }}
+        fullWidth
+      />
+    ),
+
+    Select: ({ value, onChange, options, label, placeholder, size, disabled, dataAttributes }) => (
+      <MuiSelect
+        native
+        value={value}
+        size={size === 'sm' ? 'small' : 'medium'}
+        disabled={disabled}
+        onChange={(event) => onChange(String(event.target.value))}
+        inputProps={{ 'aria-label': label, ...dataAttributes }}
+        fullWidth
+      >
+        {placeholder !== undefined ? <option value="">{placeholder}</option> : null}
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </MuiSelect>
+    ),
+
+    MultiSelect: ({ value, onChange, options, label, size }) => (
+      <MuiSelect
+        multiple
+        native
+        value={value}
+        size={size === 'sm' ? 'small' : 'medium'}
+        onChange={(event) => {
+          const select = event.target as unknown as HTMLSelectElement
+          onChange(Array.from(select.selectedOptions, (option) => option.value))
+        }}
+        inputProps={{ 'aria-label': label }}
+        fullWidth
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </MuiSelect>
+    ),
+
+    Checkbox: ({ checked, indeterminate, onChange, label, disabled, onClick }) => (
+      <MuiCheckbox
+        checked={checked}
+        indeterminate={!checked && indeterminate}
+        disabled={disabled}
+        size="small"
+        slotProps={{ input: { 'aria-label': label } }}
+        onChange={(event) => onChange(event.target.checked)}
+        onClick={onClick}
+      />
+    ),
+
+    Radio: ({ checked, onChange, label, disabled, onClick, name }) => (
+      <MuiRadio
+        checked={checked}
+        name={name}
+        disabled={disabled}
+        size="small"
+        slotProps={{ input: { 'aria-label': label } }}
+        onChange={(event) => onChange(event.target.checked)}
+        onClick={onClick}
+      />
+    ),
+
+    Switch: ({ checked, onChange, label, disabled, onClick }) => (
+      <MuiSwitch
+        checked={checked}
+        disabled={disabled}
+        size="small"
+        slotProps={{ input: { 'aria-label': label } }}
+        onChange={(event) => onChange(event.target.checked)}
+        onClick={onClick}
+      />
+    ),
+
+    RangeSlider: ({ value, onChange, min, max, step, label }) => (
+      <Slider
+        value={value}
+        min={min}
+        max={max}
+        step={step}
+        size="small"
+        getAriaLabel={() => label}
+        onChange={(_, next) => onChange(next as [number, number])}
+        valueLabelDisplay="auto"
+        sx={{ mx: 1 }}
+      />
+    ),
+
+    Popover: ({ trigger, children, label, align = 'start' }) => {
+      const anchor = useAnchor()
+      return (
+        <>
+          {anchor.bind(trigger)}
+          <MuiPopover
+            open={anchor.open}
+            anchorEl={anchor.anchor}
+            onClose={anchor.close}
+            anchorOrigin={{ vertical: 'bottom', horizontal: align === 'end' ? 'right' : 'left' }}
+            transformOrigin={{ vertical: 'top', horizontal: align === 'end' ? 'right' : 'left' }}
+            slotProps={{ paper: { sx: { p: 2, minWidth: 240 }, 'aria-label': label } }}
+          >
+            {children}
+          </MuiPopover>
+        </>
+      )
+    },
+
+    Menu: ({ trigger, items, label, align = 'start' }) => {
+      const anchor = useAnchor()
+      return (
+        <>
+          {anchor.bind(trigger)}
+          <MuiMenu
+            open={anchor.open}
+            anchorEl={anchor.anchor}
+            onClose={anchor.close}
+            anchorOrigin={{ vertical: 'bottom', horizontal: align === 'end' ? 'right' : 'left' }}
+            transformOrigin={{ vertical: 'top', horizontal: align === 'end' ? 'right' : 'left' }}
+            slotProps={{ list: { 'aria-label': label, dense: true } }}
+          >
+            {items.map((item) => {
+              if (item.type === 'separator') return <Divider key={item.id} />
+              if (item.type === 'label') {
+                return <ListSubheader key={item.id}>{item.label}</ListSubheader>
+              }
+              if (item.type === 'custom') {
+                return (
+                  <div key={item.id} style={{ padding: 8 }}>
+                    {item.content}
+                  </div>
+                )
+              }
+              const isCheckbox = item.type === 'checkbox'
+              return (
+                <MuiMenuItem
+                  key={item.id}
+                  disabled={item.disabled}
+                  selected={isCheckbox ? item.checked : item.active}
+                  // MUI has no menuitemcheckbox variant; set the role directly
+                  // so assistive tech and the tests see the same semantics as
+                  // the built-in menu.
+                  role={isCheckbox ? 'menuitemcheckbox' : 'menuitem'}
+                  aria-checked={isCheckbox ? item.checked : undefined}
+                  onClick={() => {
+                    item.onSelect?.()
+                    anchor.close()
+                  }}
+                >
+                  {item.icon ? <ListItemIcon>{item.icon}</ListItemIcon> : null}
+                  <ListItemText
+                    slotProps={
+                      !isCheckbox && item.danger ? { primary: { color: 'error' } } : undefined
+                    }
+                  >
+                    {item.label}
+                  </ListItemText>
+                </MuiMenuItem>
+              )
+            })}
+          </MuiMenu>
+        </>
+      )
+    },
+
+    Dialog: ({ open, onClose, title, children, footer, label }) => (
+      <Dialog open={open} onClose={onClose} aria-label={label} fullWidth maxWidth="sm">
+        <DialogTitle>{title}</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+          {children}
+        </DialogContent>
+        <DialogActions>{footer}</DialogActions>
+      </Dialog>
+    ),
+
+    Tooltip: ({ label, children }) => (
+      <MuiTooltip title={label}>
+        <span>{children}</span>
+      </MuiTooltip>
+    ),
+
+    Badge: ({ children, onRemove, removeLabel }) => (
+      <Chip
+        size="small"
+        label={children}
+        onDelete={onRemove}
+        // Chip's delete button has no accessible name by default.
+        deleteIcon={onRemove ? <span aria-label={removeLabel} role="button">×</span> : undefined}
+      />
+    ),
+
+    Skeleton: ({ width }) => <MuiSkeleton variant="text" width={width ?? '80%'} />,
+
+    ProgressBar: ({ label }) => <LinearProgress aria-label={label} />,
+  }
+}
