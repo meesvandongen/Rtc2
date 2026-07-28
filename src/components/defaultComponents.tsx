@@ -393,6 +393,20 @@ function useNativePopoverSync(
 ) {
   const openRef = useRef(isOpen)
   openRef.current = isOpen
+  /**
+   * True between `beforetoggle` and `toggle`, i.e. while the browser is in the
+   * middle of showing or hiding the surface itself.
+   *
+   * `beforetoggle` commits the state synchronously, which runs the reconcile
+   * effect below — at a moment when React thinks the popover is open and the
+   * DOM does not yet agree. Calling `showPopover()` there throws
+   * `InvalidStateError: Invalid to show a popover during another show
+   * operation`, the exception unwinds through the click handler, and the
+   * browser's own show never completes. Chrome tolerated the re-entrant call
+   * until recently, which is the worst kind of bug: correct-looking, and
+   * version-dependent.
+   */
+  const midToggleRef = useRef(false)
 
   // Wire the trigger to the surface declaratively when it is a button; other
   // elements fall back to the click handler on the wrapper.
@@ -420,10 +434,12 @@ function useNativePopoverSync(
     const onBeforeToggle = (event: Event) => {
       const next = (event as ToggleEvent).newState === 'open'
       if (next) surface.style.visibility = 'hidden'
+      midToggleRef.current = true
       if (next !== openRef.current) flushSync(() => setOpen(next))
     }
     // Position once the surface is actually in the top layer and measurable.
     const onToggle = (event: Event) => {
+      midToggleRef.current = false
       const next = (event as ToggleEvent).newState === 'open'
       if (next !== openRef.current) setOpen(next)
       if (next) reposition()
@@ -441,10 +457,16 @@ function useNativePopoverSync(
   // that could not be wired declaratively.
   useEffect(() => {
     const surface = surfaceRef.current
-    if (!surface || !surface.isConnected) return
+    if (!surface || !surface.isConnected || midToggleRef.current) return
     const shown = surface.matches(':popover-open')
-    if (isOpen && !shown) surface.showPopover()
-    else if (!isOpen && shown) surface.hidePopover()
+    // Guarded: the DOM is the source of truth for whether a popover is shown,
+    // and a throw inside an effect takes the whole tree down with it.
+    try {
+      if (isOpen && !shown) surface.showPopover()
+      else if (!isOpen && shown) surface.hidePopover()
+    } catch {
+      /* the browser is mid-transition; the toggle event will resync us */
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen])
 }
@@ -474,10 +496,17 @@ function TriggerSlot({
       }}
       style={{ display: 'contents' }}
       onClickCapture={(event) => {
-        event.stopPropagation()
         // A button trigger is wired to the surface with `popovertarget`, so
-        // the browser has already toggled it; toggling again would undo that.
+        // the browser owns the toggle — including the case a hand-rolled
+        // overlay always gets wrong, where clicking an open popover's trigger
+        // light-dismisses it and then reads the same click as "open again".
+        //
+        // Nothing may be stopped on the way: a button's popover activation
+        // behaviour runs only if the event actually reaches it, so calling
+        // `stopPropagation` here — even in the capture phase, even for an
+        // unrelated reason — silently disables every built-in overlay.
         if (triggerRef.current instanceof HTMLButtonElement) return
+        event.stopPropagation()
         onToggle()
       }}
       aria-haspopup={haspopup}

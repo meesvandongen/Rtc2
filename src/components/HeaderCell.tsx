@@ -3,6 +3,7 @@ import type { RowData } from '@tanstack/react-table'
 import { ColumnActionsMenu } from './ColumnActionsMenu'
 import { ColumnFilterPopover } from './ColumnFilterPopover'
 import { useComponents } from './registry'
+import { isDisplayColumnId } from '../displayColumns'
 import { useDrag } from '../dragContext'
 import { formatMessage } from '../locale'
 import { cx, getColumnLabel } from '../utils'
@@ -73,7 +74,11 @@ export function HeaderCell<TData extends RowData>({
     (options.enableColumnDragging ?? options.enableColumnOrdering ?? false) &&
     !header.isPlaceholder &&
     column.depth === 0
-  const showActions = (options.enableColumnActions ?? false) && !header.isPlaceholder
+  // Display columns — select, expand, row numbers, actions — have nothing to
+  // sort, group, pin or hide, and are sized for one control. Giving them a
+  // menu overflowed a 40px cell.
+  const showActions =
+    (options.enableColumnActions ?? false) && !header.isPlaceholder && !isDisplayColumnId(column.id)
 
   const filterMode = options.filterDisplayMode ?? 'popover'
   const showFilter =

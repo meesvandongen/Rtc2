@@ -281,7 +281,8 @@
 .rtc-root[data-rtc-layout="grid"] .rtc-tr,
 .rtc-root[data-rtc-layout="grid-no-grow"] .rtc-tr {
   display: flex;
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
 }
 
 .rtc-root[data-rtc-layout="grid"] .rtc-th,
@@ -314,9 +315,42 @@
   padding: var(--rtc-cell-padding-y) var(--rtc-cell-padding-x);
   text-align: start;
   vertical-align: middle;
+  background-clip: padding-box;
+}
+
+/* Body cells clip. Their content is data — one long email must not set the
+   width of a column — so they contribute nothing to intrinsic sizing. */
+.rtc-td {
   overflow: hidden;
   text-overflow: ellipsis;
-  background-clip: padding-box;
+}
+
+/* Header cells do not.
+ *
+ * This is the whole of "a column is never narrower than its header": a header
+ * that clips has a min-content width of zero, which is the browser being told
+ * it may squeeze the label to nothing. Stop saying that and `table-layout:
+ * auto` sizes the column to fit the header on its own — no measurement, no
+ * observers, and correct through font loading, translation and density
+ * changes, none of which JavaScript would be notified about.
+ *
+ * `min-width: min-content` covers the grid layout modes, where the cell is a
+ * flex item rather than a table cell and would otherwise still shrink. */
+.rtc-th {
+  min-width: min-content;
+}
+
+/* The opt-out restores clipping, and with it the browser's licence to shrink
+   the column. See `enableHeaderContentFit`. */
+.rtc-root[data-rtc-header-fit="clip"] .rtc-th {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rtc-root[data-rtc-header-fit="clip"] .rtc-th-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .rtc-th[data-rtc-align="center"],
@@ -529,7 +563,6 @@
   align-items: center;
   gap: 4px;
   width: 100%;
-  min-width: 0;
   justify-content: var(--rtc-header-align);
 }
 
@@ -541,9 +574,9 @@
   justify-content: flex-end;
 }
 
+/* `nowrap` without clipping: the label stays on one line and that line's
+   width is what the column has to accommodate. */
 .rtc-th-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 

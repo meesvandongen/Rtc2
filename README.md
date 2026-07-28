@@ -412,15 +412,25 @@ one: a scrollbar is recoverable, a header truncated to `A…` is not. Sizing to
 *body* content is deliberately not the default, since one long cell blows the
 column out.
 
-The measurement is a fixed point rather than a layout calculation. Labels
-already render with `text-overflow: ellipsis`, so the clipped amount is exactly
-`scrollWidth - clientWidth`; adding it to the current width gives the width at
-which nothing is clipped, which drives the clipped amount to zero. It settles
-in one pass, only ever raises, and is released the moment a user resizes the
-column by hand.
+**This is a stylesheet rule, not a measurement pass.** A header truncates
+because something told the browser it may: `overflow: hidden` on the cell gives
+it a min-content width of zero. Body cells still clip — their content is data,
+and one long email address must not set a column's width — but header cells do
+not, and carry `min-width: min-content`. The browser's own table algorithm does
+the rest, and keeps doing it through font swaps, translated labels and density
+changes, none of which JavaScript would reliably hear about.
 
-Set `enableHeaderContentFit={false}` for a table that must fit its container at
-any cost.
+One number still crosses in code, in the `grid` layout modes only. There each
+row is its own flex container, so a header that grows to fit its label grows
+alone and slides out of alignment with the cells beneath it. `subgrid` is the
+real answer — one set of column tracks spanning header and body, sized
+intrinsically — but the virtualized body takes its rows out of flow with
+`position: absolute`, so they would not be grid items. Until that changes, the
+header's `min-content` width is read once per layout change and published to
+the column as a custom property.
+
+Set `enableHeaderContentFit={false}` to restore clipping and let columns shrink
+to whatever the container allows.
 
 ## Server-side data
 

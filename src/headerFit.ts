@@ -4,29 +4,31 @@ import type { RowData } from '@tanstack/react-table'
 import type { DataTableInstance } from './types'
 
 /**
- * Keeps every column at least as wide as its own header.
+ * Mirrors each header's resolved width onto the rest of its column.
  *
- * A header is not just a label: it carries a sort control, a filter funnel and
- * a column menu, and those are fixed-width. Give a column a declared `size` of
- * 90px and turn all three on and the label is squeezed to nothing — the column
- * is unreadable while the table may still have empty space beside it. Sizing
- * columns by their *body* content has the opposite failure (one long cell
- * blows the column out), so the floor is the header alone, which is what AG
- * Grid's header auto-size does and what "size to fit" means in a spreadsheet.
+ * Column widths are a stylesheet concern, and mostly they stay one: `.rtc-th`
+ * declares `min-width: min-content` and does not clip, so in the default
+ * `semantic` layout the browser's own table algorithm makes every column at
+ * least as wide as its header. That needs no code at all, and it stays correct
+ * through font swaps, translated labels and density changes — none of which
+ * JavaScript would reliably hear about.
  *
- * When the floor pushes the total past the viewport the table scrolls
- * horizontally. That is the intended trade: a scrollbar is recoverable, a
- * header truncated to "A…" is not.
+ * The grid layout modes are the exception, and only because of how they are
+ * built. Each row is its own flex container, so a `th` that grows to fit its
+ * label grows *alone* and slides out of alignment with the cells beneath it.
+ * CSS has an answer — `subgrid`, which would let one set of column tracks span
+ * the header and the body and size them intrinsically — but the virtualized
+ * body takes its rows out of flow with `position: absolute`, so they would not
+ * be grid items. Until that changes, one number has to cross from the header
+ * to the body, and this is it.
  *
- * The measurement is a fixed point rather than a layout calculation. Each
- * header's label already renders with `text-overflow: ellipsis`, so the
- * clipped amount is exactly `scrollWidth - clientWidth`; adding it to the
- * cell's current width gives the width at which nothing is clipped. Applying
- * that drives the clipped amount to zero, so the loop settles after one pass
- * and cannot oscillate — it only ever raises.
+ * Note what is *not* happening here: no layout is being recomputed, and no
+ * fixed point is being iterated. CSS has already sized the header; this reads
+ * the result and publishes it as a custom property that `getCellLayoutProps`
+ * puts on every cell in the column.
  */
 
-/** Ignore sub-pixel rounding; anything smaller is not a visible truncation. */
+/** Sub-pixel differences are rounding, not misalignment. */
 const EPSILON = 1
 
 export type HeaderMinSizes = Record<string, number>
@@ -35,39 +37,55 @@ export function useHeaderContentFit<TData extends RowData>(
   table: DataTableInstance<TData>,
   headRef: React.RefObject<HTMLTableSectionElement | null>,
 ) {
-  const enabled = table.dataTableOptions.enableHeaderContentFit ?? true
+  const options = table.dataTableOptions
+  // Semantic tables need no help; the browser already did this.
+  const enabled =
+    (options.enableHeaderContentFit ?? true) && (options.layoutMode ?? 'semantic') !== 'semantic'
   const setMinSizes = table.setHeaderMinSizes
   const appliedRef = useRef<HeaderMinSizes>({})
 
+  /** Re-entry guard: probing mutates styles, which the observer would see. */
+  const probingRef = useRef(false)
+
   const measure = useCallback(() => {
     const head = headRef.current
-    if (!head) return
+    if (!head || probingRef.current) return
+    const next: HeaderMinSizes = {}
     let changed = false
-    const next = { ...appliedRef.current }
 
-    for (const cell of head.querySelectorAll<HTMLElement>('.rtc-th[data-rtc-column-id]')) {
-      const id = cell.dataset.rtcColumnId
-      if (!id) continue
-      const label = cell.querySelector<HTMLElement>('.rtc-th-label')
-      if (!label) continue
-      const clipped = label.scrollWidth - label.clientWidth
-      if (clipped <= EPSILON) continue
-      const needed = Math.ceil(cell.getBoundingClientRect().width + clipped)
-      if (needed > (next[id] ?? 0) + EPSILON) {
-        next[id] = needed
-        changed = true
+    probingRef.current = true
+    try {
+      for (const cell of head.querySelectorAll<HTMLElement>('.rtc-th[data-rtc-column-id]')) {
+        const id = cell.dataset.rtcColumnId
+        // A header spanning several columns says nothing about any one of them.
+        if (!id || (cell as HTMLTableCellElement).colSpan > 1) continue
+
+        // Ask the browser for the cell's `min-content` width rather than
+        // deriving one. The rendered width cannot be used directly: in the
+        // growing grid mode it also contains this column's share of the
+        // leftover space, and freezing that as a floor would ratchet.
+        const inline = cell.style.cssText
+        cell.style.flexGrow = '0'
+        cell.style.width = 'min-content'
+        const floor = Math.ceil(cell.getBoundingClientRect().width)
+        cell.style.cssText = inline
+
+        if (floor <= 0) continue
+        next[id] = floor
+        if (Math.abs(floor - (appliedRef.current[id] ?? 0)) > EPSILON) changed = true
       }
+    } finally {
+      probingRef.current = false
     }
 
-    if (!changed) return
+    if (!changed && Object.keys(next).length === Object.keys(appliedRef.current).length) return
     appliedRef.current = next
     setMinSizes(next)
   }, [headRef, setMinSizes])
 
-  // Column sizing, visibility, density and the enable* flags all change what
-  // the header holds, and the browser's own font loading changes how wide it
-  // is; a ResizeObserver on the header covers every one of them without the
-  // hook having to enumerate them.
+  // Column visibility, density, ordering, the enable* flags and web-font
+  // loading all change how wide a header wants to be. Observing the header
+  // covers every one of them without enumerating any.
   useEffect(() => {
     if (!enabled) return
     const head = headRef.current
@@ -80,24 +98,6 @@ export function useHeaderContentFit<TData extends RowData>(
     return () => observer.disconnect()
   }, [enabled, measure, headRef])
 
-  // A column the user has resized by hand is theirs; drop the floor so the
-  // handle is not fighting a minimum it cannot see.
-  const sizingSignal = JSON.stringify(table.state.columnSizing)
-  useEffect(() => {
-    const sizing = table.state.columnSizing
-    const kept: HeaderMinSizes = {}
-    let changed = false
-    for (const [id, value] of Object.entries(appliedRef.current)) {
-      if (sizing[id] !== undefined) changed = true
-      else kept[id] = value
-    }
-    if (!changed) return
-    appliedRef.current = kept
-    setMinSizes(kept)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sizingSignal])
-
-  // Turning the behaviour off has to release any floor already applied.
   useEffect(() => {
     if (enabled || Object.keys(appliedRef.current).length === 0) return
     appliedRef.current = {}

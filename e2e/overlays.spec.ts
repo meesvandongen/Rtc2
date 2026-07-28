@@ -86,6 +86,48 @@ async function visualOverflow(scope: Locator): Promise<Array<{ el: string; by: n
   })
 }
 
+/**
+ * Headers whose content does not fit the cell.
+ *
+ * Measures the cell, not just the label: a header also holds a sort control, a
+ * filter funnel and a column menu, and the cell overflowing is the same defect
+ * whichever part of it is cut off.
+ */
+function headerOverflow(root: Element): string[] {
+  const out: string[] = []
+  for (const cell of root.querySelectorAll<HTMLElement>('thead th')) {
+    const label = cell.querySelector('.rtc-th-label')
+    const over = Math.max(
+      label ? label.scrollWidth - label.clientWidth : 0,
+      cell.scrollWidth - cell.clientWidth,
+    )
+    if (over > 1) out.push(`${cell.dataset.rtcColumnId ?? '?'} +${Math.round(over)}px`)
+  }
+  return out
+}
+
+/**
+ * The largest gap between a leaf header and the body cell below it.
+ *
+ * Any floor applied to a header has to reach the rest of its column, or the
+ * fix for truncation becomes a worse bug than the truncation.
+ */
+function columnMisalignment(root: Element): number {
+  const rows = root.querySelectorAll('thead tr')
+  const headers = (rows[rows.length - 1] ?? root).querySelectorAll('th[data-rtc-column-id]')
+  const cells = root.querySelectorAll('tbody tr:first-child td[data-rtc-column-id]')
+  let worst = 0
+  headers.forEach((header, index) => {
+    const cell = cells[index]
+    if (!cell) return
+    worst = Math.max(
+      worst,
+      Math.abs(header.getBoundingClientRect().left - cell.getBoundingClientRect().left),
+    )
+  })
+  return Math.round(worst)
+}
+
 for (const [adapter, storyId] of Object.entries(ADAPTERS)) {
   test.describe(`overlays: ${adapter}`, () => {
     /**
@@ -166,24 +208,25 @@ for (const [adapter, storyId] of Object.entries(ADAPTERS)) {
       expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth + 1)
     })
 
-    test('no header label is truncated', async ({ page }) => {
+    test('no header is truncated, at any width', async ({ page }) => {
       const root = await openStory(page, storyId)
-      // Let the header-fit pass settle before measuring.
-      await expect
-        .poll(async () =>
-          root.locator('thead th[data-rtc-column-id]').evaluateAll((cells) =>
-            cells
-              .map((cell) => {
-                const label = cell.querySelector('.rtc-th-label')
-                return {
-                  id: (cell as HTMLElement).dataset.rtcColumnId,
-                  clipped: label ? label.scrollWidth - label.clientWidth : 0,
-                }
-              })
-              .filter((entry) => entry.clipped > 1),
-          ),
-        )
-        .toEqual([])
+
+      // Narrow viewports are where a column gets squeezed, so the assertion is
+      // worthless at one comfortable width.
+      for (const width of [1280, 1000, 800]) {
+        await page.setViewportSize({ width, height: 700 })
+        await expect
+          .poll(async () => root.evaluate(headerOverflow), { timeout: 8_000 })
+          .toEqual([])
+      }
+    })
+
+    test('header and body columns stay aligned', async ({ page }) => {
+      const root = await openStory(page, storyId)
+      for (const width of [1280, 900]) {
+        await page.setViewportSize({ width, height: 700 })
+        await expect.poll(async () => root.evaluate(columnMisalignment)).toBeLessThanOrEqual(1)
+      }
     })
   })
 }
