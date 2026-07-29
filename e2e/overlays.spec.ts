@@ -128,6 +128,29 @@ function columnMisalignment(root: Element): number {
   return Math.round(worst)
 }
 
+/**
+ * Classes only the built-in primitives put on themselves.
+ *
+ * Structural hooks the table passes through `className` — `rtc-th-sort`,
+ * `rtc-page-button`, `rtc-filter-operator` — are deliberately absent: those
+ * land on whatever the host rendered and are legitimate everywhere. These are
+ * the ones that mean "this control is ours", and in an adapted table there
+ * should be none, whether because a control was rendered raw instead of
+ * through the registry or because an override was missed.
+ */
+const BUILT_IN_PRIMITIVES = [
+  '.rtc-button',
+  '.rtc-icon-button',
+  '.rtc-input',
+  '.rtc-select',
+  '.rtc-checkbox',
+  '.rtc-switch',
+  '.rtc-slider',
+  '.rtc-chip',
+  '.rtc-skeleton',
+  '.rtc-progress',
+]
+
 for (const [adapter, storyId] of Object.entries(ADAPTERS)) {
   test.describe(`overlays: ${adapter}`, () => {
     /**
@@ -219,6 +242,30 @@ for (const [adapter, storyId] of Object.entries(ADAPTERS)) {
           .poll(async () => root.evaluate(headerOverflow), { timeout: 8_000 })
           .toEqual([])
       }
+    })
+
+    /**
+     * Half-and-half chrome is the failure this catches: a header whose sort
+     * control is ours and whose filter and menu buttons are the host's, or a
+     * design-system checkbox wrapped in a pill we drew. Every interactive
+     * control has to come from the registry, including the ones that are
+     * easy to write as a plain `<button>`.
+     */
+    test('renders no built-in primitives', async ({ page }) => {
+      test.skip(adapter === 'built-in', 'the built-in story is the primitives')
+      const root = await openStory(page, storyId)
+
+      // Open one of each overlay first: their contents mount lazily, and a
+      // stray primitive inside a menu counts just as much.
+      await header(root, 'department').locator('.rtc-filter-trigger').click()
+      await expect(anyOverlay(page).first()).toBeVisible()
+
+      const found = await page.evaluate(
+        (selectors) =>
+          selectors.filter((selector) => document.querySelector(selector) !== null),
+        BUILT_IN_PRIMITIVES,
+      )
+      expect(found).toEqual([])
     })
 
     test('header and body columns stay aligned', async ({ page }) => {

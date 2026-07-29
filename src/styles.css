@@ -580,24 +580,48 @@
   white-space: nowrap;
 }
 
-.rtc-th-sort {
+/* Geometry and typography only.
+ *
+ * `rtc-th-sort`, `rtc-page-button` and `rtc-filter-operator` are passed as
+ * `className` to registry components, so they land on whatever the host's
+ * design system rendered. Chrome — background, border, radius, shadow —
+ * belongs to that design system and is set on `.rtc-button.<class>`, which
+ * only ever matches the built-in primitive. Get that wrong and a MUI table
+ * grows a header button styled half by MUI and half by us.
+ *
+ * Typography is the exception, and deliberately so. A header label is content,
+ * not the caption of a button: MUI's text button would render it uppercase and
+ * primary-blue, overruling `--rtc-header-font-*`, which exist precisely to
+ * control how headers read. The library still supplies the shape, the hover
+ * and the focus ring.
+ *
+ * The long selector is for specificity, not reach. It has to outrank both a
+ * design system that injects its styles at runtime — landing them after this
+ * stylesheet, so a single class ties and loses on order — and our own
+ * `.rtc-button[data-rtc-variant="quiet"]`, which paints its label with the
+ * accent colour. */
+.rtc-th .rtc-th-content .rtc-th-sort {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 4px;
-  margin-inline-start: -4px;
   min-width: 0;
+  max-width: 100%;
   color: inherit;
   font: inherit;
   text-transform: inherit;
   letter-spacing: inherit;
+}
+
+.rtc-button.rtc-th-sort {
+  height: auto;
+  padding: 2px 4px;
+  margin-inline-start: -4px;
   background: none;
   border: 0;
   border-radius: var(--rtc-radius-sm);
-  cursor: pointer;
 }
 
-.rtc-th-sort:hover {
+.rtc-button.rtc-th-sort:hover {
   background: var(--rtc-row-bg-hover);
 }
 
@@ -1155,6 +1179,10 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  /* On the content, not the surface: an adapter's popover sizes to what we
+     put inside it, so a minimum set on the built-in surface alone would leave
+     every other library's filter popover cramped. */
+  min-width: 220px;
 }
 
 .rtc-filter-popover-header {
@@ -1176,9 +1204,9 @@
 /* The operator picker is the one control in a filter that opens something
    else, so it reads as a chip with a disclosure rather than as body text —
    the previous flat link gave no sign it was interactive. */
-/* Doubled selector to outrank `.rtc-button[data-rtc-variant="quiet"]`, which
-   is one attribute selector more specific than a bare class. */
-.rtc-filter-operator.rtc-filter-operator {
+/* `.rtc-button` both scopes this to the built-in primitive and outranks
+   `.rtc-button[data-rtc-variant="quiet"]`. */
+.rtc-button.rtc-filter-operator {
   gap: 4px;
   padding-inline: 8px;
   color: var(--rtc-color-text-muted);
@@ -1189,7 +1217,7 @@
   border-radius: var(--rtc-radius-pill);
 }
 
-.rtc-filter-operator.rtc-filter-operator:hover:not(:disabled) {
+.rtc-button.rtc-filter-operator:hover:not(:disabled) {
   color: var(--rtc-color-text);
   background: var(--rtc-row-bg-hover);
 }
@@ -1200,10 +1228,8 @@
   opacity: 0.7;
 }
 
-.rtc-th[data-rtc-filtered="true"] .rtc-filter-trigger {
-  color: var(--rtc-color-accent);
-  opacity: 1;
-}
+/* The `active` prop already tells the host's icon button it is in a filtered
+   state; repainting it from here would fight whatever the library does. */
 
 .rtc-filter-range {
   display: flex;
@@ -1288,22 +1314,23 @@
   overflow-y: auto;
 }
 
+/* A checkbox and its text, nothing more.
+ *
+ * This used to be a pill with its own border, background and checked colour,
+ * wrapped around whatever checkbox the host's design system supplies — an MUI
+ * checkbox sitting inside our chrome. The checkbox already expresses checked;
+ * the label only has to lay it out. */
 .rtc-filter-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 2px 8px;
+  padding: 2px 0;
   font-size: var(--rtc-font-size-sm);
-  background: var(--rtc-color-surface);
-  border: var(--rtc-border-width) solid var(--rtc-color-border);
-  border-radius: var(--rtc-radius-pill);
   cursor: pointer;
 }
 
 .rtc-filter-chip[data-rtc-active="true"] {
   color: var(--rtc-color-accent);
-  background: var(--rtc-color-accent-subtle);
-  border-color: var(--rtc-color-accent);
 }
 
 /* Active-filter chips in the toolbar. With the editors behind popovers these
@@ -1462,7 +1489,14 @@
 .rtc-pagination-group {
   display: flex;
   align-items: center;
+  flex: 0 0 auto;
   gap: 4px;
+}
+
+/* "Rows per page" is three words and will wrap to three lines the moment the
+   toolbar is tight, which reads as broken rather than as responsive. */
+.rtc-pagination .rtc-group-count {
+  white-space: nowrap;
 }
 
 .rtc-pagination .rtc-select {
@@ -1472,25 +1506,17 @@
 
 .rtc-page-button {
   min-width: 28px;
+}
+
+.rtc-button.rtc-page-button {
   height: 28px;
   padding: 0 6px;
-  color: var(--rtc-color-text);
-  font: inherit;
   font-size: var(--rtc-font-size-sm);
-  background: none;
-  border: var(--rtc-border-width) solid transparent;
   border-radius: var(--rtc-radius-sm);
-  cursor: pointer;
 }
 
-.rtc-page-button:hover:not(:disabled) {
+.rtc-button.rtc-page-button:hover:not(:disabled) {
   background: var(--rtc-row-bg-hover);
-}
-
-.rtc-page-button[data-rtc-active="true"] {
-  color: var(--rtc-color-accent-contrast);
-  background: var(--rtc-color-accent);
-  border-color: var(--rtc-color-accent);
 }
 
 /* ------------------------------------------------------------- states ---- */

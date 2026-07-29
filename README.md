@@ -171,6 +171,37 @@ reason, and it is what actually enforces the rule. A new adapter has to pass
 it, along with the geometry checks that no control overflows its filter field
 and no header truncates its own label.
 
+### Nothing half-styled
+
+Two rules keep an adapted table from ending up half its design system and half
+ours, and both are enforced by the same suite:
+
+**Every interactive control goes through the registry** — including the ones
+that are easy to write as a plain `<button>`. The header's sort control and the
+pagination page numbers used to be raw elements, so a MUI table had MUI icon
+buttons sitting beside our own. The test asserts that no built-in primitive
+class (`rtc-button`, `rtc-input`, `rtc-select`, …) survives anywhere in an
+adapted table; the only way to satisfy it is to route everything through the
+registry and override everything in the adapter. Radix has no text input or
+select of its own, and the adapter styles plain elements rather than falling
+back to ours — otherwise the filter panel is half shadcn.
+
+**The stylesheet may only style what the table itself renders.** Class names
+passed to registry components — `rtc-th-sort`, `rtc-page-button`,
+`rtc-filter-operator` — land on whatever the host rendered, so rules on those
+bare classes are limited to geometry. Chrome (background, border, radius,
+shadow) goes on `.rtc-button.<class>`, which only matches the built-in
+primitive. Typography is the deliberate exception for header labels: a header
+is content, not a button caption, and MUI's text button would otherwise render
+it uppercase and primary-blue, overruling the `--rtc-header-*` variables that
+exist to control exactly that.
+
+One consequence worth knowing if you write an adapter: **anything portalled
+needs the `rtc-vars` class**. Radix and Ant render overlays into
+`document.body`, outside the table, where `--rtc-*` is not defined — an
+adapter stylesheet written against those variables produces a menu with no
+background at all.
+
 ### The built-in overlays
 
 The defaults use the platform's [Popover

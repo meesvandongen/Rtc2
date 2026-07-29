@@ -54,9 +54,11 @@ function toAntItems(items: RtcMenuItem[]): NonNullable<MenuProps['items']> {
           // state so the semantics match the other adapters.
           role={isCheckbox ? 'menuitemcheckbox' : undefined}
           aria-checked={isCheckbox ? item.checked : undefined}
+          // Ant's own token, not the table's: this markup is portalled outside
+          // the table, where `--rtc-*` is not defined.
           style={
             (isCheckbox ? item.checked : item.active)
-              ? { color: 'var(--rtc-color-accent)', fontWeight: 600 }
+              ? { color: 'var(--ant-color-primary)', fontWeight: 600 }
               : undefined
           }
         >
@@ -119,7 +121,9 @@ export function createAntComponents(defaults: DataTableComponents): DataTableCom
         className={className}
         size={size === 'sm' ? 'small' : 'middle'}
         // Ant's `type` is the visual variant; the HTML one is `htmlType`.
-        type={variant === 'primary' ? 'primary' : variant === 'quiet' ? 'link' : 'default'}
+        // `quiet` is a de-emphasised button, not a link: `type="link"` paints
+        // header controls and filter operators Ant's link blue.
+        type={variant === 'primary' ? 'primary' : variant === 'quiet' ? 'text' : 'default'}
         htmlType={type ?? 'button'}
         disabled={disabled}
         onClick={onClick}

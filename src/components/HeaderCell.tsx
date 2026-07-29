@@ -131,20 +131,14 @@ export function HeaderCell<TData extends RowData>({
           ) : null}
 
           {canSort ? (
-            <button
-              type="button"
+            // Through the registry, not a raw `<button>`: it sits beside the
+            // filter and column-menu buttons, and a header whose controls come
+            // half from the host's design system and half from ours reads as a
+            // rendering bug.
+            <ui.Button
+              variant="quiet"
               className="rtc-th-sort"
-              onClick={column.getToggleSortingHandler()}
-              title={
-                sorted
-                  ? formatMessage(
-                      sorted === 'asc'
-                        ? localization.sortedByColumnAsc
-                        : localization.sortedByColumnDesc,
-                      { column: label },
-                    )
-                  : formatMessage(localization.sortByColumnAsc, { column: label })
-              }
+              onClick={column.getToggleSortingHandler() as (event: React.MouseEvent) => void}
             >
               <span className="rtc-th-label">
                 <table.FlexRender header={header} />
@@ -155,7 +149,7 @@ export function HeaderCell<TData extends RowData>({
                 />
                 {sortIndex > 0 ? <span className="rtc-sort-index">{sortIndex + 1}</span> : null}
               </span>
-            </button>
+            </ui.Button>
           ) : (
             <span className="rtc-th-label">
               <table.FlexRender header={header} />
