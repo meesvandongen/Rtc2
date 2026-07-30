@@ -9,7 +9,11 @@
  * or spreadsheet-style table.
  */
 
-.rtc-root {
+/* The variable block is separate from the table's own layout so that a surface
+   rendered outside `<DataTable>` — the standalone filter panel, a menu in the
+   top layer — can opt into the same theme with `rtc-vars` alone. */
+.rtc-root,
+.rtc-vars {
   /* ---------------------------------------------------------- palette ---- */
   --rtc-color-surface: #ffffff;
   --rtc-color-surface-sunken: #f8fafc;
@@ -49,6 +53,7 @@
   /* ---------------------------------------------------------- metrics ---- */
   --rtc-radius: 8px;
   --rtc-radius-sm: 5px;
+  --rtc-radius-lg: 12px;
   --rtc-radius-pill: 999px;
   --rtc-border-width: 1px;
   --rtc-cell-padding-x: 12px;
@@ -97,15 +102,18 @@
   /* Set by the component; not intended as user overrides. */
   --rtc-total-width: auto;
 
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
   color: var(--rtc-color-text);
   font-family: var(--rtc-font-family);
   font-size: var(--rtc-font-size);
   font-weight: var(--rtc-font-weight);
   line-height: var(--rtc-line-height);
+}
+
+.rtc-root {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   background: var(--rtc-color-surface);
   border: var(--rtc-border-width) solid var(--rtc-color-border);
   border-radius: var(--rtc-radius);
@@ -114,7 +122,10 @@
 
 .rtc-root *,
 .rtc-root *::before,
-.rtc-root *::after {
+.rtc-root *::after,
+.rtc-vars *,
+.rtc-vars *::before,
+.rtc-vars *::after {
   box-sizing: border-box;
 }
 
@@ -125,7 +136,8 @@
    `[data-rtc-theme="light"]` on the root or any ancestor wins over the OS. */
 
 @media (prefers-color-scheme: dark) {
-  .rtc-root:not([data-rtc-theme="light"]):not([data-rtc-theme="light"] *) {
+  .rtc-root:not([data-rtc-theme="light"]):not([data-rtc-theme="light"] *),
+  .rtc-vars:not([data-rtc-theme="light"]):not([data-rtc-theme="light"] *) {
     --rtc-color-surface: #0f172a;
     --rtc-color-surface-sunken: #131f36;
     --rtc-color-surface-raised: #1a2740;
@@ -151,7 +163,9 @@
 }
 
 .rtc-root[data-rtc-theme="dark"],
-[data-rtc-theme="dark"] .rtc-root:not([data-rtc-theme="light"]) {
+.rtc-vars[data-rtc-theme="dark"],
+[data-rtc-theme="dark"] .rtc-root:not([data-rtc-theme="light"]),
+[data-rtc-theme="dark"] .rtc-vars:not([data-rtc-theme="light"]) {
   --rtc-color-surface: #0f172a;
   --rtc-color-surface-sunken: #131f36;
   --rtc-color-surface-raised: #1a2740;
@@ -267,7 +281,8 @@
 .rtc-root[data-rtc-layout="grid"] .rtc-tr,
 .rtc-root[data-rtc-layout="grid-no-grow"] .rtc-tr {
   display: flex;
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
 }
 
 .rtc-root[data-rtc-layout="grid"] .rtc-th,
@@ -278,6 +293,9 @@
   align-items: center;
   flex: 0 0 auto;
   width: var(--rtc-col-size);
+  /* Set from the header's measured content by `enableHeaderContentFit`, and
+     applied to body and footer cells too so the columns stay aligned. */
+  min-width: var(--rtc-col-min-size, 0);
 }
 
 .rtc-root[data-rtc-layout="grid"] .rtc-th[data-rtc-grow="true"],
@@ -297,9 +315,42 @@
   padding: var(--rtc-cell-padding-y) var(--rtc-cell-padding-x);
   text-align: start;
   vertical-align: middle;
+  background-clip: padding-box;
+}
+
+/* Body cells clip. Their content is data — one long email must not set the
+   width of a column — so they contribute nothing to intrinsic sizing. */
+.rtc-td {
   overflow: hidden;
   text-overflow: ellipsis;
-  background-clip: padding-box;
+}
+
+/* Header cells do not.
+ *
+ * This is the whole of "a column is never narrower than its header": a header
+ * that clips has a min-content width of zero, which is the browser being told
+ * it may squeeze the label to nothing. Stop saying that and `table-layout:
+ * auto` sizes the column to fit the header on its own — no measurement, no
+ * observers, and correct through font loading, translation and density
+ * changes, none of which JavaScript would be notified about.
+ *
+ * `min-width: min-content` covers the grid layout modes, where the cell is a
+ * flex item rather than a table cell and would otherwise still shrink. */
+.rtc-th {
+  min-width: min-content;
+}
+
+/* The opt-out restores clipping, and with it the browser's licence to shrink
+   the column. See `enableHeaderContentFit`. */
+.rtc-root[data-rtc-header-fit="clip"] .rtc-th {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rtc-root[data-rtc-header-fit="clip"] .rtc-th-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .rtc-th[data-rtc-align="center"],
@@ -395,10 +446,15 @@
   box-shadow: inset 0 2px 0 0 var(--rtc-color-accent);
 }
 
+/* The fallback is load-bearing, not defensive noise. Icons travel into menus
+   and popovers that design systems portal to `document.body`, outside the
+   element declaring `--rtc-icon-size`; an unresolved `var()` on `width` makes
+   the property invalid, and an SVG with no width falls back to its intrinsic
+   size — which is how a 16px glyph becomes a 300px one in a dropdown. */
 .rtc-icon {
   flex: 0 0 auto;
-  width: var(--rtc-icon-size);
-  height: var(--rtc-icon-size);
+  width: var(--rtc-icon-size, 16px);
+  height: var(--rtc-icon-size, 16px);
 }
 
 /* ------------------------------------------------------------- sticky ---- */
@@ -480,6 +536,13 @@
 
 /* -------------------------------------------------------- cell select ---- */
 
+/* Dragging out a range must not also drag out a text selection. A table whose
+   cells are selectable *as cells* behaves like a spreadsheet, where a drag
+   picks cells and nothing else. */
+.rtc-root[data-rtc-cell-selection="true"] .rtc-tbody {
+  user-select: none;
+}
+
 .rtc-td[data-rtc-cell-selected="true"] {
   background: var(--rtc-cell-bg-selected);
 }
@@ -489,20 +552,38 @@
   outline-offset: -2px;
 }
 
+/* The range outline is drawn by an overlay rather than by borders on the cell.
+   A border participates in layout: adding one to the top row of a selection
+   made those cells 1px taller and shunted every column beside them, so the
+   outline appeared to break up as the selection moved. The overlay sits above
+   the cell's own background, costs no space, and — because each edge is an
+   independent custom property — the four sides compose into one rectangle
+   around the range instead of a box around every cell. */
 .rtc-td[data-rtc-cell-edge-top="true"] {
-  border-top: 1px solid var(--rtc-color-accent);
+  --rtc-cell-edge-block-start: 1px;
 }
 
 .rtc-td[data-rtc-cell-edge-bottom="true"] {
-  border-bottom: 1px solid var(--rtc-color-accent);
+  --rtc-cell-edge-block-end: 1px;
 }
 
 .rtc-td[data-rtc-cell-edge-left="true"] {
-  border-inline-start: 1px solid var(--rtc-color-accent);
+  --rtc-cell-edge-inline-start: 1px;
 }
 
 .rtc-td[data-rtc-cell-edge-right="true"] {
-  border-inline-end: 1px solid var(--rtc-color-accent);
+  --rtc-cell-edge-inline-end: 1px;
+}
+
+.rtc-td[data-rtc-cell-selected="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-block-start: var(--rtc-cell-edge-block-start, 0) solid var(--rtc-color-accent);
+  border-block-end: var(--rtc-cell-edge-block-end, 0) solid var(--rtc-color-accent);
+  border-inline-start: var(--rtc-cell-edge-inline-start, 0) solid var(--rtc-color-accent);
+  border-inline-end: var(--rtc-cell-edge-inline-end, 0) solid var(--rtc-color-accent);
 }
 
 /* ------------------------------------------------------- header layout --- */
@@ -512,7 +593,6 @@
   align-items: center;
   gap: 4px;
   width: 100%;
-  min-width: 0;
   justify-content: var(--rtc-header-align);
 }
 
@@ -524,36 +604,68 @@
   justify-content: flex-end;
 }
 
+/* `nowrap` without clipping: the label stays on one line and that line's
+   width is what the column has to accommodate. */
 .rtc-th-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.rtc-th-sort {
+/* Geometry and typography only.
+ *
+ * `rtc-th-sort`, `rtc-page-button` and `rtc-filter-operator` are passed as
+ * `className` to registry components, so they land on whatever the host's
+ * design system rendered. Chrome — background, border, radius, shadow —
+ * belongs to that design system and is set on `.rtc-button.<class>`, which
+ * only ever matches the built-in primitive. Get that wrong and a MUI table
+ * grows a header button styled half by MUI and half by us.
+ *
+ * Typography is the exception, and deliberately so. A header label is content,
+ * not the caption of a button: MUI's text button would render it uppercase and
+ * primary-blue, overruling `--rtc-header-font-*`, which exist precisely to
+ * control how headers read. The library still supplies the shape, the hover
+ * and the focus ring.
+ *
+ * The long selector is for specificity, not reach. It has to outrank both a
+ * design system that injects its styles at runtime — landing them after this
+ * stylesheet, so a single class ties and loses on order — and our own
+ * `.rtc-button[data-rtc-variant="quiet"]`, which paints its label with the
+ * accent colour. */
+.rtc-th .rtc-th-content .rtc-th-sort {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 4px;
-  margin-inline-start: -4px;
   min-width: 0;
+  max-width: 100%;
   color: inherit;
   font: inherit;
   text-transform: inherit;
   letter-spacing: inherit;
+}
+
+.rtc-button.rtc-th-sort {
+  height: auto;
+  padding: 2px 4px;
+  margin-inline-start: -4px;
   background: none;
   border: 0;
   border-radius: var(--rtc-radius-sm);
-  cursor: pointer;
 }
 
-.rtc-th-sort:hover {
+.rtc-button.rtc-th-sort:hover {
   background: var(--rtc-row-bg-hover);
 }
 
+/* Reserves the icon's box whether or not the glyph is showing, so revealing
+   the indicator on hover does not shift the header label sideways. */
 .rtc-sort-indicator {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: var(--rtc-icon-size);
+  height: var(--rtc-icon-size);
+  line-height: 0;
   color: var(--rtc-color-text-muted);
   opacity: 0;
   transition: opacity var(--rtc-transition);
@@ -881,21 +993,54 @@
   inset-inline-end: 2px;
 }
 
-/* --------------------------------------------------------------- menu ---- */
+/* ------------------------------------------------------------ overlays ---- */
 
-.rtc-menu {
+/* Menus and popovers are native `[popover]` elements, so they render in the
+   top layer: no portal, no z-index, and no clipping by the table's scroll
+   containers. The UA stylesheet centres a popover with `inset: 0; margin:
+   auto` and gives it a 1px solid border and 0.25em padding — all of which has
+   to be undone before the anchored position below can take effect. */
+.rtc-surface {
   position: fixed;
-  z-index: 1300;
-  min-width: 200px;
-  max-width: 320px;
-  max-height: min(60vh, 420px);
-  padding: 4px;
+  inset: auto;
+  width: max-content;
+  max-width: min(360px, calc(100vw - 16px));
+  max-height: min(60vh, 460px);
+  margin: 0;
+  padding: 0;
   overflow: auto;
+  overscroll-behavior: contain;
   color: var(--rtc-color-text);
+  font-family: var(--rtc-font-family);
+  font-size: var(--rtc-font-size);
   background: var(--rtc-color-surface-raised);
   border: var(--rtc-border-width) solid var(--rtc-color-border);
-  border-radius: var(--rtc-radius);
+  border-radius: var(--rtc-radius-lg);
   box-shadow: var(--rtc-shadow-menu);
+}
+
+.rtc-surface:not(:popover-open) {
+  display: none;
+}
+
+/* A short, transform-free entry: overlays are anchored by inline `top`/`left`,
+   so animating position would fight the measurement. */
+@media (prefers-reduced-motion: no-preference) {
+  .rtc-surface:popover-open {
+    animation: rtc-surface-in 120ms ease-out;
+  }
+}
+
+@keyframes rtc-surface-in {
+  from {
+    opacity: 0;
+    translate: 0 -2px;
+  }
+}
+
+.rtc-menu {
+  min-width: 200px;
+  padding: 4px;
 }
 
 .rtc-menu-item {
@@ -964,6 +1109,7 @@
 
 .rtc-popover {
   padding: 12px;
+  min-width: 240px;
 }
 
 /* ------------------------------------------------------------ filters ---- */
@@ -1062,7 +1208,10 @@
 .rtc-filter-popover {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+  /* On the content, not the surface: an adapter's popover sizes to what we
+     put inside it, so a minimum set on the built-in surface alone would leave
+     every other library's filter popover cramped. */
   min-width: 220px;
 }
 
@@ -1070,22 +1219,78 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: var(--rtc-border-width) solid var(--rtc-color-border);
+}
+
+.rtc-filter-popover-header .rtc-filter-field-label {
+  font-weight: 600;
 }
 
 .rtc-filter-popover-header .rtc-button {
   margin-inline-start: auto;
 }
 
-.rtc-th[data-rtc-filtered="true"] .rtc-filter-trigger {
-  color: var(--rtc-color-accent);
-  opacity: 1;
+/* The operator picker is the one control in a filter that opens something
+   else, so it reads as a chip with a disclosure rather than as body text —
+   the previous flat link gave no sign it was interactive. */
+/* `.rtc-button` both scopes this to the built-in primitive and outranks
+   `.rtc-button[data-rtc-variant="quiet"]`. */
+.rtc-button.rtc-filter-operator {
+  gap: 4px;
+  padding-inline: 8px;
+  color: var(--rtc-color-text-muted);
+  font-size: var(--rtc-font-size-sm);
+  font-weight: 500;
+  background: var(--rtc-color-surface-sunken);
+  border: var(--rtc-border-width) solid var(--rtc-color-border);
+  border-radius: var(--rtc-radius-pill);
 }
+
+.rtc-button.rtc-filter-operator:hover:not(:disabled) {
+  color: var(--rtc-color-text);
+  background: var(--rtc-row-bg-hover);
+}
+
+.rtc-filter-operator .rtc-icon {
+  --rtc-icon-size: 12px;
+
+  opacity: 0.7;
+}
+
+/* The `active` prop already tells the host's icon button it is in a filtered
+   state; repainting it from here would fight whatever the library does. */
 
 .rtc-filter-range {
   display: flex;
   align-items: center;
   gap: 6px;
   width: 100%;
+  min-width: 0;
+}
+
+/* A flex item defaults to `min-width: auto`, so a control with an intrinsic
+   minimum — an Ant `InputNumber`, a MUI `TextField` — refuses to shrink and
+   pushes its sibling out of the field. Filter editors come from whatever
+   design system the host installed, so the containment is enforced here
+   rather than trusted to each adapter. */
+.rtc-filter-range > * {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.rtc-filter-field,
+.rtc-filter-conditions,
+.rtc-filter-condition,
+.rtc-filter-popover {
+  min-width: 0;
+}
+
+.rtc-filter-field > *,
+.rtc-filter-condition > *,
+.rtc-filter-popover > * {
+  max-width: 100%;
+  min-width: 0;
 }
 
 /* Operands that need their inputs on separate lines — date ranges, radius
@@ -1095,6 +1300,12 @@
   flex-direction: column;
   gap: 6px;
   width: 100%;
+  min-width: 0;
+}
+
+.rtc-filter-stack > * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .rtc-filter-conditions {
@@ -1133,22 +1344,23 @@
   overflow-y: auto;
 }
 
+/* A checkbox and its text, nothing more.
+ *
+ * This used to be a pill with its own border, background and checked colour,
+ * wrapped around whatever checkbox the host's design system supplies — an MUI
+ * checkbox sitting inside our chrome. The checkbox already expresses checked;
+ * the label only has to lay it out. */
 .rtc-filter-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 2px 8px;
+  padding: 2px 0;
   font-size: var(--rtc-font-size-sm);
-  background: var(--rtc-color-surface);
-  border: var(--rtc-border-width) solid var(--rtc-color-border);
-  border-radius: var(--rtc-radius-pill);
   cursor: pointer;
 }
 
 .rtc-filter-chip[data-rtc-active="true"] {
   color: var(--rtc-color-accent);
-  background: var(--rtc-color-accent-subtle);
-  border-color: var(--rtc-color-accent);
 }
 
 /* Active-filter chips in the toolbar. With the editors behind popovers these
@@ -1307,7 +1519,14 @@
 .rtc-pagination-group {
   display: flex;
   align-items: center;
+  flex: 0 0 auto;
   gap: 4px;
+}
+
+/* "Rows per page" is three words and will wrap to three lines the moment the
+   toolbar is tight, which reads as broken rather than as responsive. */
+.rtc-pagination .rtc-group-count {
+  white-space: nowrap;
 }
 
 .rtc-pagination .rtc-select {
@@ -1317,25 +1536,17 @@
 
 .rtc-page-button {
   min-width: 28px;
+}
+
+.rtc-button.rtc-page-button {
   height: 28px;
   padding: 0 6px;
-  color: var(--rtc-color-text);
-  font: inherit;
   font-size: var(--rtc-font-size-sm);
-  background: none;
-  border: var(--rtc-border-width) solid transparent;
   border-radius: var(--rtc-radius-sm);
-  cursor: pointer;
 }
 
-.rtc-page-button:hover:not(:disabled) {
+.rtc-button.rtc-page-button:hover:not(:disabled) {
   background: var(--rtc-row-bg-hover);
-}
-
-.rtc-page-button[data-rtc-active="true"] {
-  color: var(--rtc-color-accent-contrast);
-  background: var(--rtc-color-accent);
-  border-color: var(--rtc-color-accent);
 }
 
 /* ------------------------------------------------------------- states ---- */

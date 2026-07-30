@@ -24,9 +24,12 @@ export default defineConfig({
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
-        // Honour a pre-provisioned browser when the environment supplies one
-        // (CI images often pin their own Chromium build); otherwise fall back
-        // to the download Playwright manages itself.
+        // Honour a pre-provisioned browser when the environment supplies one;
+        // otherwise use the build Playwright manages, which is what CI runs.
+        //
+        // Set this only when a download is genuinely unavailable. Pointing it
+        // at an older Chromium once hid a popover bug for a whole review
+        // cycle: the suite was green locally and 24 tests failed in CI.
         ...(process.env.CHROMIUM_PATH ? { launchOptions: { executablePath: process.env.CHROMIUM_PATH } } : {}),
       },
     },

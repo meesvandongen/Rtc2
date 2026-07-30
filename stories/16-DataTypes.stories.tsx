@@ -9,7 +9,7 @@ import {
   type ColumnDataType,
   type DataTableColumn,
 } from '../src'
-import { currency, makePeople, type Person } from './fixtures'
+import { currency, makePeople, timestamp, type Person } from './fixtures'
 
 const data = makePeople(200)
 
@@ -71,14 +71,14 @@ const typedColumns: Array<DataTableColumn<Person, any>> = helper.columns([
   helper.accessor('lastSeen', {
     header: 'Last seen',
     size: 190,
-    cell: ({ getValue }) => new Date(getValue()).toISOString().slice(0, 16).replace('T', ' '),
+    cell: ({ getValue }) => timestamp(getValue()),
     // Minute granularity in UTC, so "time of day between" is meaningful.
     meta: { dataType: 'datetime', filterTypeMeta: { dateTimeZone: 'utc' } },
   }),
   helper.accessor('skills', {
     header: 'Skills',
     size: 190,
-    cell: ({ getValue }) => getValue().join(', '),
+    cell: ({ getValue }) => (getValue() as string[] | undefined)?.join(', ') ?? '',
     meta: { dataType: 'collection' },
   }),
   helper.accessor('responseMs', {
@@ -92,7 +92,7 @@ const typedColumns: Array<DataTableColumn<Person, any>> = helper.columns([
     size: 160,
     cell: ({ getValue }) => {
       const point = getValue()
-      return `${point.lat.toFixed(2)}, ${point.lng.toFixed(2)}`
+      return point ? `${point.lat.toFixed(2)}, ${point.lng.toFixed(2)}` : ''
     },
     meta: { dataType: 'geoPoint' },
   }),
@@ -431,7 +431,7 @@ export const InferredTypes: Story = {
           helper.accessor('skills', {
             header: 'Skills',
             size: 180,
-            cell: ({ getValue }) => getValue().join(', '),
+            cell: ({ getValue }) => (getValue() as string[] | undefined)?.join(', ') ?? '',
           }),
         ])}
         data={data}

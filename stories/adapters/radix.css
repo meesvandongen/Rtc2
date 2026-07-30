@@ -71,6 +71,44 @@
   background: var(--rtc-color-accent-subtle);
 }
 
+/* shadcn's input and select: a plain element with the same border, radius and
+   focus ring as the buttons above, so the filter panel reads as one system. */
+.rx-input,
+.rx-select {
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  padding: 0 8px;
+  color: var(--rtc-color-text);
+  font-family: inherit;
+  font-size: var(--rtc-font-size-sm);
+  background: var(--rtc-color-surface);
+  border: 1px solid var(--rtc-color-border-strong);
+  border-radius: var(--rtc-radius-sm);
+}
+
+.rx-select[multiple] {
+  height: auto;
+  min-height: 84px;
+  padding: 4px;
+}
+
+.rx-input[data-size="sm"],
+.rx-select[data-size="sm"] {
+  height: 28px;
+}
+
+.rx-input:focus-visible,
+.rx-select:focus-visible {
+  outline: 2px solid var(--rtc-color-accent);
+  outline-offset: 1px;
+}
+
+.rx-input:disabled,
+.rx-select:disabled {
+  opacity: 0.5;
+}
+
 .rx-checkbox {
   display: inline-flex;
   align-items: center;

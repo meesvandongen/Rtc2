@@ -1,6 +1,8 @@
+import { useRef } from 'react'
 import type { RowData } from '@tanstack/react-table'
 
 import { HeaderCell } from './HeaderCell'
+import { useHeaderContentFit } from '../headerFit'
 import { cx } from '../utils'
 import type { DataTableInstance } from '../types'
 
@@ -15,9 +17,13 @@ export function TableHead<TData extends RowData>({
   table: DataTableInstance<TData>
 }) {
   const options = table.dataTableOptions
+  const headRef = useRef<HTMLTableSectionElement>(null)
+  // Measured floors are read back through `table.headerMinSizes` by
+  // `getCellLayoutProps`, so body and footer cells stay in step.
+  useHeaderContentFit(table, headRef)
 
   return (
-    <thead className={cx('rtc-thead', options.classNames?.head)}>
+    <thead ref={headRef} className={cx('rtc-thead', options.classNames?.head)}>
       {table.getHeaderGroups().map((headerGroup) => (
         <tr key={headerGroup.id} className={cx('rtc-tr', options.classNames?.headRow)}>
           {headerGroup.headers.map((header) => (

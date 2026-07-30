@@ -3,6 +3,7 @@ import type { RowData } from '@tanstack/react-table'
 import { ColumnActionsMenu } from './ColumnActionsMenu'
 import { ColumnFilterPopover } from './ColumnFilterPopover'
 import { useComponents } from './registry'
+import { isDisplayColumnId } from '../displayColumns'
 import { useDrag } from '../dragContext'
 import { formatMessage } from '../locale'
 import { cx, getColumnLabel } from '../utils'
@@ -30,6 +31,10 @@ export function getCellLayoutProps<TData extends RowData>(
   }
 
   const size = column.getSize()
+  // The floor is applied to head, body and footer alike: raising only the
+  // header would slide the columns out of alignment in the grid layouts,
+  // where each row is its own flex container.
+  const minSize = Math.max(column.columnDef.minSize ?? 0, table.headerMinSizes?.[column.id] ?? 0)
 
   return {
     'data-rtc-column-id': column.id,
@@ -40,8 +45,9 @@ export function getCellLayoutProps<TData extends RowData>(
     className: cx(kind === 'body' ? 'rtc-td' : 'rtc-th', column.columnDef.meta?.className),
     style: {
       '--rtc-col-size': `${size}px`,
+      ...(minSize ? { '--rtc-col-min-size': `${minSize}px` } : {}),
       ...(pinOffset ? { '--rtc-pin-offset': pinOffset } : {}),
-      ...(isGrid ? {} : { width: size, minWidth: column.columnDef.minSize }),
+      ...(isGrid ? {} : { width: size, minWidth: minSize || undefined }),
     } as React.CSSProperties,
   }
 }
@@ -68,7 +74,11 @@ export function HeaderCell<TData extends RowData>({
     (options.enableColumnDragging ?? options.enableColumnOrdering ?? false) &&
     !header.isPlaceholder &&
     column.depth === 0
-  const showActions = (options.enableColumnActions ?? false) && !header.isPlaceholder
+  // Display columns — select, expand, row numbers, actions — have nothing to
+  // sort, group, pin or hide, and are sized for one control. Giving them a
+  // menu overflowed a 40px cell.
+  const showActions =
+    (options.enableColumnActions ?? false) && !header.isPlaceholder && !isDisplayColumnId(column.id)
 
   const filterMode = options.filterDisplayMode ?? 'popover'
   const showFilter =
@@ -121,20 +131,14 @@ export function HeaderCell<TData extends RowData>({
           ) : null}
 
           {canSort ? (
-            <button
-              type="button"
+            // Through the registry, not a raw `<button>`: it sits beside the
+            // filter and column-menu buttons, and a header whose controls come
+            // half from the host's design system and half from ours reads as a
+            // rendering bug.
+            <ui.Button
+              variant="quiet"
               className="rtc-th-sort"
-              onClick={column.getToggleSortingHandler()}
-              title={
-                sorted
-                  ? formatMessage(
-                      sorted === 'asc'
-                        ? localization.sortedByColumnAsc
-                        : localization.sortedByColumnDesc,
-                      { column: label },
-                    )
-                  : formatMessage(localization.sortByColumnAsc, { column: label })
-              }
+              onClick={column.getToggleSortingHandler() as (event: React.MouseEvent) => void}
             >
               <span className="rtc-th-label">
                 <table.FlexRender header={header} />
@@ -145,7 +149,7 @@ export function HeaderCell<TData extends RowData>({
                 />
                 {sortIndex > 0 ? <span className="rtc-sort-index">{sortIndex + 1}</span> : null}
               </span>
-            </button>
+            </ui.Button>
           ) : (
             <span className="rtc-th-label">
               <table.FlexRender header={header} />

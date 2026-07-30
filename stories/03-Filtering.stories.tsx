@@ -151,6 +151,40 @@ export const FilterVariants: Story = {
   ),
 }
 
+/**
+ * Dates and date-times side by side.
+ *
+ * `date` compares whole days and edits with a `date` input; `datetime` keeps
+ * minute precision and edits with `datetime-local`. Same operators, same
+ * editor component — only `meta.dataType` differs, and with it the granularity
+ * every comparison truncates to.
+ */
+export const DateAndTimeFilters: Story = {
+  render: () => (
+    <>
+      <p className="sb-note">
+        Filter <strong>Start date</strong> "is on" a day and it matches every row from that day.
+        Filter <strong>Last seen</strong> and you get a full timestamp — then switch its operator to
+        "Time of day between" to match a clock window across every date.
+      </p>
+      <DataTable
+        columns={personColumns.filter((column) =>
+          ['firstName', 'department', 'startDate', 'lastSeen'].includes(
+            (column as { accessorKey?: string }).accessorKey ?? '',
+          ),
+        )}
+        data={data}
+        getRowId={(row) => row.id}
+        enableFilterModes
+        filterDisplayMode="popover-and-panel"
+        height={560}
+        enableStickyHeader
+        initialState={{ showFilterPanel: true }}
+      />
+    </>
+  ),
+}
+
 /** A multi-select driven by explicit options rather than facets. */
 export const MultiSelectFilter: Story = {
   render: () => (

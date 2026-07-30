@@ -11,6 +11,12 @@ import './radix.css'
 /**
  * Radix adapter, in a shadcn/ui-like flavour.
  *
+ * Every portalled surface carries `rtc-vars`. Radix renders overlays into
+ * `document.body`, outside the table, and `radix.css` is written against the
+ * table's `--rtc-*` variables — which are declared on the table. Without the
+ * class those lookups resolve to nothing and a menu renders with no
+ * background at all.
+ *
  * The constraint this one exercises is `asChild`: Radix wants the trigger to
  * be a real element it can merge props and a ref onto. Because the registry
  * passes a rendered node, `<Popover.Trigger asChild>{trigger}</Popover.Trigger>`
@@ -27,7 +33,10 @@ export function createRadixComponents(defaults: DataTableComponents): DataTableC
     ...defaults,
     Icon,
 
-    Button: ({ children, onClick, disabled, variant = 'default', size, className }) => (
+    // `...rest` is not optional decoration: Radix's `asChild` merges its ref
+    // and handlers in through these props, and dropping them leaves a button
+    // that opens nothing.
+    Button: ({ children, onClick, disabled, variant = 'default', size, className, ...rest }) => (
       <button
         type="button"
         className={['rx-button', className].filter(Boolean).join(' ')}
@@ -35,12 +44,13 @@ export function createRadixComponents(defaults: DataTableComponents): DataTableC
         data-size={size}
         disabled={disabled}
         onClick={onClick}
+        {...rest}
       >
         {children}
       </button>
     ),
 
-    IconButton: ({ label, children, active, size, className, disabled, ...rest }) => (
+    IconButton: ({ label, children, active, size, className, disabled, onClick, ...rest }) => (
       <button
         type="button"
         className={['rx-icon-button', className].filter(Boolean).join(' ')}
@@ -49,10 +59,94 @@ export function createRadixComponents(defaults: DataTableComponents): DataTableC
         data-active={active ? 'true' : undefined}
         data-size={size}
         disabled={disabled}
+        onClick={onClick}
         {...rest}
       >
         {children}
       </button>
+    ),
+
+    /**
+     * Radix ships no text input or native-select primitive — shadcn styles
+     * plain elements for those. Falling through to the built-ins instead would
+     * leave the filter panel half shadcn and half ours, which is the single
+     * most visible way an adapter can look broken.
+     */
+    TextInput: ({ value, onChange, label, placeholder, type = 'text', size, autoFocus, disabled, onBlur, onKeyDown, dataAttributes }) => (
+      <input
+        className="rx-input"
+        type={type}
+        value={value}
+        aria-label={label}
+        placeholder={placeholder}
+        autoFocus={autoFocus}
+        disabled={disabled}
+        data-size={size}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={onBlur}
+        onKeyDown={onKeyDown}
+        {...dataAttributes}
+      />
+    ),
+
+    NumberInput: ({ value, onChange, label, placeholder, min, max, size, disabled, autoFocus, onBlur, onKeyDown, dataAttributes }) => (
+      <input
+        className="rx-input"
+        type="number"
+        value={value ?? ''}
+        min={min}
+        max={max}
+        aria-label={label}
+        placeholder={placeholder}
+        disabled={disabled}
+        autoFocus={autoFocus}
+        data-size={size}
+        onChange={(event) =>
+          onChange(event.target.value === '' ? undefined : event.target.valueAsNumber)
+        }
+        onBlur={onBlur}
+        onKeyDown={onKeyDown}
+        {...dataAttributes}
+      />
+    ),
+
+    Select: ({ value, onChange, options, label, placeholder, size, disabled, dataAttributes }) => (
+      <select
+        className="rx-select"
+        value={value}
+        aria-label={label}
+        title={label}
+        disabled={disabled}
+        data-size={size}
+        onChange={(event) => onChange(event.target.value)}
+        {...dataAttributes}
+      >
+        {placeholder !== undefined ? <option value="">{placeholder}</option> : null}
+        {options.map((option) => (
+          <option key={option.value} value={option.value} disabled={option.disabled}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    ),
+
+    MultiSelect: ({ value, onChange, options, label, size }) => (
+      <select
+        className="rx-select"
+        multiple
+        value={value}
+        aria-label={label}
+        data-size={size}
+        onChange={(event) =>
+          onChange(Array.from(event.target.selectedOptions, (option) => option.value))
+        }
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
     ),
 
     Checkbox: ({ checked, indeterminate, onChange, label, disabled, onClick }) => (
@@ -107,7 +201,7 @@ export function createRadixComponents(defaults: DataTableComponents): DataTableC
         <Popover.Trigger asChild>{trigger}</Popover.Trigger>
         <Popover.Portal>
           <Popover.Content
-            className="rx-surface rx-popover"
+            className="rtc-vars rx-surface rx-popover"
             align={align}
             sideOffset={4}
             aria-label={label}
@@ -123,7 +217,7 @@ export function createRadixComponents(defaults: DataTableComponents): DataTableC
         <DropdownMenu.Trigger asChild>{trigger}</DropdownMenu.Trigger>
         <DropdownMenu.Portal>
           <DropdownMenu.Content
-            className="rx-surface rx-menu"
+            className="rtc-vars rx-surface rx-menu"
             align={align}
             sideOffset={4}
             aria-label={label}
@@ -187,8 +281,8 @@ export function createRadixComponents(defaults: DataTableComponents): DataTableC
     Dialog: ({ open, onClose, title, children, footer, label }) => (
       <Dialog.Root open={open} onOpenChange={(next) => !next && onClose()}>
         <Dialog.Portal>
-          <Dialog.Overlay className="rx-overlay" />
-          <Dialog.Content className="rx-surface rx-dialog" aria-label={label}>
+          <Dialog.Overlay className="rtc-vars rx-overlay" />
+          <Dialog.Content className="rtc-vars rx-surface rx-dialog" aria-label={label}>
             <Dialog.Title className="rx-dialog-title">{title}</Dialog.Title>
             <div className="rx-dialog-body">{children}</div>
             <div className="rx-dialog-footer">{footer}</div>

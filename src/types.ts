@@ -409,6 +409,15 @@ export interface DataTableOptions<TData extends RowData> {
 
   // ----------------------------------------------------------- appearance ----
   layoutMode?: DataTableLayoutMode
+  /**
+   * Never render a column narrower than its own header. On by default.
+   *
+   * A header carries a label plus up to three controls; a narrow declared
+   * `size` truncates the label to nothing. The table widens the column to fit
+   * and scrolls horizontally instead. Turn it off for a table that must fit
+   * its container at any cost.
+   */
+  enableHeaderContentFit?: boolean
   density?: DataTableDensity
   /** Fixed height for the scroll container, e.g. `'520px'`. Required for virtualization. */
   height?: string | number
@@ -493,4 +502,13 @@ export type DataTableInstance<TData extends RowData> = import('@tanstack/react-t
   clearEditValues: (rowId?: string) => void
   /** Rows in final render order, after row-ordering and pinning are applied. */
   getRenderRows: () => Array<DataTableRow<TData>>
+  /**
+   * Per-column floor, in pixels, measured from the header's own content.
+   *
+   * Not part of `ui` state: it is derived from layout rather than chosen by
+   * anyone, so it should not round-trip through `initialState` or be reported
+   * by `onStateChange`. See `enableHeaderContentFit`.
+   */
+  headerMinSizes: Record<string, number>
+  setHeaderMinSizes: (sizes: Record<string, number>) => void
 }

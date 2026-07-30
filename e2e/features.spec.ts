@@ -17,7 +17,7 @@ test.describe('rendering and appearance', () => {
   test('renders headers and rows', async ({ page }) => {
     const root = await openStory(page, 'datatable-01-basics--basic')
 
-    await expect(root.locator('thead th')).toHaveCount(9)
+    await expect(root.locator('thead th')).toHaveCount(10)
     await expect(bodyRows(root)).toHaveCount(10)
     await expect(header(root, 'firstName')).toContainText('First name')
   })
@@ -328,6 +328,49 @@ test.describe('selection', () => {
 
     // 3 rows x 3 columns between firstName and email inclusive.
     await expect(root.locator('td[data-rtc-cell-selected="true"]')).toHaveCount(9)
+  })
+
+  /**
+   * Dragging a range used to drag a text selection with it, which is not what
+   * a spreadsheet does and makes the range hard to see.
+   */
+  test('dragging a range selects no text', async ({ page }) => {
+    const root = await openStory(page, 'datatable-05-selection--cell-selection')
+
+    await dragTo(
+      page,
+      bodyRows(root).nth(0).locator('td[data-rtc-column-id="firstName"]'),
+      bodyRows(root).nth(2).locator('td[data-rtc-column-id="email"]'),
+    )
+
+    expect(await page.evaluate(() => window.getSelection()?.toString() ?? '')).toBe('')
+  })
+
+  /**
+   * The range outline is drawn by an overlay, not by borders on the cells.
+   * A border participates in layout, so the selected rows grew by a pixel and
+   * pushed everything beside them out of line — which is what made the
+   * multi-cell border look broken.
+   */
+  test('selecting a range does not move anything', async ({ page }) => {
+    const root = await openStory(page, 'datatable-05-selection--cell-selection')
+
+    const geometry = () =>
+      root.evaluate((el) =>
+        Array.from(el.querySelectorAll('tbody tr')).map((row) => {
+          const box = row.getBoundingClientRect()
+          return `${Math.round(box.height)}@${Math.round(box.top)}`
+        }),
+      )
+
+    const before = await geometry()
+    await dragTo(
+      page,
+      bodyRows(root).nth(1).locator('td[data-rtc-column-id="lastName"]'),
+      bodyRows(root).nth(3).locator('td[data-rtc-column-id="city"]'),
+    )
+    await expect(root.locator('td[data-rtc-cell-selected="true"]').first()).toBeVisible()
+    expect(await geometry()).toEqual(before)
   })
 })
 

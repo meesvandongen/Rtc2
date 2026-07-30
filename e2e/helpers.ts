@@ -38,12 +38,19 @@ export function toolbarAction(root: Locator, action: string): Locator {
   return root.locator(`button:has([data-rtc-action="${action}"])`)
 }
 
-/** The portalled menu currently open. Menus render into `document.body`. */
+/**
+ * The menu currently open.
+ *
+ * Built-in overlays are native popovers: the surface stays in the DOM while
+ * closed (so the trigger's `popovertarget` has a stable target) and only enters
+ * the top layer when shown, so the selector has to ask for `:popover-open`
+ * rather than mere presence.
+ */
 export function openMenu(page: Page): Locator {
-  return page.locator('.rtc-menu[role="menu"]')
+  return page.locator('.rtc-menu[role="menu"]:popover-open')
 }
 
-/** The portalled filter popover currently open. */
+/** The filter popover currently open. */
 export function filterPopover(page: Page): Locator {
   return page.locator('[data-rtc-filter-popover]')
 }

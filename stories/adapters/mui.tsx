@@ -58,13 +58,16 @@ export function createMuiComponents(defaults: DataTableComponents): DataTableCom
     // MUI ships no icon set in its base package, so keep the built-in glyphs.
     Icon: defaults.Icon,
 
-    Button: ({ children, onClick, disabled, variant = 'default', size, className }) => (
+    // `...rest` carries the ref MUI clones onto the trigger to use as its
+    // `anchorEl`; without it an overlay has nothing to position against.
+    Button: ({ children, onClick, disabled, variant = 'default', size, className, ...rest }) => (
       <MuiButton
         className={className}
         size={size === 'sm' ? 'small' : 'medium'}
         variant={variant === 'primary' ? 'contained' : variant === 'quiet' ? 'text' : 'outlined'}
         disabled={disabled}
         onClick={onClick}
+        {...rest}
       >
         {children}
       </MuiButton>
@@ -197,18 +200,23 @@ export function createMuiComponents(defaults: DataTableComponents): DataTableCom
       />
     ),
 
+    // A slider's thumb overhangs the track by half its width at either end,
+    // so the control needs gutters of its own; a plain `mx` pushes the track
+    // inward but lets the thumb spill out of the filter field.
     RangeSlider: ({ value, onChange, min, max, step, label }) => (
-      <Slider
-        value={value}
-        min={min}
-        max={max}
-        step={step}
-        size="small"
-        getAriaLabel={() => label}
-        onChange={(_, next) => onChange(next as [number, number])}
-        valueLabelDisplay="auto"
-        sx={{ mx: 1 }}
-      />
+      <div style={{ width: '100%', paddingInline: 10, boxSizing: 'border-box' }}>
+        <Slider
+          value={value}
+          min={min}
+          max={max}
+          step={step}
+          size="small"
+          getAriaLabel={() => label}
+          onChange={(_, next) => onChange(next as [number, number])}
+          valueLabelDisplay="auto"
+          sx={{ width: '100%', display: 'block' }}
+        />
+      </div>
     ),
 
     Popover: ({ trigger, children, label, align = 'start' }) => {
@@ -222,7 +230,11 @@ export function createMuiComponents(defaults: DataTableComponents): DataTableCom
             onClose={anchor.close}
             anchorOrigin={{ vertical: 'bottom', horizontal: align === 'end' ? 'right' : 'left' }}
             transformOrigin={{ vertical: 'top', horizontal: align === 'end' ? 'right' : 'left' }}
-            slotProps={{ paper: { sx: { p: 2, minWidth: 240 }, 'aria-label': label } }}
+            // MUI portals its paper to `document.body`; `rtc-vars` puts the
+            // table's tokens back in scope for the content we hand it.
+            slotProps={{
+              paper: { className: 'rtc-vars', sx: { p: 2, minWidth: 240 }, 'aria-label': label },
+            }}
           >
             {children}
           </MuiPopover>
@@ -241,7 +253,10 @@ export function createMuiComponents(defaults: DataTableComponents): DataTableCom
             onClose={anchor.close}
             anchorOrigin={{ vertical: 'bottom', horizontal: align === 'end' ? 'right' : 'left' }}
             transformOrigin={{ vertical: 'top', horizontal: align === 'end' ? 'right' : 'left' }}
-            slotProps={{ list: { 'aria-label': label, dense: true } }}
+            slotProps={{
+              list: { 'aria-label': label, dense: true },
+              paper: { className: 'rtc-vars' },
+            }}
           >
             {items.map((item) => {
               if (item.type === 'separator') return <Divider key={item.id} />

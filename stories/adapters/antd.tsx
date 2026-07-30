@@ -19,7 +19,9 @@ import {
 } from 'antd'
 import dayjs from 'dayjs'
 
-import type { DataTableComponents, RtcMenuItem } from '../../src'
+import { useEffect, useState } from 'react'
+
+import type { DataTableComponents, RtcMenuItem, RtcPopoverProps } from '../../src'
 
 /**
  * Ant Design adapter.
@@ -52,9 +54,11 @@ function toAntItems(items: RtcMenuItem[]): NonNullable<MenuProps['items']> {
           // state so the semantics match the other adapters.
           role={isCheckbox ? 'menuitemcheckbox' : undefined}
           aria-checked={isCheckbox ? item.checked : undefined}
+          // Ant's own token, not the table's: this markup is portalled outside
+          // the table, where `--rtc-*` is not defined.
           style={
             (isCheckbox ? item.checked : item.active)
-              ? { color: 'var(--rtc-color-accent)', fontWeight: 600 }
+              ? { color: 'var(--ant-color-primary)', fontWeight: 600 }
               : undefined
           }
         >
@@ -66,17 +70,65 @@ function toAntItems(items: RtcMenuItem[]): NonNullable<MenuProps['items']> {
   })
 }
 
+/**
+ * Ant's `Popover` has no Escape handling of its own, and the table's other
+ * overlays all close that way — the built-in surfaces get it from the platform
+ * and Radix and MUI implement it. An adapter is responsible for the behaviour
+ * its library is missing, not just for the styling it brings.
+ */
+function AntPopover({ trigger, children, label, align = 'start', open, onOpenChange }: RtcPopoverProps) {
+  const [uncontrolled, setUncontrolled] = useState(false)
+  const isOpen = open ?? uncontrolled
+  const setOpen = (next: boolean) => {
+    if (open === undefined) setUncontrolled(next)
+    onOpenChange?.(next)
+  }
+
+  useEffect(() => {
+    if (!isOpen) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  })
+
+  return (
+    <Popover
+      content={<div aria-label={label}>{children}</div>}
+      rootClassName="rtc-vars"
+      trigger="click"
+      open={isOpen}
+      onOpenChange={setOpen}
+      placement={align === 'end' ? 'bottomRight' : 'bottomLeft'}
+      // Ant clones the child to attach its own handlers, so the rendered
+      // trigger node passes through unchanged.
+    >
+      {trigger}
+    </Popover>
+  )
+}
+
 export function createAntComponents(defaults: DataTableComponents): DataTableComponents {
   return {
     ...defaults,
 
-    Button: ({ children, onClick, disabled, variant = 'default', size, className }) => (
+    // Ant's `Dropdown` and `Popover` clone their child to attach a ref and
+    // handlers. Without `...rest` the clone is discarded: the overlay never
+    // opens, and because Ant has no element to measure it renders at the
+    // viewport origin on the way out.
+    Button: ({ children, onClick, disabled, variant = 'default', size, className, type, ...rest }) => (
       <Button
         className={className}
         size={size === 'sm' ? 'small' : 'middle'}
-        type={variant === 'primary' ? 'primary' : variant === 'quiet' ? 'link' : 'default'}
+        // Ant's `type` is the visual variant; the HTML one is `htmlType`.
+        // `quiet` is a de-emphasised button, not a link: `type="link"` paints
+        // header controls and filter operators Ant's link blue.
+        type={variant === 'primary' ? 'primary' : variant === 'quiet' ? 'text' : 'default'}
+        htmlType={type ?? 'button'}
         disabled={disabled}
         onClick={onClick}
+        {...rest}
       >
         {children}
       </Button>
@@ -162,7 +214,7 @@ export function createAntComponents(defaults: DataTableComponents): DataTableCom
         // Config-object API: options as data, exactly what the registry hands over.
         options={options}
         onChange={(next) => onChange(next ?? '')}
-        style={{ width: '100%', minWidth: 120 }}
+        style={{ width: '100%' }}
         {...dataAttributes}
       />
     ),
@@ -176,7 +228,7 @@ export function createAntComponents(defaults: DataTableComponents): DataTableCom
         aria-label={label}
         options={options}
         onChange={onChange}
-        style={{ width: '100%', minWidth: 160 }}
+        style={{ width: '100%' }}
       />
     ),
 
@@ -217,29 +269,21 @@ export function createAntComponents(defaults: DataTableComponents): DataTableCom
         step={step}
         aria-label={label}
         onChange={(next) => onChange(next as [number, number])}
-        style={{ margin: '4px 8px' }}
+        // Gutters for the handle overhang, not just visual breathing room.
+        style={{ margin: '4px 10px' }}
       />
     ),
 
-    Popover: ({ trigger, children, label, align = 'start', open, onOpenChange }) => (
-      <Popover
-        content={<div aria-label={label}>{children}</div>}
-        trigger="click"
-        open={open}
-        onOpenChange={onOpenChange}
-        placement={align === 'end' ? 'bottomRight' : 'bottomLeft'}
-        // Ant clones the child to attach its own handlers, so the rendered
-        // trigger node passes through unchanged.
-      >
-        {trigger}
-      </Popover>
-    ),
+    Popover: AntPopover,
 
     Menu: ({ trigger, items, label, align = 'start' }) => (
       <Dropdown
         menu={{ items: toAntItems(items), 'aria-label': label } as MenuProps}
         trigger={['click']}
         placement={align === 'end' ? 'bottomRight' : 'bottomLeft'}
+        // Portalled to `document.body`: without the table's variables in
+        // scope, icons we hand Ant as menu-item content lose their size.
+        rootClassName="rtc-vars"
       >
         {trigger}
       </Dropdown>

@@ -89,16 +89,16 @@ export function Pagination<TData extends RowData>({
                   &hellip;
                 </span>
               ) : (
-                <button
-                  type="button"
+                <ui.Button
                   key={page}
+                  size="sm"
+                  variant={page === pageIndex ? 'primary' : 'quiet'}
                   className="rtc-page-button"
-                  data-rtc-active={page === pageIndex ? 'true' : undefined}
                   aria-current={page === pageIndex ? 'page' : undefined}
                   onClick={() => table.setPageIndex(page)}
                 >
                   {page + 1}
-                </button>
+                </ui.Button>
               ),
             )
           : null}

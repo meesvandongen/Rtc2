@@ -84,8 +84,9 @@ export function FilterConditions<TData extends RowData>({
                   label={localization.changeFilterMode}
                   items={filterOperatorItems(table, column, index)}
                   trigger={
-                    <ui.Button size="sm" variant="quiet">
+                    <ui.Button size="sm" variant="quiet" className="rtc-filter-operator">
                       {currentOperatorLabel(table, column, index)}
+                      <ui.Icon name="chevronDown" />
                     </ui.Button>
                   }
                 />

@@ -33,7 +33,38 @@ export interface RtcOption {
   disabled?: boolean
 }
 
-export interface RtcButtonProps {
+/**
+ * Props an overlay library injects onto a trigger it did not render.
+ *
+ * **The contract's one hard rule: `Button` and `IconButton` must spread every
+ * prop they do not recognise onto the underlying element, and accept a `ref`.**
+ *
+ * Buttons are the trigger for menus and popovers, and each library delivers a
+ * trigger differently: Radix merges props through `asChild`, MUI clones to
+ * attach an `anchorEl`, Ant clones to attach its own handlers. An adapter that
+ * destructures only the props below and drops the rest silently produces a
+ * button that looks right and opens nothing — or, in Ant's case, an overlay
+ * that measures against nothing and lands in the corner of the viewport.
+ *
+ * `e2e/overlays.spec.ts` opens every overlay in every adapter for exactly this
+ * reason; it is the only thing that actually enforces the rule.
+ */
+export interface RtcTriggerSlotProps {
+  /** Deliberately `any`: the underlying element differs per adapter. */
+  ref?: React.Ref<any>
+  id?: string
+  onPointerDown?: (event: React.PointerEvent) => void
+  onKeyDown?: (event: React.KeyboardEvent) => void
+  onFocus?: (event: React.FocusEvent) => void
+  onBlur?: (event: React.FocusEvent) => void
+  'aria-haspopup'?: 'menu' | 'dialog' | 'listbox' | 'tree' | 'grid' | boolean
+  'aria-expanded'?: boolean
+  'aria-controls'?: string
+  /** Overlay libraries tag their triggers; the tag has to reach the DOM. */
+  [key: `data-${string}`]: string | number | boolean | undefined
+}
+
+export interface RtcButtonProps extends RtcTriggerSlotProps {
   children: ReactNode
   onClick?: (event: React.MouseEvent) => void
   disabled?: boolean
@@ -43,13 +74,11 @@ export interface RtcButtonProps {
   className?: string
 }
 
-export interface RtcIconButtonProps {
+export interface RtcIconButtonProps extends RtcTriggerSlotProps {
   /** Required: these controls are icon-only, so the name comes from here. */
   label: string
   children: ReactNode
   onClick?: (event: React.MouseEvent) => void
-  onPointerDown?: (event: React.PointerEvent) => void
-  onKeyDown?: (event: React.KeyboardEvent) => void
   disabled?: boolean
   /** Rendered in a pressed/selected state. */
   active?: boolean

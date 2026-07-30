@@ -35,8 +35,13 @@ async function chooseOperator(
 /** The operator labels a column offers. */
 async function operatorLabels(root: Locator, page: Page, columnId: string): Promise<string[]> {
   await operatorButton(root, columnId).click()
-  const labels = await openMenu(page).getByRole('menuitemcheckbox').allInnerTexts()
+  const items = openMenu(page).getByRole('menuitemcheckbox')
+  // `allInnerTexts` resolves against whatever matches right now, so the menu
+  // has to be waited for explicitly or an empty list reads as "no operators".
+  await expect(items.first()).toBeVisible()
+  const labels = await items.allInnerTexts()
   await page.keyboard.press('Escape')
+  await expect(openMenu(page)).toHaveCount(0)
   return labels
 }
 

@@ -86,6 +86,7 @@ Each of these has a dedicated Storybook story.
 | Editing | `enableEditing` (bool or predicate), `editMode` (`cell` \| `row` \| `table` \| `modal`), 5 editor variants, `onEditingRowSave`, `onCellEditComplete`, `onDataChange` |
 | Virtualization | `enableRowVirtualization`, `rowVirtualizerOptions` |
 | Layout | `layoutMode` (`semantic` \| `grid` \| `grid-no-grow`), `density`, `height`, `maxHeight`, `direction` (LTR/RTL) |
+| Header sizing | `enableHeaderContentFit`¹ — a column is never narrower than its own header |
 | Chrome | `enableTopToolbar`¹, `enableBottomToolbar`¹, `enableToolbarInternalActions`¹, `enableDensityToggle`¹, `enableFullScreenToggle`¹, `enableColumnActions`, `enableStickyHeader`, `enableStickyFooter`, `enableStripes`, `enableRowHover`¹, `enableBorders` |
 | States | `isLoading`, `showProgressBars`, `isSaving`, `isLoadingError`, `errorMessage`, `skeletonRowCount`, `renderEmptyState` |
 | i18n | `localization` — every string, including filter operator names |
@@ -143,13 +144,83 @@ the Playwright suite, which runs the same interaction tests against all three.
 import type { DataTableComponents } from '@rtc2/react-table'
 
 const myComponents: Partial<DataTableComponents> = {
-  Button: ({ children, onClick, variant, disabled }) => (
-    <MyButton kind={variant} onPress={onClick} isDisabled={disabled}>
+  // `...rest` is not optional. See below.
+  Button: ({ children, onClick, variant, disabled, ...rest }) => (
+    <MyButton kind={variant} onPress={onClick} isDisabled={disabled} {...rest}>
       {children}
     </MyButton>
   ),
 }
 ```
+
+### The one hard rule
+
+**`Button` and `IconButton` must spread every prop they do not recognise onto
+the underlying element, and accept a `ref`.**
+
+Buttons are what overlays hang off, and each library delivers a trigger
+differently: Radix merges props through `asChild`, MUI clones to attach an
+`anchorEl`, Ant clones to attach its own handlers. An adapter that destructures
+the props it knows and drops the rest renders a button that looks perfect and
+opens nothing — or, with Ant, one whose overlay has no element to measure and
+lands in the corner of the viewport. Nothing about it looks wrong in a
+screenshot.
+
+`e2e/overlays.spec.ts` opens every overlay in every adapter for exactly this
+reason, and it is what actually enforces the rule. A new adapter has to pass
+it, along with the geometry checks that no control overflows its filter field
+and no header truncates its own label.
+
+### Nothing half-styled
+
+Two rules keep an adapted table from ending up half its design system and half
+ours, and both are enforced by the same suite:
+
+**Every interactive control goes through the registry** — including the ones
+that are easy to write as a plain `<button>`. The header's sort control and the
+pagination page numbers used to be raw elements, so a MUI table had MUI icon
+buttons sitting beside our own. The test asserts that no built-in primitive
+class (`rtc-button`, `rtc-input`, `rtc-select`, …) survives anywhere in an
+adapted table; the only way to satisfy it is to route everything through the
+registry and override everything in the adapter. Radix has no text input or
+select of its own, and the adapter styles plain elements rather than falling
+back to ours — otherwise the filter panel is half shadcn.
+
+**The stylesheet may only style what the table itself renders.** Class names
+passed to registry components — `rtc-th-sort`, `rtc-page-button`,
+`rtc-filter-operator` — land on whatever the host rendered, so rules on those
+bare classes are limited to geometry. Chrome (background, border, radius,
+shadow) goes on `.rtc-button.<class>`, which only matches the built-in
+primitive. Typography is the deliberate exception for header labels: a header
+is content, not a button caption, and MUI's text button would otherwise render
+it uppercase and primary-blue, overruling the `--rtc-header-*` variables that
+exist to control exactly that.
+
+One consequence worth knowing if you write an adapter: **anything portalled
+needs the `rtc-vars` class**. Radix, MUI and Ant all render overlays into
+`document.body`, outside the table, where `--rtc-*` is not defined. An adapter
+stylesheet written against those variables produces a menu with no background;
+worse, an icon we hand the library as menu-item content loses
+`--rtc-icon-size`, and an SVG whose `width` is an invalid `var()` falls back to
+its intrinsic size — a 16px glyph rendering at 300px. Icons carry a literal
+fallback for that reason, but the class is what keeps everything else themed.
+
+### The built-in overlays
+
+The defaults use the platform's [Popover
+API](https://developer.mozilla.org/en-US/docs/Web/API/Popover_API): a
+`popover` attribute, `popovertarget` on the trigger, and the top layer. That is
+worth more than novelty here. The top layer means a filter popover opened from
+a header is not clipped by the table's scroll container and needs no
+`z-index`, so nothing has to be portalled — and because it is *not* portalled,
+a menu opened inside a popover is a real DOM descendant of it. That is how the
+platform decides two popovers are nested, so light dismiss, Escape ordering and
+"closing me closes my children" all come from the browser rather than from a
+hand-maintained overlay stack.
+
+Positioning is still JavaScript: CSS anchor positioning would replace it, but
+it is not yet in Firefox or Safari, and an overlay in the wrong corner is a
+worse failure than a few lines of measurement.
 
 ## Filtering
 
@@ -362,6 +433,39 @@ for the full list with defaults.
 Dark mode follows `prefers-color-scheme`. Force it either way with
 `data-rtc-theme="dark"` / `"light"` on the table or any ancestor.
 
+### Column widths
+
+A header is not just a label: it carries a sort control, a filter funnel and a
+column menu. Give a column `size: 90` with all three enabled and the label is
+squeezed to nothing, while the table may still have empty space beside it.
+
+So a declared `size` is a preference and the header's own content is a floor.
+When the floor pushes the total past the container the table scrolls
+horizontally — the same trade AG Grid's header auto-size makes, and the right
+one: a scrollbar is recoverable, a header truncated to `A…` is not. Sizing to
+*body* content is deliberately not the default, since one long cell blows the
+column out.
+
+**This is a stylesheet rule, not a measurement pass.** A header truncates
+because something told the browser it may: `overflow: hidden` on the cell gives
+it a min-content width of zero. Body cells still clip — their content is data,
+and one long email address must not set a column's width — but header cells do
+not, and carry `min-width: min-content`. The browser's own table algorithm does
+the rest, and keeps doing it through font swaps, translated labels and density
+changes, none of which JavaScript would reliably hear about.
+
+One number still crosses in code, in the `grid` layout modes only. There each
+row is its own flex container, so a header that grows to fit its label grows
+alone and slides out of alignment with the cells beneath it. `subgrid` is the
+real answer — one set of column tracks spanning header and body, sized
+intrinsically — but the virtualized body takes its rows out of flow with
+`position: absolute`, so they would not be grid items. Until that changes, the
+header's `min-content` width is read once per layout change and published to
+the column as a custom property.
+
+Set `enableHeaderContentFit={false}` to restore clipping and let columns shrink
+to whatever the container allows.
+
 ## Server-side data
 
 Set the `manual*` flags, feed the table the current page, and tell it the total
@@ -460,6 +564,14 @@ return <DataTable table={table} />
   handles reorder with up/down arrows — both are usable without a pointer.
 - `prefers-reduced-motion` disables animation and transitions.
 - Opt into arrow-key cell navigation with `enableKeyboardNavigation`.
+
+## Storybook
+
+Every story file gets an autodocs page, and the **Code** panel beside the
+canvas shows the story's own source with a copy button. `source.type` is
+`code` rather than `dynamic`: these stories are `render` functions, and the
+dynamic snippet would show the rendered element tree instead of the code worth
+copying.
 
 ## Development
 
