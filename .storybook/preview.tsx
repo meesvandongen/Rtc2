@@ -23,8 +23,19 @@ const startWorker = async () => {
 }
 
 const preview: Preview = {
+  // Autodocs gives every story file a Docs page listing its stories with
+  // their source; `codePanel` adds the same source as a panel beside a story
+  // in canvas view, so the code is one click away either way.
+  tags: ['autodocs'],
   parameters: {
     controls: { expanded: true, matchers: { color: /(background|color)$/i } },
+    docs: {
+      // `code`, not `dynamic`: the stories are written as `render` functions,
+      // and the dynamic snippet would show the *rendered* element tree rather
+      // than the source anyone would copy.
+      source: { type: 'code' },
+      codePanel: true,
+    },
     options: {
       storySort: {
         order: [

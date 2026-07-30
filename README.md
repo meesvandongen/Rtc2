@@ -197,10 +197,13 @@ it uppercase and primary-blue, overruling the `--rtc-header-*` variables that
 exist to control exactly that.
 
 One consequence worth knowing if you write an adapter: **anything portalled
-needs the `rtc-vars` class**. Radix and Ant render overlays into
-`document.body`, outside the table, where `--rtc-*` is not defined — an
-adapter stylesheet written against those variables produces a menu with no
-background at all.
+needs the `rtc-vars` class**. Radix, MUI and Ant all render overlays into
+`document.body`, outside the table, where `--rtc-*` is not defined. An adapter
+stylesheet written against those variables produces a menu with no background;
+worse, an icon we hand the library as menu-item content loses
+`--rtc-icon-size`, and an SVG whose `width` is an invalid `var()` falls back to
+its intrinsic size — a 16px glyph rendering at 300px. Icons carry a literal
+fallback for that reason, but the class is what keeps everything else themed.
 
 ### The built-in overlays
 
@@ -561,6 +564,14 @@ return <DataTable table={table} />
   handles reorder with up/down arrows — both are usable without a pointer.
 - `prefers-reduced-motion` disables animation and transitions.
 - Opt into arrow-key cell navigation with `enableKeyboardNavigation`.
+
+## Storybook
+
+Every story file gets an autodocs page, and the **Code** panel beside the
+canvas shows the story's own source with a copy button. `source.type` is
+`code` rather than `dynamic`: these stories are `render` functions, and the
+dynamic snippet would show the rendered element tree instead of the code worth
+copying.
 
 ## Development
 

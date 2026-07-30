@@ -230,7 +230,11 @@ export function createMuiComponents(defaults: DataTableComponents): DataTableCom
             onClose={anchor.close}
             anchorOrigin={{ vertical: 'bottom', horizontal: align === 'end' ? 'right' : 'left' }}
             transformOrigin={{ vertical: 'top', horizontal: align === 'end' ? 'right' : 'left' }}
-            slotProps={{ paper: { sx: { p: 2, minWidth: 240 }, 'aria-label': label } }}
+            // MUI portals its paper to `document.body`; `rtc-vars` puts the
+            // table's tokens back in scope for the content we hand it.
+            slotProps={{
+              paper: { className: 'rtc-vars', sx: { p: 2, minWidth: 240 }, 'aria-label': label },
+            }}
           >
             {children}
           </MuiPopover>
@@ -249,7 +253,10 @@ export function createMuiComponents(defaults: DataTableComponents): DataTableCom
             onClose={anchor.close}
             anchorOrigin={{ vertical: 'bottom', horizontal: align === 'end' ? 'right' : 'left' }}
             transformOrigin={{ vertical: 'top', horizontal: align === 'end' ? 'right' : 'left' }}
-            slotProps={{ list: { 'aria-label': label, dense: true } }}
+            slotProps={{
+              list: { 'aria-label': label, dense: true },
+              paper: { className: 'rtc-vars' },
+            }}
           >
             {items.map((item) => {
               if (item.type === 'separator') return <Divider key={item.id} />

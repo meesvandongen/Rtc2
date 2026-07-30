@@ -268,6 +268,26 @@ for (const [adapter, storyId] of Object.entries(ADAPTERS)) {
       expect(found).toEqual([])
     })
 
+    /**
+     * Icons travel into surfaces the library portals to `document.body`,
+     * outside the element that declares `--rtc-icon-size`. An unresolved
+     * `var()` makes `width` invalid, and an SVG with no width falls back to
+     * its intrinsic size — a 16px glyph rendering at 300px inside a dropdown.
+     */
+    test('icons keep their size inside portalled surfaces', async ({ page }) => {
+      const root = await openStory(page, storyId)
+      await header(root, 'age').locator('.rtc-column-actions-trigger').click()
+      await expect(anyOverlay(page).first()).toBeVisible()
+
+      const oversized = await page.evaluate(() =>
+        Array.from(document.querySelectorAll('svg.rtc-icon'))
+          .map((icon) => icon.getBoundingClientRect())
+          .filter((box) => box.width > 32 || box.height > 32)
+          .map((box) => `${Math.round(box.width)}x${Math.round(box.height)}`),
+      )
+      expect(oversized).toEqual([])
+    })
+
     test('header and body columns stay aligned', async ({ page }) => {
       const root = await openStory(page, storyId)
       for (const width of [1280, 900]) {

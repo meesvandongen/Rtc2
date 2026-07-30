@@ -162,6 +162,7 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
         data-rtc-density={table.ui.density}
         data-rtc-layout={layoutMode}
         data-rtc-header-fit={(options.enableHeaderContentFit ?? true) ? undefined : 'clip'}
+        data-rtc-cell-selection={(options.enableCellSelection ?? false) ? 'true' : undefined}
         data-rtc-fullscreen={table.ui.isFullScreen ? 'true' : undefined}
         data-rtc-sticky-header={(options.enableStickyHeader ?? false) ? 'true' : undefined}
         data-rtc-sticky-footer={(options.enableStickyFooter ?? false) ? 'true' : undefined}

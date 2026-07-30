@@ -96,6 +96,7 @@ function AntPopover({ trigger, children, label, align = 'start', open, onOpenCha
   return (
     <Popover
       content={<div aria-label={label}>{children}</div>}
+      rootClassName="rtc-vars"
       trigger="click"
       open={isOpen}
       onOpenChange={setOpen}
@@ -280,6 +281,9 @@ export function createAntComponents(defaults: DataTableComponents): DataTableCom
         menu={{ items: toAntItems(items), 'aria-label': label } as MenuProps}
         trigger={['click']}
         placement={align === 'end' ? 'bottomRight' : 'bottomLeft'}
+        // Portalled to `document.body`: without the table's variables in
+        // scope, icons we hand Ant as menu-item content lose their size.
+        rootClassName="rtc-vars"
       >
         {trigger}
       </Dropdown>

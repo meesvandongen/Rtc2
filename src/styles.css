@@ -446,10 +446,15 @@
   box-shadow: inset 0 2px 0 0 var(--rtc-color-accent);
 }
 
+/* The fallback is load-bearing, not defensive noise. Icons travel into menus
+   and popovers that design systems portal to `document.body`, outside the
+   element declaring `--rtc-icon-size`; an unresolved `var()` on `width` makes
+   the property invalid, and an SVG with no width falls back to its intrinsic
+   size — which is how a 16px glyph becomes a 300px one in a dropdown. */
 .rtc-icon {
   flex: 0 0 auto;
-  width: var(--rtc-icon-size);
-  height: var(--rtc-icon-size);
+  width: var(--rtc-icon-size, 16px);
+  height: var(--rtc-icon-size, 16px);
 }
 
 /* ------------------------------------------------------------- sticky ---- */
@@ -531,6 +536,13 @@
 
 /* -------------------------------------------------------- cell select ---- */
 
+/* Dragging out a range must not also drag out a text selection. A table whose
+   cells are selectable *as cells* behaves like a spreadsheet, where a drag
+   picks cells and nothing else. */
+.rtc-root[data-rtc-cell-selection="true"] .rtc-tbody {
+  user-select: none;
+}
+
 .rtc-td[data-rtc-cell-selected="true"] {
   background: var(--rtc-cell-bg-selected);
 }
@@ -540,20 +552,38 @@
   outline-offset: -2px;
 }
 
+/* The range outline is drawn by an overlay rather than by borders on the cell.
+   A border participates in layout: adding one to the top row of a selection
+   made those cells 1px taller and shunted every column beside them, so the
+   outline appeared to break up as the selection moved. The overlay sits above
+   the cell's own background, costs no space, and — because each edge is an
+   independent custom property — the four sides compose into one rectangle
+   around the range instead of a box around every cell. */
 .rtc-td[data-rtc-cell-edge-top="true"] {
-  border-top: 1px solid var(--rtc-color-accent);
+  --rtc-cell-edge-block-start: 1px;
 }
 
 .rtc-td[data-rtc-cell-edge-bottom="true"] {
-  border-bottom: 1px solid var(--rtc-color-accent);
+  --rtc-cell-edge-block-end: 1px;
 }
 
 .rtc-td[data-rtc-cell-edge-left="true"] {
-  border-inline-start: 1px solid var(--rtc-color-accent);
+  --rtc-cell-edge-inline-start: 1px;
 }
 
 .rtc-td[data-rtc-cell-edge-right="true"] {
-  border-inline-end: 1px solid var(--rtc-color-accent);
+  --rtc-cell-edge-inline-end: 1px;
+}
+
+.rtc-td[data-rtc-cell-selected="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-block-start: var(--rtc-cell-edge-block-start, 0) solid var(--rtc-color-accent);
+  border-block-end: var(--rtc-cell-edge-block-end, 0) solid var(--rtc-color-accent);
+  border-inline-start: var(--rtc-cell-edge-inline-start, 0) solid var(--rtc-color-accent);
+  border-inline-end: var(--rtc-cell-edge-inline-end, 0) solid var(--rtc-color-accent);
 }
 
 /* ------------------------------------------------------- header layout --- */
