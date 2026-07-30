@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 
-import { bodyRows, columnText, header, openStory } from './helpers'
+import { bodyRows, columnText, header, openStory, panelField } from './helpers'
 
 /**
  * The component registry, verified against each adapter.
@@ -112,6 +112,66 @@ for (const [library, storyId] of Object.entries(STORIES) as Array<[LibraryName, 
       await expect.poll(async () => new Set(await columnText(root, 'city'))).toEqual(
         new Set(['Lisbon']),
       )
+    })
+
+    /**
+     * The slider must not re-filter the table once per pointer move.
+     *
+     * This is a crash guard, not a performance preference. A move that
+     * re-filters schedules a table-wide render, and the design system then
+     * schedules more work off the back of it from layout effects and ref
+     * callbacks — Ant's slider tooltip realigns on every value change, and
+     * that realignment is what tipped this over first. React counts a commit
+     * that finishes with such work still queued as a *nested* update and
+     * throws "Maximum update depth exceeded" (error 185) at the fiftieth in a
+     * row, so a long enough drag crashed the table rather than merely lagging.
+     * Counting updates catches the cause on any machine; waiting for the crash
+     * itself only reproduces when rendering is slower than the event stream.
+     */
+    test('the range slider does not re-filter the table on every move', async ({ page }) => {
+      const errors: string[] = []
+      page.on('pageerror', (error) => errors.push(error.message))
+
+      const root = await openStory(page, storyId)
+      const slider = panelField(root, 'salary').getByRole('slider').first()
+      await slider.scrollIntoViewIfNeeded()
+
+      const box = await slider.boundingBox()
+      if (!box) throw new Error('the salary slider is not visible')
+      const y = box.y + box.height / 2
+      const x = box.x + box.width / 2
+
+      // The row-count summary is rewritten every time the filter is applied.
+      const summary = await root.locator('[data-rtc-page-range]').innerText()
+      await page.evaluate(() => {
+        const target = document.querySelector('[data-rtc-page-range]')!
+        const state = { count: 0 }
+        ;(window as unknown as { rtcFilterApplied: typeof state }).rtcFilterApplied = state
+        new MutationObserver(() => {
+          state.count += 1
+        }).observe(target, { childList: true, characterData: true, subtree: true })
+      })
+
+      const moves = 80
+      await page.mouse.move(x, y)
+      await page.mouse.down()
+      for (let move = 0; move < moves; move += 1) {
+        await page.mouse.move(x + 60 * Math.sin(move / 6), y)
+      }
+
+      const during = await page.evaluate(
+        () => (window as unknown as { rtcFilterApplied: { count: number } }).rtcFilterApplied.count,
+      )
+      await page.mouse.up()
+
+      // A handful of applications over 80 moves is the delayed commit doing its
+      // job; one per move is the failure mode.
+      expect(during).toBeLessThan(moves / 4)
+
+      // And the drag still ends in an applied filter.
+      await expect(root.locator('[data-rtc-page-range]')).not.toHaveText(summary)
+      await expect(bodyRows(root).first()).toBeVisible()
+      expect(errors).toEqual([])
     })
   })
 }

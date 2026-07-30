@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from 'react'
+
 import { useComponents } from '../components/registry'
 import type { FilterOperandProps } from './types'
 
@@ -77,21 +79,48 @@ export function NumberRangeOperand({
   )
 }
 
-/** Dual-thumb slider bounded by the column's faceted min/max. */
+/**
+ * Dual-thumb slider bounded by the column's faceted min/max.
+ *
+ * The thumbs are local state and the filter is updated on a short delay, the
+ * same shape as the global search field: dragging is a stream of events, and
+ * the table is far too expensive to re-filter on each one.
+ *
+ * The cost of getting this wrong is not a dropped frame. A pointer move that
+ * re-filters the table queues a table-wide render *plus* whatever the host
+ * design system schedules on the back of it — overlay realignment, portal
+ * mounts, transition ticks — much of it from layout effects and ref callbacks,
+ * which React counts as work scheduled *during* a commit. React treats a commit
+ * that finishes with such work still queued as a nested update and throws
+ * "Maximum update depth exceeded" at the fiftieth in a row, so a drag long
+ * enough to keep the queue permanently non-empty crashes the table instead of
+ * merely lagging. Committing on a delay lets the queue drain between updates.
+ */
 export function SliderOperand({ value, onChange, bounds, label }: FilterOperandProps) {
   const ui = useComponents()
   const min = bounds?.[0] ?? 0
   const max = bounds?.[1] ?? 100
   const range = Array.isArray(value) ? (value as Array<number | undefined>) : []
-  return (
-    <ui.RangeSlider
-      label={label}
-      min={min}
-      max={max}
-      value={[range[0] ?? min, range[1] ?? max]}
-      onChange={(next) => onChange(next)}
-    />
-  )
+  const low = range[0] ?? min
+  const high = range[1] ?? max
+
+  const [draft, setDraft] = useState<[number, number]>([low, high])
+  // Read through a ref: the operand's `onChange` is rebuilt on every render of
+  // the editor, and depending on it would restart the timer before it fires.
+  const commitRef = useRef(onChange)
+  commitRef.current = onChange
+
+  useEffect(() => {
+    setDraft((previous) => (previous[0] === low && previous[1] === high ? previous : [low, high]))
+  }, [low, high])
+
+  useEffect(() => {
+    if (draft[0] === low && draft[1] === high) return
+    const timer = setTimeout(() => commitRef.current(draft), 150)
+    return () => clearTimeout(timer)
+  }, [draft, low, high])
+
+  return <ui.RangeSlider label={label} min={min} max={max} value={draft} onChange={setDraft} />
 }
 
 export function SelectOperand({
