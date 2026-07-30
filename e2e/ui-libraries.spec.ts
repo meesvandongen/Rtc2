@@ -117,16 +117,17 @@ for (const [library, storyId] of Object.entries(STORIES) as Array<[LibraryName, 
     /**
      * The slider must not re-filter the table once per pointer move.
      *
-     * This is a crash guard, not a performance preference. A move that
-     * re-filters schedules a table-wide render, and the design system then
-     * schedules more work off the back of it from layout effects and ref
-     * callbacks — Ant's slider tooltip realigns on every value change, and
-     * that realignment is what tipped this over first. React counts a commit
-     * that finishes with such work still queued as a *nested* update and
-     * throws "Maximum update depth exceeded" (error 185) at the fiftieth in a
-     * row, so a long enough drag crashed the table rather than merely lagging.
-     * Counting updates catches the cause on any machine; waiting for the crash
-     * itself only reproduces when rendering is slower than the event stream.
+     * This is a crash guard, not a performance preference. React counts a
+     * commit that ends with sync-, continuous- or default-lane work already
+     * queued as a *nested* update and throws "Maximum update depth exceeded"
+     * (error 185) on the fifty-first in an unbroken row. One applied filter
+     * takes three commits to settle here, only the last of which empties the
+     * queue, so a drag that re-filters per move can keep the count climbing —
+     * observed throwing at move 759 with pagination disabled.
+     *
+     * The assertion counts filter applications rather than waiting for the
+     * throw: the throw needs an unbroken run of 51 and is therefore timing
+     * dependent, while the per-move re-filtering that feeds it is not.
      */
     test('the range slider does not re-filter the table on every move', async ({ page }) => {
       const errors: string[] = []

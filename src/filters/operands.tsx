@@ -86,15 +86,18 @@ export function NumberRangeOperand({
  * same shape as the global search field: dragging is a stream of events, and
  * the table is far too expensive to re-filter on each one.
  *
- * The cost of getting this wrong is not a dropped frame. A pointer move that
- * re-filters the table queues a table-wide render *plus* whatever the host
- * design system schedules on the back of it — overlay realignment, portal
- * mounts, transition ticks — much of it from layout effects and ref callbacks,
- * which React counts as work scheduled *during* a commit. React treats a commit
- * that finishes with such work still queued as a nested update and throws
- * "Maximum update depth exceeded" at the fiftieth in a row, so a drag long
- * enough to keep the queue permanently non-empty crashes the table instead of
- * merely lagging. Committing on a delay lets the queue drain between updates.
+ * The cost of getting this wrong is not a dropped frame. React counts a commit
+ * that ends with sync-, continuous- or default-lane work *already queued* as a
+ * nested update, and throws "Maximum update depth exceeded" (error 185) on the
+ * fifty-first in an unbroken row. One filter update never settles in a single
+ * commit here: measured against one applied filter and quiesced, the run is
+ * three commits, only the last of which leaves the queue empty. Under a long
+ * drag that last commit stops being reached and the count climbs to the limit —
+ * observed at move 759 of a sustained drag with pagination disabled.
+ *
+ * Committing on a delay leaves the queue time to drain: the same drag peaks at
+ * a nesting depth of 2. It also drops the per-drag work from a table-wide
+ * re-filter per pointer move to one, which is the reason to do it anyway.
  */
 export function SliderOperand({ value, onChange, bounds, label }: FilterOperandProps) {
   const ui = useComponents()
