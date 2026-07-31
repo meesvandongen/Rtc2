@@ -3,7 +3,11 @@
 Reproduces `Maximum update depth exceeded` from a long drag on the salary range
 slider, outside Storybook, against `src/` as shipped.
 
-> **Start with `../react-185-minimal/` instead.** That reproduces the same
+> **Start with `../react-185-antd/`, or `../react-185-minimal/`, instead.**
+> The first reproduces this with real Ant Design and one overlay, and pins the
+> cause to a single upstream effect. The second does it in sixty lines of plain
+> React.
+> That reproduces the same
 > failure in sixty lines with no table and no design system, deterministically,
 > with a control for every ingredient. This harness is the real-world case: it
 > confirms the mechanism reaches shipped code, but it only fails on some runs.

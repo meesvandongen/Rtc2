@@ -2,18 +2,18 @@
  * Drives the minimal reproduction and reports whether React threw error 185.
  *
  * Usage:
- *   pnpm exec vite --config debug/react-185-minimal/vite.config.ts   # terminal 1
- *   node debug/react-185-minimal/drive.mjs                           # terminal 2
+ *   pnpm exec vite --config debug/react-185-antd/vite.config.ts   # terminal 1
+ *   node debug/react-185-antd/drive.mjs                           # terminal 2
  *
  * Exit code 0 means it reproduced, 3 means it did not. See the README for the
  * knobs and the control matrix.
  */
 import { chromium } from '@playwright/test'
 
-const Q = process.env.Q ?? 'sync=1&defmode=render&cost=20'
+const Q = process.env.Q ?? 'antd=on&cost=20'
 const MOVES = Number(process.env.MOVES ?? 600)
 const GAP = Number(process.env.GAP ?? 8)
-const PORT = Number(process.env.PORT ?? 5277)
+const PORT = Number(process.env.PORT ?? 5288)
 
 const browser = await chromium.launch(
   process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {},
@@ -22,7 +22,7 @@ const page = await browser.newPage({ viewport: { width: 900, height: 500 } })
 const errors = []
 page.on('pageerror', (error) => errors.push(error.message.split('\n')[0]))
 
-await page.goto(`http://127.0.0.1:${PORT}/debug/react-185-minimal/index.html?${Q}`)
+await page.goto(`http://127.0.0.1:${PORT}/debug/react-185-antd/index.html?${Q}`)
 await page.locator('#pad').waitFor()
 await page.waitForTimeout(600)
 
@@ -62,6 +62,15 @@ console.log(
   `[${Q}] react=${lanes.length ? 'instrumented' : 'pristine'} ` +
     `maxNest=${maxNest} ${threwAt === -1 ? 'no error' : `THREW at move ${threwAt}`}`,
 )
-if (commits.length) console.log('  last commits:', commits.slice(-8).join('  '))
+if (lanes.length) {
+  const commits = lanes.filter((l) => l.startsWith('C'))
+  console.log('  commits:', commits.length, '| last 6:', commits.slice(-6).join('  '))
+  const inCommit = {}
+  for (const l of lanes) if (l.startsWith('U ') && l.includes('ec=4')) inCommit[l] = (inCommit[l] ?? 0) + 1
+  const outside = {}
+  for (const l of lanes) if (l.startsWith('U ') && !l.includes('ec=4')) outside[l] = (outside[l] ?? 0) + 1
+  console.log('  in-commit producers:', JSON.stringify(inCommit))
+  console.log('  other producers:', JSON.stringify(Object.fromEntries(Object.entries(outside).slice(0, 6))))
+}
 await browser.close()
 process.exit(threwAt === -1 ? 3 : 0)
