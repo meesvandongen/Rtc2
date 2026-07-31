@@ -9,10 +9,10 @@
  * whatever Chromium Playwright resolves, honouring `CHROMIUM_PATH`.
  *
  * Usage:
- *   pnpm exec vite --config debug/react-185/vite.config.ts   # in one terminal
- *   node debug/react-185/record.mjs                          # in another
- *   REPLAY=1 node debug/react-185/record.mjs                 # record it
- *   Q='eager=off' node debug/react-185/record.mjs            # A/B the fix
+ *   pnpm exec vite --config debug/react-185-app/vite.config.ts   # in one terminal
+ *   node debug/react-185-app/record.mjs                          # in another
+ *   REPLAY=1 node debug/react-185-app/record.mjs                 # record it
+ *   Q='eager=off' node debug/react-185-app/record.mjs            # A/B the fix
  *
  * Exit code 0 means it reproduced, 3 means it did not.
  */
@@ -41,7 +41,7 @@ const page = await browser.newPage({ viewport: { width: 1400, height: 900 } })
 const errors = []
 page.on('pageerror', (error) => errors.push(error.message.split('\n')[0]))
 
-await page.goto(`http://127.0.0.1:${PORT}/debug/react-185/index.html?${Q}`)
+await page.goto(`http://127.0.0.1:${PORT}/debug/react-185-app/index.html?${Q}`)
 await page.locator('.rtc-root').first().waitFor({ timeout: 60_000 })
 await page.waitForTimeout(2500)
 

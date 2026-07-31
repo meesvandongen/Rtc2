@@ -3,6 +3,11 @@
 Reproduces `Maximum update depth exceeded` from a long drag on the salary range
 slider, outside Storybook, against `src/` as shipped.
 
+> **Start with `../react-185-minimal/` instead.** That reproduces the same
+> failure in sixty lines with no table and no design system, deterministically,
+> with a control for every ingredient. This harness is the real-world case: it
+> confirms the mechanism reaches shipped code, but it only fails on some runs.
+
 ## Why this exists
 
 React counts a commit that ends with sync-, continuous- or default-lane work
@@ -25,13 +30,15 @@ Measured contributions to the run length, for reference: deferring TanStack's
 render-phase store notification takes the reset rate from 33.5% to 48%;
 swapping the Ant adapter for the built-in primitives takes it to 50%. Each
 inserts roughly one extra non-resetting commit per update. The step from a mean
-run of three to an unbroken run of 51 is **not explained**.
+run of three to an unbroken run of 51 is explained by the minimal harness next
+door: a commit-phase Sync producer and a dependency-array-less Default producer
+re-arm each other without yielding to the event loop.
 
 ## Run it
 
 ```sh
-pnpm exec vite --config debug/react-185/vite.config.ts     # terminal 1
-node debug/react-185/record.mjs                            # terminal 2
+pnpm exec vite --config debug/react-185-app/vite.config.ts     # terminal 1
+node debug/react-185-app/record.mjs                            # terminal 2
 ```
 
 Exit code 0 means it reproduced, 3 means it did not. Expect several attempts.
@@ -53,7 +60,7 @@ The Replay browser is not vendored; install it per machine:
 
 ```sh
 npx replayio@latest install                    # ~200 MB into ~/.replay
-REPLAY=1 node debug/react-185/record.mjs       # record a run
+REPLAY=1 node debug/react-185-app/record.mjs       # record a run
 npx replayio@latest list                       # find the recording id
 REPLAY_API_KEY=… npx replayio@latest upload <id>
 ```
