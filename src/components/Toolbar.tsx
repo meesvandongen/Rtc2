@@ -104,7 +104,7 @@ function ActiveFilterChips<TData extends RowData>({ table }: { table: DataTableI
           <span key={filter.id} data-rtc-filter-chip={filter.id}>
             <ui.Badge
               onRemove={() => column.setFilterValue(undefined)}
-              removeLabel={`${options.localization.clearFilter}: ${getColumnLabel(column)}`}
+              removeLabel={`${options.localization.clearFilter}: ${getColumnLabel(column, options.localization)}`}
             >
               {describeFilter(table, column as never)}
             </ui.Badge>
@@ -257,7 +257,7 @@ function ColumnVisibilityMenu<TData extends RowData>({
     ...table.getAllLeafColumns().map((column) => ({
       type: 'checkbox' as const,
       id: column.id,
-      label: getColumnLabel(column),
+      label: getColumnLabel(column, localization),
       checked: column.getIsVisible(),
       disabled: !column.getCanHide(),
       icon: <ui.Icon name={column.getIsVisible() ? 'eye' : 'eyeOff'} />,

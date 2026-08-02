@@ -204,6 +204,9 @@ worse, an icon we hand the library as menu-item content loses
 `--rtc-icon-size`, and an SVG whose `width` is an invalid `var()` falls back to
 its intrinsic size — a 16px glyph rendering at 300px. Icons carry a literal
 fallback for that reason, but the class is what keeps everything else themed.
+The class resolves the palette from wherever the portal lands, so in dark mode
+it only works if `data-rtc-theme` is somewhere both the table and
+`document.body` can see it — see [Theming](#theming).
 
 ### The built-in overlays
 
@@ -433,6 +436,30 @@ for the full list with defaults.
 Dark mode follows `prefers-color-scheme`. Force it either way with
 `data-rtc-theme="dark"` / `"light"` on the table or any ancestor.
 
+**Put the attribute high enough.** Not everything the table opens stays inside
+it: the modal editor portals to `document.body`, and every adapter renders its
+menus and popovers there too. Those surfaces carry `rtc-vars` and so resolve
+the palette from *their* ancestors, which is the body — not the wrapper the
+table happens to sit in. Setting `data-rtc-theme` on a `<div>` around the table
+leaves them light while the table is dark. Set it on `<html>` (or `<body>`), as
+an app switching themes would anyway, and everything lands on the same palette.
+
+The palette also sets [`color-scheme`](https://developer.mozilla.org/en-US/docs/Web/CSS/color-scheme),
+which is what makes the browser paint its own chrome to match: scrollbars, the
+drop-down list of a native `<select>`, date pickers, number spinners. Without
+it a dark table opens a white select popup, which no amount of variable
+overriding can reach.
+
+A design system with a colour scheme of its own — MUI's `ThemeProvider`,
+Mantine's `MantineProvider` — is not driven by any of this. Tell it the mode
+directly, alongside the attribute:
+
+```tsx
+<ThemeProvider theme={createTheme({ palette: { mode } })}>
+  <DataTable columns={columns} data={data} components={muiComponents} />
+</ThemeProvider>
+```
+
 ### Column widths
 
 A header is not just a label: it carries a sort control, a filter funnel and a
@@ -557,6 +584,12 @@ return <DataTable table={table} />
   `aria-rowcount`/`aria-colcount`, `aria-selected`, `aria-expanded` and
   `aria-busy` wired up.
 - Every icon-only control takes its accessible name from `localization`.
+- Anything that names a column — the visibility menu, the grouping chips, the
+  filter panel, "Sort by {column} ascending" — reads a plain-string `header`,
+  falling back to `meta.label` when the header is a render function or an
+  element. The columns the component generates (selection, expand, row number,
+  row actions) are named from `localization`, so they are readable and
+  translated rather than showing an internal id.
 - Menus are portalled, dismiss on Escape and outside click, support arrow-key
   roving focus, and restore focus to their trigger.
 - The modal editor traps focus and is labelled `role="dialog" aria-modal`.
@@ -580,7 +613,7 @@ it up automatically).
 
 ```bash
 pnpm install
-pnpm run storybook        # http://localhost:6006 — 105 stories
+pnpm run storybook        # http://localhost:6006 — 114 stories
 pnpm run typecheck
 pnpm run build:lib        # dist/index.js + dist/style.css + dist/index.d.ts
 pnpm run build:storybook  # → storybook-static/
@@ -591,7 +624,7 @@ pnpm run test:e2e         # Playwright, against the built Storybook
 on the approved list because Storybook's core needs its postinstall to link a
 platform binary; without it `build:storybook` fails.
 
-The Playwright suite (108 tests) drives the real Storybook build: it starts
+The Playwright suite (158 tests) drives the real Storybook build: it starts
 `vite preview` over `storybook-static/`, so run `pnpm run build:storybook`
 first. The remote-pagination specs intercept `/api/people` with Mock Service
 Worker.
@@ -602,6 +635,22 @@ download, point the suite at it:
 ```bash
 CHROMIUM_PATH=/path/to/chromium pnpm run test:e2e
 ```
+
+### Changesets
+
+Versioning and the changelog are handled by
+[changesets](https://github.com/changesets/changesets). Any change a consumer
+could notice ships with one:
+
+```bash
+pnpm changeset            # pick the bump, write the entry
+pnpm changeset:status     # what is pending against main
+```
+
+The version in `package.json` is never edited by hand. `.github/workflows/release.yml`
+keeps a "Version Packages" pull request open while changesets are pending on
+`main`; merging it applies the bumps, writes `CHANGELOG.md`, and publishes to
+npm. See [`.changeset/README.md`](.changeset/README.md) for which bump to pick.
 
 ### Build toolchain
 

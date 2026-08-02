@@ -5,26 +5,16 @@ import { RowActionsCell } from './components/RowActionsCell'
 import { RowDragHandle } from './components/RowDragHandle'
 import { RowExpandToggle } from './components/RowExpandToggle'
 import { SelectAllCheckbox, SelectRowCheckbox } from './components/SelectionCells'
+import { DISPLAY_COLUMN_IDS } from './displayColumnIds'
 import type { DataTableFeatures } from './features'
 import type { DataTableColumn, DataTableInstance, DataTableOptions } from './types'
 
-/** Stable ids for the component-generated columns, exported so consumers can
- *  target them in `columnOrder`, `columnPinning`, `columnVisibility` and CSS. */
-export const DISPLAY_COLUMN_IDS = {
-  drag: 'rtc-row-drag',
-  select: 'rtc-select',
-  expand: 'rtc-expand',
-  rowNumber: 'rtc-row-number',
-  actions: 'rtc-row-actions',
-} as const
-
-export type DisplayColumnId = (typeof DISPLAY_COLUMN_IDS)[keyof typeof DISPLAY_COLUMN_IDS]
-
-const DISPLAY_ID_SET = new Set<string>(Object.values(DISPLAY_COLUMN_IDS))
-
-export function isDisplayColumnId(id: string): boolean {
-  return DISPLAY_ID_SET.has(id)
-}
+export {
+  DISPLAY_COLUMN_IDS,
+  isDisplayColumnId,
+  getDisplayColumnLabel,
+  type DisplayColumnId,
+} from './displayColumnIds'
 
 /** Shared defaults: display columns never participate in data operations. */
 const inertColumnDef = {

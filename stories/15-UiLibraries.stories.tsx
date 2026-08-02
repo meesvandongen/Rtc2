@@ -26,6 +26,19 @@ type Story = StoryObj<typeof meta>
  * different API shapes — if it holds for all three, it is at the right level.
  */
 
+/**
+ * The Storybook toolbar's theme, as the value each library wants.
+ *
+ * The table itself needs nothing here — it is themed by `data-rtc-theme` on an
+ * ancestor, which the preview sets. An adapted table is a different matter:
+ * MUI and Mantine each own their palette, and neither reads a CSS attribute of
+ * ours, so a dark table with a light `ThemeProvider` renders dark rows behind
+ * white menus. Both providers are told the mode explicitly.
+ */
+type StoryContext = { globals: Record<string, unknown> }
+const colorSchemeOf = (context: StoryContext): 'light' | 'dark' =>
+  context.globals.theme === 'dark' ? 'dark' : 'light'
+
 const commonOptions = {
   columns: personColumns,
   data,
@@ -64,12 +77,13 @@ export const BuiltInPrimitives: Story = {
  * anchor to.
  */
 export const MaterialUi: Story = {
-  render: function MaterialUi() {
+  render: function MaterialUi(_args, context) {
+    const mode = colorSchemeOf(context)
     const components = useMemo<DataTableComponents>(
       () => createMuiComponents(defaultComponents),
       [],
     )
-    const theme = useMemo(() => createTheme({ palette: { mode: 'light' } }), [])
+    const theme = useMemo(() => createTheme({ palette: { mode } }), [mode])
     return (
       <ThemeProvider theme={theme}>
         <CssBaseline />
@@ -80,9 +94,12 @@ export const MaterialUi: Story = {
         <DataTable
           {...commonOptions}
           components={components}
+          // MUI's own primary, per mode — `#1976d2` is unreadable on a dark
+          // surface, and it is the colour the adapter's buttons already use.
           cssVars={{
-            '--rtc-color-accent': '#1976d2',
-            '--rtc-color-accent-subtle': 'rgb(25 118 210 / 8%)',
+            '--rtc-color-accent': mode === 'dark' ? '#90caf9' : '#1976d2',
+            '--rtc-color-accent-subtle':
+              mode === 'dark' ? 'rgb(144 202 249 / 14%)' : 'rgb(25 118 210 / 8%)',
             '--rtc-row-height-comfortable': '52px',
             '--rtc-header-font-weight': '500',
           }}
@@ -100,7 +117,8 @@ export const MaterialUi: Story = {
  * element and the built-in buttons forward their refs.
  */
 export const RadixShadcn: Story = {
-  render: function RadixShadcn() {
+  render: function RadixShadcn(_args, context) {
+    const mode = colorSchemeOf(context)
     const components = useMemo<DataTableComponents>(
       () => createRadixComponents(defaultComponents),
       [],
@@ -114,10 +132,15 @@ export const RadixShadcn: Story = {
         <DataTable
           {...commonOptions}
           components={components}
+          // shadcn's primary inverts between its themes — near-black on light,
+          // near-white on dark — so the accent has to invert with it. Pinned to
+          // the light pair, every primary button in dark mode was black text on
+          // black.
           cssVars={{
-            '--rtc-color-accent': '#18181b',
-            '--rtc-color-accent-contrast': '#fafafa',
-            '--rtc-color-accent-subtle': 'rgb(24 24 27 / 6%)',
+            '--rtc-color-accent': mode === 'dark' ? '#fafafa' : '#18181b',
+            '--rtc-color-accent-contrast': mode === 'dark' ? '#18181b' : '#fafafa',
+            '--rtc-color-accent-subtle':
+              mode === 'dark' ? 'rgb(250 250 250 / 12%)' : 'rgb(24 24 27 / 6%)',
             '--rtc-radius': '6px',
             '--rtc-header-bg': 'transparent',
           }}
@@ -137,13 +160,17 @@ export const RadixShadcn: Story = {
  * richer controls, not just restyled ones.
  */
 export const Mantine: Story = {
-  render: function Mantine() {
+  render: function Mantine(_args, context) {
+    const mode = colorSchemeOf(context)
     const components = useMemo<DataTableComponents>(
       () => createMantineComponents(defaultComponents),
       [],
     )
     return (
-      <MantineProvider>
+      // `forceColorScheme`, not `defaultColorScheme`: the scheme is driven by
+      // the Storybook toolbar, and Mantine's default would let a stored
+      // preference or the OS win over it.
+      <MantineProvider forceColorScheme={mode}>
         <p className="sb-note">
           Menus and selects are built from data arrays, and date filters use Mantine's{' '}
           <code>DateInput</code> instead of a native date input.
@@ -151,10 +178,13 @@ export const Mantine: Story = {
         <DataTable
           {...commonOptions}
           components={components}
+          // Mantine's `blue.6` / `blue.4` and its two body shades, so the table
+          // lands on the same surfaces as the controls sitting in it.
           cssVars={{
-            '--rtc-color-accent': '#228be6',
-            '--rtc-color-accent-subtle': '#e7f5ff',
-            '--rtc-header-bg': '#f8f9fa',
+            '--rtc-color-accent': mode === 'dark' ? '#4dabf7' : '#228be6',
+            '--rtc-color-accent-subtle':
+              mode === 'dark' ? 'rgb(77 171 247 / 15%)' : '#e7f5ff',
+            '--rtc-header-bg': mode === 'dark' ? '#25262b' : '#f8f9fa',
             '--rtc-row-height-comfortable': '54px',
           }}
         />
@@ -165,7 +195,8 @@ export const Mantine: Story = {
 
 /** Switch libraries at runtime against one identical table. */
 export const SideBySideSwitcher: Story = {
-  render: function SideBySideSwitcher() {
+  render: function SideBySideSwitcher(_args, context) {
+    const mode = colorSchemeOf(context)
     const [library, setLibrary] = useState<'built-in' | 'mui' | 'radix' | 'mantine'>('built-in')
 
     const components = useMemo<DataTableComponents | undefined>(() => {
@@ -204,9 +235,9 @@ export const SideBySideSwitcher: Story = {
           Same columns, same data, same options — only <code>components</code> changes.
         </p>
         {library === 'mui' ? (
-          <ThemeProvider theme={createTheme()}>{table}</ThemeProvider>
+          <ThemeProvider theme={createTheme({ palette: { mode } })}>{table}</ThemeProvider>
         ) : library === 'mantine' ? (
-          <MantineProvider>{table}</MantineProvider>
+          <MantineProvider forceColorScheme={mode}>{table}</MantineProvider>
         ) : (
           table
         )}

@@ -2,6 +2,9 @@ import type { DataTableSelectOption } from './types'
 
 import { useRef } from 'react'
 
+import { getDisplayColumnLabel } from './displayColumnIds'
+import type { DataTableLocalization } from './locale'
+
 /**
  * Returns a stable reference for an array whose elements have not changed.
  *
@@ -79,12 +82,23 @@ export function stringifyValue(value: unknown): string {
  * A human-readable name for a column.
  *
  * `columnDef.header` may be a render function or a React element, neither of
- * which stringifies into anything usable for an `aria-label` or a menu entry,
- * so anything non-string falls back to the column id.
+ * which stringifies into anything usable for an `aria-label` or a menu entry.
+ * For those, `meta.label` is the column's own answer, and the display columns
+ * the component generates have a translated name of their own. Only when all
+ * three are missing does this fall back to the id.
  */
-export function getColumnLabel(column: { id: string; columnDef: { header?: unknown } }): string {
+export function getColumnLabel(
+  column: { id: string; columnDef: { header?: unknown; meta?: { label?: string } } },
+  localization?: DataTableLocalization,
+): string {
+  const metaLabel = column.columnDef.meta?.label
+  if (typeof metaLabel === 'string' && metaLabel !== '') return metaLabel
+
   const header = column.columnDef.header
-  return typeof header === 'string' && header !== '' ? header : column.id
+  if (typeof header === 'string' && header !== '') return header
+
+  const displayLabel = localization && getDisplayColumnLabel(column.id, localization)
+  return displayLabel || column.id
 }
 
 /** Serializes the table's visible columns and given rows as RFC 4180 CSV. */

@@ -102,6 +102,13 @@
   /* Set by the component; not intended as user overrides. */
   --rtc-total-width: auto;
 
+  /* Declared alongside the palette so the browser paints its own chrome to
+     match: scrollbars on every scroll container below, the drop-down list of a
+     native `<select>`, date and colour pickers, spinner buttons, and the
+     default form-control borders an adapter may leave unstyled. Without it a
+     dark table keeps a white scrollbar and a white `<select>` popup. */
+  color-scheme: light;
+
   color: var(--rtc-color-text);
   font-family: var(--rtc-font-family);
   font-size: var(--rtc-font-size);
@@ -138,6 +145,7 @@
 @media (prefers-color-scheme: dark) {
   .rtc-root:not([data-rtc-theme="light"]):not([data-rtc-theme="light"] *),
   .rtc-vars:not([data-rtc-theme="light"]):not([data-rtc-theme="light"] *) {
+    color-scheme: dark;
     --rtc-color-surface: #0f172a;
     --rtc-color-surface-sunken: #131f36;
     --rtc-color-surface-raised: #1a2740;
@@ -166,6 +174,7 @@
 .rtc-vars[data-rtc-theme="dark"],
 [data-rtc-theme="dark"] .rtc-root:not([data-rtc-theme="light"]),
 [data-rtc-theme="dark"] .rtc-vars:not([data-rtc-theme="light"]) {
+  color-scheme: dark;
   --rtc-color-surface: #0f172a;
   --rtc-color-surface-sunken: #131f36;
   --rtc-color-surface-raised: #1a2740;
@@ -224,22 +233,55 @@
   min-height: 0;
   min-width: 0;
   overflow: auto;
+}
+
+/* --------------------------------------------------------- scrollbars --- */
+
+/* Every scroll container the component owns, styled in one place: the table
+   viewport, the menus and popovers in the top layer, the filter panel, the
+   checkbox list inside a filter, and the modal editor. They used to be listed
+   one at a time, and only the viewport was ever given a colour — which is how
+   a dark menu ended up with a light scrollbar sitting on it. */
+.rtc-container,
+.rtc-surface,
+.rtc-filter-panel-body,
+.rtc-filter-checkboxes,
+.rtc-dialog {
   scrollbar-color: var(--rtc-scrollbar-thumb) var(--rtc-scrollbar-track);
   scrollbar-width: thin;
 }
 
-.rtc-container::-webkit-scrollbar {
+.rtc-container::-webkit-scrollbar,
+.rtc-surface::-webkit-scrollbar,
+.rtc-filter-panel-body::-webkit-scrollbar,
+.rtc-filter-checkboxes::-webkit-scrollbar,
+.rtc-dialog::-webkit-scrollbar {
   width: var(--rtc-scrollbar-size);
   height: var(--rtc-scrollbar-size);
 }
 
-.rtc-container::-webkit-scrollbar-track {
+.rtc-container::-webkit-scrollbar-track,
+.rtc-surface::-webkit-scrollbar-track,
+.rtc-filter-panel-body::-webkit-scrollbar-track,
+.rtc-filter-checkboxes::-webkit-scrollbar-track,
+.rtc-dialog::-webkit-scrollbar-track {
   background: var(--rtc-scrollbar-track);
 }
 
-.rtc-container::-webkit-scrollbar-thumb {
+.rtc-container::-webkit-scrollbar-thumb,
+.rtc-surface::-webkit-scrollbar-thumb,
+.rtc-filter-panel-body::-webkit-scrollbar-thumb,
+.rtc-filter-checkboxes::-webkit-scrollbar-thumb,
+.rtc-dialog::-webkit-scrollbar-thumb {
   background: var(--rtc-scrollbar-thumb);
   border-radius: var(--rtc-radius-pill);
+}
+
+/* An overlay is a much smaller box than the table viewport, so the same 10px
+   gutter reads as heavy on it. */
+.rtc-surface,
+.rtc-dialog {
+  --rtc-scrollbar-size: 8px;
 }
 
 /* --------------------------------------------------------------- table --- */
@@ -1168,7 +1210,6 @@
   min-height: 0;
   padding: 12px;
   overflow-y: auto;
-  scrollbar-width: thin;
 }
 
 .rtc-filter-panel-empty {

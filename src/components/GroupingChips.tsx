@@ -36,7 +36,7 @@ export function GroupingChips<TData extends RowData>({
       ) : (
         grouping.map((columnId) => {
           const column = table.getColumn(columnId)
-          const label = column ? getColumnLabel(column) : columnId
+          const label = column ? getColumnLabel(column, localization) : columnId
           return (
             <span key={columnId} data-rtc-group-chip={columnId}>
               <ui.Badge
