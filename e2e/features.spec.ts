@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Locator } from '@playwright/test'
 
 import {
   bodyRows,
@@ -384,6 +384,19 @@ test.describe('columns', () => {
     await expect(header(root, 'city')).toHaveCount(0)
   })
 
+  test('the visibility menu names the generated columns', async ({ page }) => {
+    const root = await openStory(page, 'datatable-15-ui-libraries--built-in-primitives')
+
+    await toolbarAction(root, 'toggle-columns').click()
+    const menu = openMenu(page)
+    // The selection and row-action columns render their header through a
+    // function, so there is no header string to name them by. They are named
+    // from the localization instead of falling back to their internal id.
+    await expect(menu.getByRole('menuitemcheckbox', { name: 'Actions' })).toBeVisible()
+    await expect(menu.getByRole('menuitemcheckbox', { name: 'Select' })).toBeVisible()
+    await expect(menu).not.toContainText('rtc-')
+  })
+
   test('the column menu sorts, pins and hides', async ({ page }) => {
     const root = await openStory(page, 'datatable-06-columns--column-actions-menu')
 
@@ -705,6 +718,61 @@ test.describe('theming', () => {
     expect(darkSurface).not.toBe(lightSurface)
     expect(darkSurface).toBe('#0f172a')
   })
+
+  test('dark mode sets the color scheme so browser chrome follows', async ({ page }) => {
+    const light = await openStory(page, 'datatable-01-basics--basic')
+    expect(await light.evaluate((element) => getComputedStyle(element).colorScheme)).toBe('light')
+
+    const dark = await openStory(page, 'datatable-12-theming--dark-mode')
+    expect(await dark.evaluate((element) => getComputedStyle(element).colorScheme)).toBe('dark')
+  })
+
+  /**
+   * `rtc-vars` exists so a surface rendered outside the table can opt into the
+   * theme. Nested inside one it must do nothing at all: a declaration on the
+   * element beats one inherited from an ancestor, so the docked filter panel —
+   * which carries the class for its standalone form — used to reset every
+   * variable to the package defaults and ignore the `cssVars` set on the table
+   * root above it. A recoloured table then had a stock-coloured panel bolted to
+   * its side.
+   *
+   * The Mantine story is the case in point: it is the one that remaps the whole
+   * surface palette *and* docks a panel.
+   */
+  test('a docked filter panel inherits the root variable overrides', async ({ page }) => {
+    const root = await openStory(page, 'datatable-15-ui-libraries--mantine')
+    const readSurface = (target: Locator) =>
+      target.evaluate((element) =>
+        getComputedStyle(element).getPropertyValue('--rtc-color-surface').trim(),
+      )
+
+    const surface = await readSurface(root)
+    expect(surface).not.toBe('#ffffff')
+    expect(await readSurface(root.locator('[data-rtc-filter-panel]'))).toBe(surface)
+  })
+
+  test('an overlay scrollbar is painted from the active theme', async ({ page }) => {
+    const readMenuScrollbar = async () => {
+      await toolbarAction(page.locator('.rtc-root').first(), 'toggle-columns').click()
+      return openMenu(page).evaluate((element) => {
+        const style = getComputedStyle(element)
+        return { colorScheme: style.colorScheme, scrollbarColor: style.scrollbarColor }
+      })
+    }
+
+    await openStory(page, 'datatable-01-basics--basic')
+    const light = await readMenuScrollbar()
+
+    await openStory(page, 'datatable-12-theming--dark-mode')
+    const dark = await readMenuScrollbar()
+
+    // Both halves matter: `color-scheme` is what stops the browser painting a
+    // light scrollbar on a dark menu, and the thumb colour is ours.
+    expect(light.colorScheme).toBe('light')
+    expect(dark.colorScheme).toBe('dark')
+    expect(dark.scrollbarColor).not.toBe(light.scrollbarColor)
+    expect(dark.scrollbarColor).not.toBe('auto')
+  })
 })
 
 test.describe('localization', () => {
@@ -713,6 +781,15 @@ test.describe('localization', () => {
 
     await expect(root.getByLabel('Naar volgende pagina')).toBeVisible()
     await expect(root.locator('[data-rtc-pagination]')).toContainText('van')
+  })
+
+  test('the generated columns are translated too', async ({ page }) => {
+    const root = await openStory(page, 'datatable-13-localization--dutch')
+
+    await toolbarAction(root, 'toggle-columns').click()
+    const menu = openMenu(page)
+    await expect(menu.getByRole('menuitemcheckbox', { name: 'Acties' })).toBeVisible()
+    await expect(menu.getByRole('menuitemcheckbox', { name: 'Selecteren' })).toBeVisible()
   })
 })
 

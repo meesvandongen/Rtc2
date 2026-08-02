@@ -87,7 +87,7 @@ export function HeaderCell<TData extends RowData>({
     !header.isPlaceholder &&
     column.getCanFilter()
 
-  const label = getColumnLabel(column)
+  const label = getColumnLabel(column, localization)
 
   const ariaSort: React.AriaAttributes['aria-sort'] = !canSort
     ? undefined
@@ -198,7 +198,7 @@ function ColumnResizer<TData extends RowData>({
       className="rtc-resizer"
       role="separator"
       aria-orientation="vertical"
-      aria-label={`${localization.resetColumnSize}: ${getColumnLabel(column)}`}
+      aria-label={`${localization.resetColumnSize}: ${getColumnLabel(column, localization)}`}
       data-rtc-resizing={column.getIsResizing() ? 'true' : undefined}
       onPointerDown={resizeHandler}
       onDoubleClick={() => column.resetSize()}

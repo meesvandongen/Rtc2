@@ -16,6 +16,7 @@ export {
 
 export {
   DISPLAY_COLUMN_IDS,
+  getDisplayColumnLabel,
   isDisplayColumnId,
   type DisplayColumnId,
 } from './displayColumns'

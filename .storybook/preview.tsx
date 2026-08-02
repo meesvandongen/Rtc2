@@ -67,6 +67,13 @@ const preview: Preview = {
       const theme = context.globals.theme === 'dark' ? 'dark' : 'light'
       // The attribute is read by both the page chrome and `.rtc-root`.
       document.documentElement.setAttribute('data-sb-theme', theme)
+      // `data-rtc-theme` goes on the document element as well as the wrapper.
+      // Overlays escape the wrapper: the modal editor portals to
+      // `document.body`, and every adapter renders its menus and popovers
+      // there too. Those surfaces carry `rtc-vars`, so they pick up the
+      // palette — but only from an ancestor they actually have in common with
+      // the table, which is `<html>`.
+      document.documentElement.setAttribute('data-rtc-theme', theme)
       return (
         <div className="sb-wrapper" data-rtc-theme={theme}>
           <Story />

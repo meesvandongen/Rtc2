@@ -11,9 +11,17 @@
 
 /* The variable block is separate from the table's own layout so that a surface
    rendered outside `<DataTable>` — the standalone filter panel, a menu in the
-   top layer — can opt into the same theme with `rtc-vars` alone. */
+   top layer — can opt into the same theme with `rtc-vars` alone.
+ *
+ * `:not(.rtc-root *)` is what keeps that opt-in from becoming an opt-*out*.
+ * A declaration on the element itself beats one inherited from an ancestor, so
+ * a nested `rtc-vars` — the docked filter panel is one — reset every variable
+ * to the defaults below and locked out the `cssVars` prop set on the table
+ * root above it: an adapter could recolour the whole table and the panel
+ * beside it would stay on the stock palette. Inside a table there is nothing
+ * to opt into, so the block simply does not apply and the panel inherits. */
 .rtc-root,
-.rtc-vars {
+.rtc-vars:not(.rtc-root *) {
   /* ---------------------------------------------------------- palette ---- */
   --rtc-color-surface: #ffffff;
   --rtc-color-surface-sunken: #f8fafc;
@@ -102,6 +110,13 @@
   /* Set by the component; not intended as user overrides. */
   --rtc-total-width: auto;
 
+  /* Declared alongside the palette so the browser paints its own chrome to
+     match: scrollbars on every scroll container below, the drop-down list of a
+     native `<select>`, date and colour pickers, spinner buttons, and the
+     default form-control borders an adapter may leave unstyled. Without it a
+     dark table keeps a white scrollbar and a white `<select>` popup. */
+  color-scheme: light;
+
   color: var(--rtc-color-text);
   font-family: var(--rtc-font-family);
   font-size: var(--rtc-font-size);
@@ -137,7 +152,8 @@
 
 @media (prefers-color-scheme: dark) {
   .rtc-root:not([data-rtc-theme="light"]):not([data-rtc-theme="light"] *),
-  .rtc-vars:not([data-rtc-theme="light"]):not([data-rtc-theme="light"] *) {
+  .rtc-vars:not(.rtc-root *):not([data-rtc-theme="light"]):not([data-rtc-theme="light"] *) {
+    color-scheme: dark;
     --rtc-color-surface: #0f172a;
     --rtc-color-surface-sunken: #131f36;
     --rtc-color-surface-raised: #1a2740;
@@ -163,9 +179,10 @@
 }
 
 .rtc-root[data-rtc-theme="dark"],
-.rtc-vars[data-rtc-theme="dark"],
+.rtc-vars[data-rtc-theme="dark"]:not(.rtc-root *),
 [data-rtc-theme="dark"] .rtc-root:not([data-rtc-theme="light"]),
-[data-rtc-theme="dark"] .rtc-vars:not([data-rtc-theme="light"]) {
+[data-rtc-theme="dark"] .rtc-vars:not(.rtc-root *):not([data-rtc-theme="light"]) {
+  color-scheme: dark;
   --rtc-color-surface: #0f172a;
   --rtc-color-surface-sunken: #131f36;
   --rtc-color-surface-raised: #1a2740;
@@ -224,22 +241,55 @@
   min-height: 0;
   min-width: 0;
   overflow: auto;
+}
+
+/* --------------------------------------------------------- scrollbars --- */
+
+/* Every scroll container the component owns, styled in one place: the table
+   viewport, the menus and popovers in the top layer, the filter panel, the
+   checkbox list inside a filter, and the modal editor. They used to be listed
+   one at a time, and only the viewport was ever given a colour — which is how
+   a dark menu ended up with a light scrollbar sitting on it. */
+.rtc-container,
+.rtc-surface,
+.rtc-filter-panel-body,
+.rtc-filter-checkboxes,
+.rtc-dialog {
   scrollbar-color: var(--rtc-scrollbar-thumb) var(--rtc-scrollbar-track);
   scrollbar-width: thin;
 }
 
-.rtc-container::-webkit-scrollbar {
+.rtc-container::-webkit-scrollbar,
+.rtc-surface::-webkit-scrollbar,
+.rtc-filter-panel-body::-webkit-scrollbar,
+.rtc-filter-checkboxes::-webkit-scrollbar,
+.rtc-dialog::-webkit-scrollbar {
   width: var(--rtc-scrollbar-size);
   height: var(--rtc-scrollbar-size);
 }
 
-.rtc-container::-webkit-scrollbar-track {
+.rtc-container::-webkit-scrollbar-track,
+.rtc-surface::-webkit-scrollbar-track,
+.rtc-filter-panel-body::-webkit-scrollbar-track,
+.rtc-filter-checkboxes::-webkit-scrollbar-track,
+.rtc-dialog::-webkit-scrollbar-track {
   background: var(--rtc-scrollbar-track);
 }
 
-.rtc-container::-webkit-scrollbar-thumb {
+.rtc-container::-webkit-scrollbar-thumb,
+.rtc-surface::-webkit-scrollbar-thumb,
+.rtc-filter-panel-body::-webkit-scrollbar-thumb,
+.rtc-filter-checkboxes::-webkit-scrollbar-thumb,
+.rtc-dialog::-webkit-scrollbar-thumb {
   background: var(--rtc-scrollbar-thumb);
   border-radius: var(--rtc-radius-pill);
+}
+
+/* An overlay is a much smaller box than the table viewport, so the same 10px
+   gutter reads as heavy on it. */
+.rtc-surface,
+.rtc-dialog {
+  --rtc-scrollbar-size: 8px;
 }
 
 /* --------------------------------------------------------------- table --- */
@@ -371,8 +421,22 @@
   font-weight: var(--rtc-header-font-weight);
   text-transform: var(--rtc-header-text-transform);
   letter-spacing: var(--rtc-header-letter-spacing);
-  background: var(--rtc-header-bg);
   white-space: nowrap;
+
+  /* Two layers, deliberately: the header colour is painted *over* the table
+     surface rather than instead of it.
+     *
+     * A header cell has to be opaque — rows scroll behind a sticky header and
+     * beside a pinned one — but a design system is entitled to a transparent
+     * or translucent header, and shadcn's is exactly that. Painted as a single
+     * `background`, `--rtc-header-bg: transparent` let the first body row show
+     * straight through the sticky header, which reads as two rows overlapping.
+     *
+     * Every later rule that repaints a header cell — the footer, a pinned
+     * column — must therefore set `background-color` and not the `background`
+     * shorthand, which would reset this image back to `none`. */
+  background-color: var(--rtc-color-surface);
+  background-image: linear-gradient(var(--rtc-header-bg), var(--rtc-header-bg));
 }
 
 .rtc-tr {
@@ -405,10 +469,13 @@
   border-bottom: var(--rtc-border-width) solid var(--rtc-color-border-strong);
 }
 
+/* Layered for the same reason as `.rtc-th`: the footer can be sticky, so a
+   transparent `--rtc-footer-bg` would let rows scroll through it. */
 .rtc-tfoot .rtc-th,
 .rtc-tfoot .rtc-td {
   font-weight: var(--rtc-footer-font-weight);
-  background: var(--rtc-footer-bg);
+  background-color: var(--rtc-color-surface);
+  background-image: linear-gradient(var(--rtc-footer-bg), var(--rtc-footer-bg));
   border-top: var(--rtc-border-width) solid var(--rtc-color-border-strong);
 }
 
@@ -452,9 +519,24 @@
    the property invalid, and an SVG with no width falls back to its intrinsic
    size — which is how a 16px glyph becomes a 300px one in a dropdown. */
 .rtc-icon {
+  /* An SVG is an inline box by default, so it sits on a text baseline and its
+     line box — not the glyph — sets the height of whatever contains it. That
+     line box comes from the button's own typography: MUI's `IconButton` uses a
+     1.5rem font size, which turned a 16px icon into a 35px line and a 51px-tall
+     toolbar button that looked stretched. `block` takes the icon out of the
+     baseline entirely, so a button around it is exactly icon + padding. */
+  display: block;
   flex: 0 0 auto;
   width: var(--rtc-icon-size, 16px);
   height: var(--rtc-icon-size, 16px);
+}
+
+/* The table tags its toolbar controls with `data-rtc-action` for the e2e suite,
+   which puts a wrapper element between the host's button and the icon. Left as
+   a plain inline `<span>` it would reintroduce the baseline line box the rule
+   above exists to avoid. */
+[data-rtc-action] {
+  display: inline-flex;
 }
 
 /* ------------------------------------------------------------- sticky ---- */
@@ -496,16 +578,17 @@
 
 /* ------------------------------------------------------ pinned columns --- */
 
+/* `background-color`, not the shorthand: a header cell's colour is two layers
+   (see `.rtc-th`) and the shorthand would drop the top one. */
 .rtc-th[data-rtc-pinned],
 .rtc-td[data-rtc-pinned] {
   position: sticky;
   z-index: 1;
-  background: var(--rtc-color-surface);
+  background-color: var(--rtc-color-surface);
 }
 
 .rtc-th[data-rtc-pinned] {
   z-index: 4;
-  background: var(--rtc-header-bg);
 }
 
 .rtc-th[data-rtc-pinned="start"],
@@ -531,7 +614,7 @@
 /* A pinned cell inside a selected/striped row must repaint the row colour,
    otherwise the opaque pin background would punch a hole in the stripe. */
 .rtc-tr[data-rtc-selected="true"] .rtc-td[data-rtc-pinned] {
-  background: color-mix(in srgb, var(--rtc-row-bg-selected), var(--rtc-color-surface));
+  background-color: color-mix(in srgb, var(--rtc-row-bg-selected), var(--rtc-color-surface));
 }
 
 /* -------------------------------------------------------- cell select ---- */
@@ -1168,7 +1251,6 @@
   min-height: 0;
   padding: 12px;
   overflow-y: auto;
-  scrollbar-width: thin;
 }
 
 .rtc-filter-panel-empty {

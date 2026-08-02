@@ -33,7 +33,7 @@ export function CellEditor<TData extends RowData>({
   const meta = column?.columnDef.meta
   const variant = meta?.editVariant ?? 'text'
   const value = getEditValue(table, row, columnId)
-  const label = column ? getColumnLabel(column) : columnId
+  const label = column ? getColumnLabel(column, table.dataTableOptions.localization) : columnId
 
   const stage = (next: unknown) => table.setEditValue(row.id, columnId, next)
   const commit = (next: unknown) => {
