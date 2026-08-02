@@ -25,7 +25,7 @@ export const Basic: Story = {
 export const Density: Story = {
   render: () => (
     <>
-      <p className="sb-note">
+      <p className="rtc-sb-note">
         Use the density button in the toolbar, or set <code>density</code> directly. Each preset
         maps to CSS variables you can override.
       </p>

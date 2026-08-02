@@ -21,7 +21,7 @@ type Story = StoryObj<typeof meta>
 export const RowVirtualization: Story = {
   render: () => (
     <>
-      <p className="sb-note">10,000 rows — scroll to see rows mount and unmount on demand.</p>
+      <p className="rtc-sb-note">10,000 rows — scroll to see rows mount and unmount on demand.</p>
       <DataTable
         columns={personColumns.slice(0, 7)}
         data={makePeople(10_000)}

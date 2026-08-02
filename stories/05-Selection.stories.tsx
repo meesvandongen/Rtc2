@@ -69,7 +69,7 @@ export const ClickToSelect: Story = {
 export const ConditionalSelection: Story = {
   render: () => (
     <>
-      <p className="sb-note">
+      <p className="rtc-sb-note">
         <code>enableRowSelection</code> accepts a predicate — inactive rows are not selectable
         here.
       </p>
@@ -106,7 +106,7 @@ export const ControlledSelection: Story = {
     const [rowSelection, setRowSelection] = useState<RowSelectionState>({ p1: true, p3: true })
     return (
       <>
-        <div className="sb-row">
+        <div className="rtc-sb-row">
           <button type="button" className="rtc-button" onClick={() => setRowSelection({})}>
             Clear selection
           </button>
@@ -121,7 +121,7 @@ export const ControlledSelection: Story = {
             setRowSelection((old) => (typeof updater === 'function' ? updater(old) : updater))
           }
         />
-        <pre className="sb-panel" data-testid="selection-state">
+        <pre className="rtc-sb-panel" data-testid="selection-state">
           {JSON.stringify(rowSelection)}
         </pre>
       </>
@@ -136,7 +136,7 @@ export const ControlledSelection: Story = {
 export const CellSelection: Story = {
   render: () => (
     <>
-      <p className="sb-note">
+      <p className="rtc-sb-note">
         Click and drag across cells to select a range. Hold Ctrl/Cmd while dragging to add another
         range.
       </p>

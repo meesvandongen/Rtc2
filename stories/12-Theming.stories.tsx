@@ -25,7 +25,7 @@ const THEME_NAMES = Object.keys(dataTableThemes) as DataTableThemeName[]
 export const Presets: Story = {
   render: () => (
     <>
-      <p className="sb-note">
+      <p className="rtc-sb-note">
         Each table below differs only by its <code>cssVars</code> map. No selectors are overridden.
       </p>
       {THEME_NAMES.map((name) => (
@@ -56,7 +56,7 @@ export const ThemeSwitcher: Story = {
     const [theme, setTheme] = useState<DataTableThemeName>('shadcn')
     return (
       <>
-        <div className="sb-row">
+        <div className="rtc-sb-row">
           {THEME_NAMES.map((name) => (
             <button
               key={name}

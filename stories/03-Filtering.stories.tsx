@@ -26,7 +26,7 @@ type Story = StoryObj<typeof meta>
 export const ColumnFilterPopovers: Story = {
   render: () => (
     <>
-      <p className="sb-note">
+      <p className="rtc-sb-note">
         Click the funnel icon in any header. Active filters appear as removable chips in the
         toolbar, since the editors themselves are hidden until opened.
       </p>
@@ -103,7 +103,7 @@ export const FilterPanelOutsideTheTable: Story = {
 
     return (
       <>
-        <p className="sb-note">
+        <p className="rtc-sb-note">
           The pane below lives outside <code>&lt;DataTable /&gt;</code> entirely and drives it
           through the shared instance.
         </p>
@@ -134,7 +134,7 @@ export const FilterPanelOutsideTheTable: Story = {
 export const FilterVariants: Story = {
   render: () => (
     <>
-      <p className="sb-note">
+      <p className="rtc-sb-note">
         Text, enum, number, boolean and date. Switch the operator on any column to change the
         operand: the date range and the salary slider are exactly the editors that made an in-table
         filter row unworkable.
@@ -162,7 +162,7 @@ export const FilterVariants: Story = {
 export const DateAndTimeFilters: Story = {
   render: () => (
     <>
-      <p className="sb-note">
+      <p className="rtc-sb-note">
         Filter <strong>Start date</strong> "is on" a day and it matches every row from that day.
         Filter <strong>Last seen</strong> and you get a full timestamp — then switch its operator to
         "Time of day between" to match a clock window across every date.
@@ -260,7 +260,7 @@ export const ControlledFilters: Story = {
     ])
     return (
       <>
-        <div className="sb-row">
+        <div className="rtc-sb-row">
           <button type="button" className="rtc-button" onClick={() => setColumnFilters([])}>
             Clear all filters
           </button>
@@ -276,7 +276,7 @@ export const ControlledFilters: Story = {
           }
           height={520}
         />
-        <pre className="sb-panel">{JSON.stringify(columnFilters, null, 2)}</pre>
+        <pre className="rtc-sb-panel">{JSON.stringify(columnFilters, null, 2)}</pre>
       </>
     )
   },
@@ -289,7 +289,7 @@ export const ControlledFilters: Story = {
 export const Faceting: Story = {
   render: () => (
     <>
-      <p className="sb-note">
+      <p className="rtc-sb-note">
         Pick a department, then open the city filter — its suggestions are recomputed from the
         remaining rows.
       </p>
@@ -311,7 +311,7 @@ export const NoBuiltInFilterUi: Story = {
     const [department, setDepartment] = useState('')
     return (
       <>
-        <div className="sb-row">
+        <div className="rtc-sb-row">
           {['', 'Engineering', 'Design', 'Sales'].map((value) => (
             <button
               key={value || 'all'}

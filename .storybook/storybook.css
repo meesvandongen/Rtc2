@@ -1,20 +1,33 @@
-/* Storybook page chrome only — not shipped with the library. */
+/* Storybook page chrome only — not shipped with the library.
+ *
+ * Every class here is prefixed `rtc-sb-` rather than plain `sb-`: Storybook's
+ * own preview stylesheet owns the `sb-` namespace, and one of the names it
+ * takes is `.sb-wrapper` (`position: fixed; inset: 0`, for its error and
+ * no-preview overlays). A decorator using that bare name pulled every story
+ * out of flow, which collapsed each `.docs-story` block to zero height and
+ * left the Docs pages looking empty. */
 
-.sb-wrapper {
+.rtc-sb-wrapper {
   padding: 16px;
-  min-height: 100vh;
   box-sizing: border-box;
   font-family: ui-sans-serif, system-ui, sans-serif;
   color: #0f172a;
   background: #f1f5f9;
 }
 
-[data-sb-theme="dark"] .sb-wrapper {
+/* Canvas shows one story at a time, so the backdrop should reach the bottom of
+ * the frame. Docs stacks every story on one page, where a viewport-height floor
+ * per example would space them a screenful apart. */
+.rtc-sb-wrapper[data-sb-view-mode="story"] {
+  min-height: 100vh;
+}
+
+[data-sb-theme="dark"] .rtc-sb-wrapper {
   color: #e2e8f0;
   background: #020617;
 }
 
-.sb-note {
+.rtc-sb-note {
   max-width: 70ch;
   margin: 0 0 12px;
   font-size: 0.875rem;
@@ -23,7 +36,7 @@
   opacity: 0.75;
 }
 
-.sb-panel {
+.rtc-sb-panel {
   margin-top: 12px;
   padding: 10px 12px;
   font-family: ui-monospace, sfmono-regular, menlo, monospace;
@@ -34,11 +47,11 @@
   border-radius: 8px;
 }
 
-[data-sb-theme="dark"] .sb-panel {
+[data-sb-theme="dark"] .rtc-sb-panel {
   background: rgb(255 255 255 / 8%);
 }
 
-.sb-row {
+.rtc-sb-row {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;

@@ -68,7 +68,7 @@ const preview: Preview = {
       // The attribute is read by both the page chrome and `.rtc-root`.
       document.documentElement.setAttribute('data-sb-theme', theme)
       return (
-        <div className="sb-wrapper" data-rtc-theme={theme}>
+        <div className="rtc-sb-wrapper" data-rtc-theme={theme} data-sb-view-mode={context.viewMode}>
           <Story />
         </div>
       )

@@ -32,7 +32,7 @@ export const ExternalInstance: Story = {
 
     return (
       <>
-        <div className="sb-row">
+        <div className="rtc-sb-row">
           <button type="button" className="rtc-button" onClick={() => table.resetSorting()}>
             Reset sorting
           </button>
@@ -80,7 +80,7 @@ export const ObserveAllState: Story = {
             )
           }
         />
-        <pre className="sb-panel" data-testid="state-snapshot">
+        <pre className="rtc-sb-panel" data-testid="state-snapshot">
           {snapshot}
         </pre>
       </>
@@ -101,7 +101,7 @@ export const RestoredInitialState: Story = {
     }
     return (
       <>
-        <p className="sb-note">
+        <p className="rtc-sb-note">
           Sorting, hidden columns, pinning, page, density and filter visibility all come from a
           single saved <code>initialState</code> object.
         </p>
@@ -143,7 +143,7 @@ export const CsvExport: Story = {
 
     return (
       <>
-        <div className="sb-row">
+        <div className="rtc-sb-row">
           <button type="button" className="rtc-button" onClick={() => exportCsv(false)}>
             Export filtered rows
           </button>
@@ -152,7 +152,7 @@ export const CsvExport: Story = {
           </button>
         </div>
         <DataTable table={table} />
-        <pre className="sb-panel">{preview || 'Click a button to preview the CSV.'}</pre>
+        <pre className="rtc-sb-panel">{preview || 'Click a button to preview the CSV.'}</pre>
       </>
     )
   },
@@ -162,7 +162,7 @@ export const CsvExport: Story = {
 export const FullScreen: Story = {
   render: () => (
     <>
-      <p className="sb-note">
+      <p className="rtc-sb-note">
         Use the full-screen button in the toolbar. Press Escape to return.
       </p>
       <DataTable

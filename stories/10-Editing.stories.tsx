@@ -20,7 +20,7 @@ export const CellEditing: Story = {
     const [rows, setRows] = useState<Person[]>(() => makePeople(10))
     return (
       <>
-        <p className="sb-note">Double-click any cell to edit it.</p>
+        <p className="rtc-sb-note">Double-click any cell to edit it.</p>
         <DataTable
           columns={editableColumns}
           data={rows}
@@ -72,7 +72,7 @@ export const TableEditing: Story = {
           enablePagination={false}
           density="compact"
         />
-        <pre className="sb-panel">{JSON.stringify(rows.slice(0, 2), null, 2)}</pre>
+        <pre className="rtc-sb-panel">{JSON.stringify(rows.slice(0, 2), null, 2)}</pre>
       </>
     )
   },
@@ -84,7 +84,7 @@ export const ModalEditing: Story = {
     const [rows, setRows] = useState<Person[]>(() => makePeople(10))
     return (
       <>
-        <p className="sb-note">Use the pencil action to open the edit dialog.</p>
+        <p className="rtc-sb-note">Use the pencil action to open the edit dialog.</p>
         <DataTable
           columns={editableColumns}
           data={rows}
@@ -108,7 +108,7 @@ export const ConditionalEditing: Story = {
     const [rows, setRows] = useState<Person[]>(() => makePeople(10))
     return (
       <>
-        <p className="sb-note">Inactive rows show no edit action.</p>
+        <p className="rtc-sb-note">Inactive rows show no edit action.</p>
         <DataTable
           columns={editableColumns.concat(personColumns.slice(-1))}
           data={rows}

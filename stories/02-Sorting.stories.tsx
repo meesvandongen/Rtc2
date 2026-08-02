@@ -84,7 +84,7 @@ export const Controlled: Story = {
     const [sorting, setSorting] = useState<SortingState>([{ id: 'age', desc: true }])
     return (
       <>
-        <div className="sb-row">
+        <div className="rtc-sb-row">
           <button type="button" className="rtc-button" onClick={() => setSorting([])}>
             Clear sorting
           </button>
@@ -105,7 +105,7 @@ export const Controlled: Story = {
             setSorting((old) => (typeof updater === 'function' ? updater(old) : updater))
           }
         />
-        <pre className="sb-panel">{JSON.stringify(sorting)}</pre>
+        <pre className="rtc-sb-panel">{JSON.stringify(sorting)}</pre>
       </>
     )
   },
@@ -127,7 +127,7 @@ export const ManualSorting: Story = {
     })
     return (
       <>
-        <p className="sb-note">
+        <p className="rtc-sb-note">
           Sorting is applied outside the table to simulate a server round-trip.
         </p>
         <DataTable
