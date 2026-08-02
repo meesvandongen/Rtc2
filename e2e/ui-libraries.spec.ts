@@ -16,7 +16,7 @@ const STORIES = {
   'built-in': 'datatable-15-ui-libraries--built-in-primitives',
   mui: 'datatable-15-ui-libraries--material-ui',
   radix: 'datatable-15-ui-libraries--radix-shadcn',
-  antd: 'datatable-15-ui-libraries--ant-design',
+  mantine: 'datatable-15-ui-libraries--mantine',
 } as const
 
 type LibraryName = keyof typeof STORIES
@@ -77,10 +77,10 @@ for (const [library, storyId] of Object.entries(STORIES) as Array<[LibraryName, 
       const popover = page.locator('[data-rtc-filter-popover="department"]')
       await expect(popover).toBeVisible()
 
-      // Ant renders a listbox rather than a native <select>, so branch here.
-      if (library === 'antd') {
-        await popover.locator('.ant-select').click()
-        await page.locator('.ant-select-item-option', { hasText: 'Engineering' }).first().click()
+      // Mantine renders a combobox rather than a native <select>, so branch here.
+      if (library === 'mantine') {
+        await popover.getByLabel('Filter by Department').click()
+        await page.getByRole('option', { name: 'Engineering', exact: true }).first().click()
       } else {
         await popover.getByLabel('Filter by Department').selectOption('Engineering')
       }
@@ -124,7 +124,7 @@ test.describe('registry composition', () => {
     const root = await openStory(page, 'datatable-15-ui-libraries--side-by-side-switcher')
     await expect(bodyRows(root).first()).toBeVisible()
 
-    for (const library of ['mui', 'radix', 'antd', 'built-in'] as const) {
+    for (const library of ['mui', 'radix', 'mantine', 'built-in'] as const) {
       await page.getByTestId(`ui-${library}`).click()
       await expect(bodyRows(root).first()).toBeVisible()
       await expect(header(root, 'firstName')).toContainText('First name')

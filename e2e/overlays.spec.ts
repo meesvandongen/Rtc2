@@ -27,7 +27,7 @@ const ADAPTERS = {
   'built-in': 'datatable-15-ui-libraries--built-in-primitives',
   mui: 'datatable-15-ui-libraries--material-ui',
   radix: 'datatable-15-ui-libraries--radix-shadcn',
-  antd: 'datatable-15-ui-libraries--ant-design',
+  mantine: 'datatable-15-ui-libraries--mantine',
 } as const
 
 /**
@@ -36,13 +36,19 @@ const ADAPTERS = {
  * These are the *content* elements, not the wrappers: MUI mounts its popover
  * inside a full-viewport root, so measuring the root would report a box the
  * size of the window and quietly pass a positioning assertion.
+ *
+ * `:visible` is not decoration. Mantine builds its combobox on the same
+ * `Popover` and leaves the dropdown mounted while closed, so every `Select` in
+ * the docked filter panel contributes a hidden `.mantine-Popover-dropdown` to
+ * the page. Without the filter, `.first()` resolves to one of those and every
+ * assertion about the overlay a trigger just opened reads the wrong element.
  */
 function anyOverlay(page: Page): Locator {
   return page.locator(
     [
       '.rtc-surface:popover-open',
-      '.ant-dropdown:not(.ant-dropdown-hidden) .ant-dropdown-menu',
-      '.ant-popover:not(.ant-popover-hidden) .ant-popover-content',
+      '.mantine-Popover-dropdown:visible',
+      '.mantine-Menu-dropdown:visible',
       '[data-radix-popper-content-wrapper] > *',
       '.MuiPopover-paper',
     ].join(', '),
@@ -53,9 +59,9 @@ function anyOverlay(page: Page): Locator {
  * Elements that visually escape `box`.
  *
  * Bounding boxes alone over-report: a design system may position a decoration
- * outside its parent and clip it with `overflow: hidden` — Ant's number
- * stepper does exactly that. Only an overflow that no ancestor clips is a real
- * one.
+ * outside its parent and clip it with `overflow: hidden` — a number input's
+ * stepper typically does exactly that. Only an overflow that no ancestor clips
+ * is a real one.
  */
 async function visualOverflow(scope: Locator): Promise<Array<{ el: string; by: number }>> {
   return scope.evaluate((root) => {
@@ -155,9 +161,9 @@ for (const [adapter, storyId] of Object.entries(ADAPTERS)) {
   test.describe(`overlays: ${adapter}`, () => {
     /**
      * The trigger-props rule, from every site that relies on it. Radix's
-     * `asChild`, MUI's `anchorEl` clone and Ant's child clone all deliver
-     * their handlers and ref through props the adapter has to pass on; an
-     * adapter that swallows them fails here and nowhere else.
+     * `asChild`, MUI's `anchorEl` clone and Mantine's `Popover.Target` clone
+     * all deliver their handlers and ref through props the adapter has to pass
+     * on; an adapter that swallows them fails here and nowhere else.
      */
     test('every overlay trigger opens its surface', async ({ page }) => {
       const root = await openStory(page, storyId)

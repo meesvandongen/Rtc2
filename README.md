@@ -122,11 +122,11 @@ Three constraints shaped the contract, each learned from making a real library
 satisfy it:
 
 - **Overlays take a rendered `trigger` element, not a render prop.** Radix
-  clones it with `asChild`, MUI anchors to it, Ant wraps it. A render prop
-  would suit none of them.
-- **Lists are data, not children.** Ant's `Dropdown` takes `menu={{ items }}`
-  and `Select` takes `options`; a children-based menu API simply cannot be
-  backed by it. So `Menu` takes `RtcMenuItem[]` and `Select` takes options.
+  clones it with `asChild`, MUI anchors to it, Mantine's `Popover.Target`
+  clones it. A render prop would suit none of them.
+- **Lists are data, not children.** Mantine's `Select` and `MultiSelect` take a
+  `data` array; a children-based option API simply cannot be backed by them. So
+  `Menu` takes `RtcMenuItem[]` and `Select` takes options.
 - **Overlays own their open state by default.** Each library manages focus,
   dismissal and portalling differently; `open`/`onOpenChange` exist only for
   when the table genuinely needs control.
@@ -136,7 +136,7 @@ registry. Column pinning, resizing and virtualization all depend on the exact
 DOM and data attributes the table emits, so those stay ours and are styled
 with CSS variables instead.
 
-Working adapters for **MUI**, **Radix/shadcn** and **Ant Design** live in
+Working adapters for **MUI**, **Radix/shadcn** and **Mantine** live in
 `stories/adapters/` and are exercised by both Storybook (*15 UI Libraries*) and
 the Playwright suite, which runs the same interaction tests against all three.
 
@@ -160,11 +160,11 @@ the underlying element, and accept a `ref`.**
 
 Buttons are what overlays hang off, and each library delivers a trigger
 differently: Radix merges props through `asChild`, MUI clones to attach an
-`anchorEl`, Ant clones to attach its own handlers. An adapter that destructures
-the props it knows and drops the rest renders a button that looks perfect and
-opens nothing — or, with Ant, one whose overlay has no element to measure and
-lands in the corner of the viewport. Nothing about it looks wrong in a
-screenshot.
+`anchorEl`, Mantine clones to attach a reference ref and its own handlers. An
+adapter that destructures the props it knows and drops the rest renders a
+button that looks perfect and opens nothing — or one whose overlay has no
+element to measure and lands in the corner of the viewport. Nothing about it
+looks wrong in a screenshot.
 
 `e2e/overlays.spec.ts` opens every overlay in every adapter for exactly this
 reason, and it is what actually enforces the rule. A new adapter has to pass
@@ -197,7 +197,7 @@ it uppercase and primary-blue, overruling the `--rtc-header-*` variables that
 exist to control exactly that.
 
 One consequence worth knowing if you write an adapter: **anything portalled
-needs the `rtc-vars` class**. Radix, MUI and Ant all render overlays into
+needs the `rtc-vars` class**. Radix, MUI and Mantine all render overlays into
 `document.body`, outside the table, where `--rtc-*` is not defined. An adapter
 stylesheet written against those variables produces a menu with no background;
 worse, an icon we hand the library as menu-item content loses
@@ -651,7 +651,7 @@ src/
     FilterPanel.tsx    standalone filter pane
     FilterEditor.tsx   per-variant editor, shared by popover and panel
 stories/               one file per feature area
-stories/adapters/      MUI, Radix and Ant Design registry adapters
+stories/adapters/      MUI, Radix and Mantine registry adapters
 e2e/                   Playwright specs
 tsdown.config.ts       library build (rolldown + lightningcss)
 ```
