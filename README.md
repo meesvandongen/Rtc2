@@ -1,4 +1,4 @@
-# @rtc2/react-table
+# @mvd/table
 
 A batteries-included, CSS-variable-themable React table component built on
 [TanStack Table v9 (beta)](https://tanstack.com/table).
@@ -11,8 +11,8 @@ Material, shadcn/ui, Ant, Linear, or a spreadsheet without overriding a single
 selector.
 
 ```tsx
-import { DataTable, createDataTableColumnHelper } from '@rtc2/react-table'
-import '@rtc2/react-table/styles.css'
+import { DataTable, createDataTableColumnHelper } from '@mvd/table'
+import '@mvd/table/styles.css'
 
 type Person = { id: string; name: string; age: number }
 
@@ -49,7 +49,7 @@ export function People({ data }: { data: Person[] }) {
 ## Install
 
 ```bash
-pnpm add @rtc2/react-table   # or npm install / yarn add
+pnpm add @mvd/table   # or npm install / yarn add
 ```
 
 `react` and `react-dom` (>= 18) are peer dependencies. `@tanstack/react-table`
@@ -59,7 +59,7 @@ enough.
 Import the stylesheet once, anywhere in your app:
 
 ```ts
-import '@rtc2/react-table/styles.css'
+import '@mvd/table/styles.css'
 ```
 
 ## Features
@@ -111,7 +111,7 @@ popovers, menus, the modal editor — comes from a component registry. Supply
 your design system once and the whole table adopts it:
 
 ```tsx
-import { DataTable, defaultComponents } from '@rtc2/react-table'
+import { DataTable, defaultComponents } from '@mvd/table'
 
 <DataTable columns={columns} data={data} components={myComponents} />
 ```
@@ -142,7 +142,7 @@ Working adapters for **MUI**, **Radix/shadcn** and **Mantine** live in
 the Playwright suite, which runs the same interaction tests against all three.
 
 ```tsx
-import type { DataTableComponents } from '@rtc2/react-table'
+import type { DataTableComponents } from '@mvd/table'
 
 const myComponents: Partial<DataTableComponents> = {
   // `...rest` is not optional. See below.
@@ -450,7 +450,7 @@ block, so a handful of overrides restyles the whole table.
 Seven presets ship with the package:
 
 ```tsx
-import { materialTheme } from '@rtc2/react-table'
+import { materialTheme } from '@mvd/table'
 
 <DataTable columns={columns} data={data} cssVars={materialTheme} />
 ```
@@ -697,7 +697,7 @@ Two things about the output worth knowing:
 - The bundle is **not minified**. That is deliberate for a library — consumers
   minify, and shipping readable code plus a sourcemap makes debugging possible.
 - The stylesheet is emitted as `dist/style.css` (tsdown's name) and exposed on
-  the stable `@rtc2/react-table/styles.css` subpath. Importing the package's
+  the stable `@mvd/table/styles.css` subpath. Importing the package's
   JS does **not** inject styles; the CSS import is separate and explicit.
 
 ### Deployment

@@ -1,6 +1,6 @@
 # Changesets
 
-Every change that a consumer of `@rtc2/react-table` could notice ships with a
+Every change that a consumer of `@mvd/table` could notice ships with a
 changeset: a small markdown file describing the change and how far it moves the
 version. They accumulate on `main` and are collapsed into a release in one go,
 which is why the version in `package.json` is never bumped by hand.
