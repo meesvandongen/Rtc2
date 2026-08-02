@@ -1,5 +1,5 @@
 ---
-"@rtc2/react-table": minor
+"@mvd/table": minor
 ---
 
 Match material-react-table's grouped column modes.

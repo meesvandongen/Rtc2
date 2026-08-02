@@ -1,5 +1,5 @@
 {
-  "name": "@rtc2/react-table",
+  "name": "@mvd/table",
   "version": "0.1.0",
   "description": "A fully-featured, CSS-variable-themable React table component built on TanStack Table v9.",
   "license": "MIT",

@@ -1,5 +1,5 @@
 ---
-"@rtc2/react-table": minor
+"@mvd/table": minor
 ---
 
 Name the generated columns properly in the column-visibility menu.

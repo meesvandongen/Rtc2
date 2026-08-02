@@ -297,7 +297,7 @@ export function useComponents(): DataTableComponents {
   const components = useContext(ComponentsContext)
   if (!components) {
     throw new Error(
-      '[@rtc2/react-table] No component registry found. Render inside <DataTable /> or wrap your tree in <DataTableComponentsProvider>.',
+      '[@mvd/table] No component registry found. Render inside <DataTable /> or wrap your tree in <DataTableComponentsProvider>.',
     )
   }
   return components

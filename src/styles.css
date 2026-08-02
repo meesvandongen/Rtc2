@@ -1,5 +1,5 @@
 /**
- * @rtc2/react-table — theme + structure
+ * @mvd/table — theme + structure
  *
  * Everything visual is driven by the custom properties declared on
  * `.rtc-root` below. Override them on `:root`, on a wrapper, on `.rtc-root`

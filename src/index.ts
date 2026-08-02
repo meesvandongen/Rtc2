@@ -1,5 +1,5 @@
 // Collected by the build into `dist/style.css` and stripped from the JS
-// output, so consumers import `@rtc2/react-table/styles.css` themselves —
+// output, so consumers import `@mvd/table/styles.css` themselves —
 // importing this module does not inject styles.
 import './styles.css'
 

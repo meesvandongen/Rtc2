@@ -1,5 +1,5 @@
 ---
-"@rtc2/react-table": patch
+"@mvd/table": patch
 ---
 
 Fix dark mode for browser-drawn chrome and for scrollable overlays.

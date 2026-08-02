@@ -1,5 +1,5 @@
 ---
-"@rtc2/react-table": patch
+"@mvd/table": patch
 ---
 
 Fix a see-through sticky header, stretched icon buttons, and a filter panel that
