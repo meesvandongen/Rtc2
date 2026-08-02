@@ -21,7 +21,6 @@ const NOW = new Date('2026-07-28T12:00:00Z')
 
 const meta: Meta = {
   title: 'DataTable/16 Filter Data Types',
-  parameters: { layout: 'fullscreen' },
 }
 
 export default meta

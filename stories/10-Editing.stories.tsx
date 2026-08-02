@@ -6,7 +6,6 @@ import { makePeople, personColumns, type Person } from './fixtures'
 
 const meta: Meta = {
   title: 'DataTable/10 Editing',
-  parameters: { layout: 'fullscreen' },
 }
 
 export default meta

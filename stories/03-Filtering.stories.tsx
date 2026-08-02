@@ -13,7 +13,6 @@ const data = makePeople(60)
 
 const meta: Meta = {
   title: 'DataTable/03 Filtering',
-  parameters: { layout: 'fullscreen' },
 }
 
 export default meta

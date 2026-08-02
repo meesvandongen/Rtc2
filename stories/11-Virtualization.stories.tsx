@@ -5,7 +5,6 @@ import { makePeople, makeWideColumns, personColumns } from './fixtures'
 
 const meta: Meta = {
   title: 'DataTable/11 Virtualization',
-  parameters: { layout: 'fullscreen' },
 }
 
 export default meta

@@ -7,7 +7,6 @@ const data = makePeople(20)
 
 const meta: Meta = {
   title: 'DataTable/09 Rows',
-  parameters: { layout: 'fullscreen' },
 }
 
 export default meta

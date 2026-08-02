@@ -7,7 +7,6 @@ const data = makePeople(60)
 
 const meta: Meta = {
   title: 'DataTable/07 Grouping & Aggregation',
-  parameters: { layout: 'fullscreen' },
 }
 
 export default meta

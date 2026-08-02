@@ -65,13 +65,16 @@ const preview: Preview = {
   decorators: [
     (Story, context) => {
       const theme = context.globals.theme === 'dark' ? 'dark' : 'light'
-      // The attribute is read by both the page chrome and `.rtc-root`.
+      // Both attributes go on `<html>` rather than a wrapper element around the
+      // story. `data-sb-theme` drives the page chrome in `storybook.css`;
+      // `data-rtc-theme` is the library's own ancestor opt-in, and `<html>` is
+      // an ancestor of every story, so the toolbar switch still exercises that
+      // route. Storybook's `layout` parameter handles the padding a wrapper
+      // would otherwise supply, and it already knows how Docs differs from
+      // Canvas — which a hand-rolled wrapper has to be taught.
       document.documentElement.setAttribute('data-sb-theme', theme)
-      return (
-        <div className="rtc-sb-wrapper" data-rtc-theme={theme} data-sb-view-mode={context.viewMode}>
-          <Story />
-        </div>
-      )
+      document.documentElement.setAttribute('data-rtc-theme', theme)
+      return <Story />
     },
   ],
   loaders: [mswLoader(startWorker)],

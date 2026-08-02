@@ -16,7 +16,6 @@ const data = makePeople(137)
 const meta: Meta = {
   title: 'DataTable/04 Pagination',
   parameters: {
-    layout: 'fullscreen',
     // Registered on the meta rather than per story: MSW's handler set is
     // global, and a Docs page mounts both remote stories at once, so the
     // successful and failing endpoints have to be live at the same time.

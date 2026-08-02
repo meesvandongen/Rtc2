@@ -1,28 +1,26 @@
 /* Storybook page chrome only — not shipped with the library.
  *
- * Every class here is prefixed `rtc-sb-` rather than plain `sb-`: Storybook's
- * own preview stylesheet owns the `sb-` namespace, and one of the names it
- * takes is `.sb-wrapper` (`position: fixed; inset: 0`, for its error and
- * no-preview overlays). A decorator using that bare name pulled every story
- * out of flow, which collapsed each `.docs-story` block to zero height and
- * left the Docs pages looking empty. */
+ * There is deliberately no wrapper element around each story. The padding a
+ * wrapper would provide is Storybook's `layout` parameter, and the backdrop is
+ * painted on whichever container the current view mode already gives us:
+ * `<body>` in Canvas, `.docs-story` per example in Docs. Both selectors apply
+ * only in their own context, so nothing here needs to know which mode it is in.
+ *
+ * The classes are prefixed `rtc-sb-` rather than plain `sb-`: Storybook's own
+ * preview stylesheet owns the `sb-` namespace, and one of the names it takes is
+ * `.sb-wrapper` (`position: fixed; inset: 0`, for its error and no-preview
+ * overlays). A decorator using that bare name pulled every story out of flow,
+ * which collapsed each `.docs-story` block to zero height and left the Docs
+ * pages looking empty. */
 
-.rtc-sb-wrapper {
-  padding: 16px;
-  box-sizing: border-box;
-  font-family: ui-sans-serif, system-ui, sans-serif;
+body,
+.docs-story {
   color: #0f172a;
   background: #f1f5f9;
 }
 
-/* Canvas shows one story at a time, so the backdrop should reach the bottom of
- * the frame. Docs stacks every story on one page, where a viewport-height floor
- * per example would space them a screenful apart. */
-.rtc-sb-wrapper[data-sb-view-mode="story"] {
-  min-height: 100vh;
-}
-
-[data-sb-theme="dark"] .rtc-sb-wrapper {
+[data-sb-theme="dark"] body,
+[data-sb-theme="dark"] .docs-story {
   color: #e2e8f0;
   background: #020617;
 }
@@ -30,6 +28,7 @@
 .rtc-sb-note {
   max-width: 70ch;
   margin: 0 0 12px;
+  font-family: ui-sans-serif, system-ui, sans-serif;
   font-size: 0.875rem;
   line-height: 1.5;
   color: inherit;
@@ -43,6 +42,7 @@
   font-size: 0.75rem;
   white-space: pre-wrap;
   word-break: break-word;
+  color: inherit;
   background: rgb(15 23 42 / 6%);
   border-radius: 8px;
 }
