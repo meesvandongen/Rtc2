@@ -2,7 +2,7 @@ import type { RowData } from '@tanstack/react-table'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTable } from '@tanstack/react-table'
 
-import { buildDisplayColumns } from './displayColumns'
+import { buildDisplayColumns, resolveEnableExpanding } from './displayColumns'
 import { STRUCTURED_FILTER_FN } from './filters/filterFn'
 import type { DataTableTableMeta } from './filters/registry'
 import { dataTableFeatures } from './features'
@@ -222,8 +222,18 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
   const stableUserColumns = useStableArray(options.columns) as typeof options.columns
   const stableData = useStableArray(options.data) as typeof options.data
 
+  // Only whether anything is grouped changes the display columns; which
+  // columns are grouped is read at render time by the expand column.
+  const hasGrouping = tanStackState.grouping.length > 0
+  const groupingRef = useRef(tanStackState.grouping)
+  groupingRef.current = tanStackState.grouping
+
   const columns = useMemo(() => {
-    const { leading, trailing } = buildDisplayColumns({ options: optionsRef.current, getTable })
+    const { leading, trailing } = buildDisplayColumns({
+      options: optionsRef.current,
+      grouping: groupingRef.current,
+      getTable,
+    })
     // Every column routes through the one structured filter fn, which reads
     // the operator out of the filter value. A column that sets its own
     // `filterFn` explicitly keeps it, as an escape hatch to raw TanStack.
@@ -242,6 +252,9 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
     options.enableExpanding,
     options.enableExpandAll,
     options.renderDetailPanel,
+    options.enableGrouping,
+    options.groupedColumnMode,
+    hasGrouping,
     options.enableRowNumbers,
     options.rowNumberDisplayMode,
     options.enableRowActions,
@@ -302,7 +315,7 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
     manualGrouping: options.manualGrouping ?? false,
     manualAggregation: !(options.enableAggregation ?? true),
 
-    enableExpanding: options.enableExpanding ?? hasDetailPanel,
+    enableExpanding: resolveEnableExpanding(options),
     manualExpanding: options.manualExpanding ?? false,
     paginateExpandedRows: options.paginateExpandedRows ?? true,
     ...(hasDetailPanel && !options.getRowCanExpand

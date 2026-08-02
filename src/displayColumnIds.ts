@@ -26,6 +26,23 @@ export function isDisplayColumnId(id: string): boolean {
   return DISPLAY_ID_SET.has(id)
 }
 
+/** The display columns that still render on a group row. */
+const GROUPED_ROW_DISPLAY_IDS = new Set<string>([
+  DISPLAY_COLUMN_IDS.expand,
+  DISPLAY_COLUMN_IDS.select,
+  DISPLAY_COLUMN_IDS.rowNumber,
+])
+
+/**
+ * Whether a column renders its cell on a group row.
+ *
+ * A group row keeps its expand chevron, checkbox and row number; the drag grip
+ * and the row actions address a single record, so they stay blank.
+ */
+export function rendersOnGroupedRow(columnId: string): boolean {
+  return !isDisplayColumnId(columnId) || GROUPED_ROW_DISPLAY_IDS.has(columnId)
+}
+
 /** Which localized string names each display column. */
 const DISPLAY_COLUMN_LABEL_KEYS = {
   [DISPLAY_COLUMN_IDS.drag]: 'move',

@@ -23,20 +23,22 @@ export function header(root: Locator, columnId: string): Locator {
   return root.locator(`thead th[data-rtc-column-id="${columnId}"]`).first()
 }
 
+/** Ids of the leaf header cells, left to right. */
+export async function headerColumnIds(root: Locator): Promise<string[]> {
+  return root
+    .locator('thead tr')
+    .last()
+    .locator('th')
+    .evaluateAll((cells) => cells.map((cell) => cell.getAttribute('data-rtc-column-id') ?? ''))
+}
+
 /** Body rows, excluding detail-panel rows. */
 export function bodyRows(root: Locator): Locator {
   return root.locator('tbody tr[data-rtc-row-id]')
 }
 
-/** Row ids in render order — the cheapest way to assert an exact row order. */
-export async function rowIds(root: Locator): Promise<Array<string | null>> {
-  return bodyRows(root).evaluateAll((rows) =>
-    rows.map((row) => row.getAttribute('data-rtc-row-id')),
-  )
-}
-
 /**
- * Row ids in render order.
+ * Row ids in render order — the cheapest way to assert an exact row order.
  *
  * Comparing the whole sequence catches an expanded tree that came out in the
  * wrong order or lost a level, which a row count alone lets through.

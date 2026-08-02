@@ -38,6 +38,7 @@ export function People({ data }: { data: Person[] }) {
 - [Bring your own components](#bring-your-own-components)
 - [Filtering](#filtering)
 - [Filter data types](#filter-data-types)
+- [Grouping](#grouping)
 - [Theming](#theming)
 - [Server-side data](#server-side-data)
 - [Editing](#editing)
@@ -396,6 +397,36 @@ Types that are deliberately *not* built in, but are a few lines each on this
 model: IP address / CIDR, semantic version, colour (ΔE distance), JSON path,
 relation or reference with async options, file size and MIME type, rating,
 currency with conversion, and polygon or named-region geo matching.
+
+## Grouping
+
+`enableGrouping` lets a column collapse its rows into group rows, from the
+column actions menu or by dragging a header into the chip zone
+(`enableGroupingChips`). Grouping implies expanding: group rows get a chevron
+in the expand column whether or not `enableExpanding` is set.
+
+`groupedColumnMode` decides where a grouped column goes.
+
+| Mode | Column order | Group row shows |
+| --- | --- | --- |
+| `'reorder'` (default) | Grouped columns move to the front, ahead of the expand column | The value in its own column |
+| `'remove'` | Grouped columns leave the table; the expand column widens and takes their header | The value and row count next to the chevron |
+| `false` | Untouched; the expand column leads | The value in its own column, wherever that is |
+
+```tsx
+<DataTable
+  columns={columns}
+  data={data}
+  enableGrouping
+  groupedColumnMode="remove"
+  initialState={{ grouping: ['department'] }}
+/>
+```
+
+A group row stands for many records, so the display columns that address a
+single one — the drag grip and the row actions — stay blank on it. Columns with
+an `aggregationFn` summarise their group there instead; see `aggregatedCell` for
+how that summary renders.
 
 ## Theming
 
