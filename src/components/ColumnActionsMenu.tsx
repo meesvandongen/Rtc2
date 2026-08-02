@@ -10,7 +10,7 @@ import type { DataTableColumnInstance, DataTableInstance } from '../types'
  *
  * Built as a data array rather than children because the registry's `Menu`
  * contract is data-driven — that is what lets a config-object library like
- * Ant Design back it.
+ * Mantine back it.
  */
 export function ColumnActionsMenu<TData extends RowData>({
   table,

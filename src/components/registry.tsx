@@ -6,14 +6,15 @@ import { createContext, useContext, useMemo, type ComponentType, type ReactNode 
  * Everything interactive the table renders goes through this registry, so a
  * host application can supply its own design system instead of the built-in
  * primitives. Three constraints shaped the prop shapes below, learned from
- * making MUI, Radix and Ant Design all satisfy them:
+ * making MUI, Radix and Mantine all satisfy them:
  *
  * 1. **Overlays take a rendered `trigger` node, not a render prop.** Radix
  *    needs a real element to clone with `asChild`, MUI needs one to anchor to,
- *    and Ant clones its child. A render prop would suit none of them.
- * 2. **Lists are data, not children.** Ant's `Dropdown`/`Select` take
- *    `items`/`options` arrays and cannot accept arbitrary children; MUI and
- *    Radix can map an array to children trivially. Data is the portable form.
+ *    and Mantine's `Popover.Target` clones its child. A render prop would suit
+ *    none of them.
+ * 2. **Lists are data, not children.** Mantine's `Select`/`MultiSelect` take a
+ *    `data` array and cannot accept arbitrary children; MUI and Radix can map
+ *    an array to children trivially. Data is the portable form.
  * 3. **Overlays own their open state by default.** Each library manages focus,
  *    dismissal and portalling differently; forcing our own state on them
  *    fights their internals. `open`/`onOpenChange` exist for the cases where
@@ -41,10 +42,11 @@ export interface RtcOption {
  *
  * Buttons are the trigger for menus and popovers, and each library delivers a
  * trigger differently: Radix merges props through `asChild`, MUI clones to
- * attach an `anchorEl`, Ant clones to attach its own handlers. An adapter that
- * destructures only the props below and drops the rest silently produces a
- * button that looks right and opens nothing — or, in Ant's case, an overlay
- * that measures against nothing and lands in the corner of the viewport.
+ * attach an `anchorEl`, Mantine clones to attach a reference ref and its own
+ * handlers. An adapter that destructures only the props below and drops the
+ * rest silently produces a button that looks right and opens nothing — or an
+ * overlay that measures against nothing and lands in the corner of the
+ * viewport.
  *
  * `e2e/overlays.spec.ts` opens every overlay in every adapter for exactly this
  * reason; it is the only thing that actually enforces the rule.

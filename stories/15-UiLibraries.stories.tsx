@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { CssBaseline, ThemeProvider, createTheme } from '@mui/material'
-import { ConfigProvider, theme as antTheme } from 'antd'
+import { MantineProvider } from '@mantine/core'
 
 import { DataTable, defaultComponents, type DataTableComponents } from '../src'
-import { createAntComponents } from './adapters/antd'
+import { createMantineComponents } from './adapters/mantine'
 import { createMuiComponents } from './adapters/mui'
 import { createRadixComponents } from './adapters/radix'
 import { makePeople, personColumns, type Person } from './fixtures'
@@ -128,37 +128,37 @@ export const RadixShadcn: Story = {
 }
 
 /**
- * Ant Design.
+ * Mantine.
  *
- * The adapter that justifies the data-driven parts of the contract. Ant's
- * `Dropdown` takes `menu={{ items }}` and `Select` takes `options` — a
- * children-based menu API could not be backed by it at all. It also swaps in a
- * real `DatePicker`, showing the seam allows richer controls, not just
- * restyled ones.
+ * The adapter that justifies the data-driven parts of the contract. Mantine's
+ * `Select` and `MultiSelect` take a `data` array and render a combobox rather
+ * than a native `<select>` — a children-based option API could not be backed by
+ * them at all. It also swaps in a real `DateInput`, showing the seam allows
+ * richer controls, not just restyled ones.
  */
-export const AntDesign: Story = {
-  render: function AntDesign() {
+export const Mantine: Story = {
+  render: function Mantine() {
     const components = useMemo<DataTableComponents>(
-      () => createAntComponents(defaultComponents),
+      () => createMantineComponents(defaultComponents),
       [],
     )
     return (
-      <ConfigProvider theme={{ algorithm: antTheme.defaultAlgorithm }}>
+      <MantineProvider>
         <p className="sb-note">
-          Menus are built from an items array and date filters use Ant's <code>DatePicker</code>{' '}
-          instead of a native date input.
+          Menus and selects are built from data arrays, and date filters use Mantine's{' '}
+          <code>DateInput</code> instead of a native date input.
         </p>
         <DataTable
           {...commonOptions}
           components={components}
           cssVars={{
-            '--rtc-color-accent': '#1677ff',
-            '--rtc-color-accent-subtle': '#e6f4ff',
-            '--rtc-header-bg': '#fafafa',
+            '--rtc-color-accent': '#228be6',
+            '--rtc-color-accent-subtle': '#e7f5ff',
+            '--rtc-header-bg': '#f8f9fa',
             '--rtc-row-height-comfortable': '54px',
           }}
         />
-      </ConfigProvider>
+      </MantineProvider>
     )
   },
 }
@@ -166,12 +166,12 @@ export const AntDesign: Story = {
 /** Switch libraries at runtime against one identical table. */
 export const SideBySideSwitcher: Story = {
   render: function SideBySideSwitcher() {
-    const [library, setLibrary] = useState<'built-in' | 'mui' | 'radix' | 'antd'>('built-in')
+    const [library, setLibrary] = useState<'built-in' | 'mui' | 'radix' | 'mantine'>('built-in')
 
     const components = useMemo<DataTableComponents | undefined>(() => {
       if (library === 'mui') return createMuiComponents(defaultComponents)
       if (library === 'radix') return createRadixComponents(defaultComponents)
-      if (library === 'antd') return createAntComponents(defaultComponents)
+      if (library === 'mantine') return createMantineComponents(defaultComponents)
       return undefined
     }, [library])
 
@@ -187,7 +187,7 @@ export const SideBySideSwitcher: Story = {
     return (
       <>
         <div className="sb-row">
-          {(['built-in', 'mui', 'radix', 'antd'] as const).map((name) => (
+          {(['built-in', 'mui', 'radix', 'mantine'] as const).map((name) => (
             <button
               key={name}
               type="button"
@@ -205,8 +205,8 @@ export const SideBySideSwitcher: Story = {
         </p>
         {library === 'mui' ? (
           <ThemeProvider theme={createTheme()}>{table}</ThemeProvider>
-        ) : library === 'antd' ? (
-          <ConfigProvider>{table}</ConfigProvider>
+        ) : library === 'mantine' ? (
+          <MantineProvider>{table}</MantineProvider>
         ) : (
           table
         )}
