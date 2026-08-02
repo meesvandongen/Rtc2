@@ -351,9 +351,15 @@ export interface DataTableOptions<TData extends RowData> {
   enableGrouping?: boolean
   /** Show the drag-to-group chip area in the top toolbar. */
   enableGroupingChips?: boolean
+  /**
+   * Where a grouped column goes. `reorder` (the default) moves it to the front
+   * of the table, `remove` drops it and shows the group value next to the
+   * expand chevron instead, `false` leaves the column order alone.
+   */
   groupedColumnMode?: 'reorder' | 'remove' | false
   enableAggregation?: boolean
 
+  /** Defaults to on when grouping or a detail panel is in play. */
   enableExpanding?: boolean
   enableExpandAll?: boolean
   getRowCanExpand?: (row: DataTableRow<TData>) => boolean

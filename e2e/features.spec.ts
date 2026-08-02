@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 
 import {
   bodyRows,
@@ -6,6 +6,7 @@ import {
   dragTo,
   filterPopover,
   header,
+  headerColumnIds,
   openColumnFilter,
   openMenu,
   openStory,
@@ -482,7 +483,8 @@ test.describe('grouping and aggregation', () => {
     const root = await openStory(page, 'datatable-07-grouping-aggregation--grouping')
 
     const before = await bodyRows(root).count()
-    await root.locator('td[data-rtc-grouped="true"]').first().getByRole('button').first().click()
+    // The chevron lives in the expand column, not in the grouped cell.
+    await bodyRows(root).first().locator('.rtc-expand-button').click()
     await expect.poll(() => bodyRows(root).count()).toBeGreaterThan(before)
   })
 
@@ -500,6 +502,49 @@ test.describe('grouping and aggregation', () => {
     await chip.getByRole('button').click()
     await expect(chip).toHaveCount(0)
     await expect(root.locator('td[data-rtc-grouped="true"]')).toHaveCount(0)
+  })
+
+  test.describe('grouped column modes', () => {
+    const story = 'datatable-07-grouping-aggregation--grouped-column-modes'
+    /** The story renders one table per mode, in this order. */
+    const table = (page: Page, index: number) => page.locator('.rtc-root').nth(index)
+
+    test('reorder moves the grouped column in front of the expand column', async ({ page }) => {
+      await openStory(page, story)
+      const columnIds = await headerColumnIds(table(page, 0))
+      expect(columnIds.slice(0, 2)).toEqual(['department', 'rtc-expand'])
+    })
+
+    test('remove folds the grouped column into the expand column', async ({ page }) => {
+      await openStory(page, story)
+      const root = table(page, 1)
+
+      const columnIds = await headerColumnIds(root)
+      expect(columnIds).not.toContain('department')
+      expect(columnIds[0]).toBe('rtc-expand')
+      // The expand column takes over the grouped column's header and values.
+      await expect(header(root, 'rtc-expand')).toContainText('Department')
+      const groupCell = root.locator('td[data-rtc-column-id="rtc-expand"]').first()
+      await expect(groupCell).toHaveAttribute('data-rtc-grouped', 'true')
+      await expect(groupCell).toContainText('Design')
+      await expect(groupCell).toContainText('(6)')
+    })
+
+    test('false leaves the column order alone', async ({ page }) => {
+      await openStory(page, story)
+      const columnIds = await headerColumnIds(table(page, 2))
+      expect(columnIds[0]).toBe('rtc-expand')
+      expect(columnIds.indexOf('department')).toBeGreaterThan(columnIds.indexOf('email'))
+    })
+
+    test('grouping alone makes group rows expandable', async ({ page }) => {
+      await openStory(page, story)
+      // No table in this story sets `enableExpanding`.
+      const root = table(page, 1)
+      const before = await bodyRows(root).count()
+      await bodyRows(root).first().locator('.rtc-expand-button').click()
+      await expect.poll(() => bodyRows(root).count()).toBeGreaterThan(before)
+    })
   })
 })
 

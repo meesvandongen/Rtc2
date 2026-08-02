@@ -1379,6 +1379,28 @@
 
 /* ------------------------------------------------------------ grouping --- */
 
+/* Under `groupedColumnMode: "remove"` the expand column stands in for the
+   grouped columns: its header names them and its cells carry the group value,
+   both alongside the expand chevron. */
+.rtc-th-label:has(> .rtc-group-label) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rtc-group-label-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.rtc-group-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .rtc-group-chips {
   display: flex;
   align-items: center;

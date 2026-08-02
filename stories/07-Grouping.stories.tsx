@@ -119,23 +119,28 @@ export const Aggregation: Story = {
   ),
 }
 
-/** `groupedColumnMode: 'remove'` hides the grouped column from the body. */
+/**
+ * `groupedColumnMode` decides where a grouped column goes.
+ *
+ * `reorder` (the default) moves it to the front of the table, `remove` drops
+ * it and shows the group value next to the expand chevron instead, and `false`
+ * leaves the column order untouched.
+ */
 export const GroupedColumnModes: Story = {
   render: () => (
     <>
-      {(['reorder', 'remove'] as const).map((mode) => (
-        <div key={mode} style={{ marginBottom: 16 }}>
+      {(['reorder', 'remove', false] as const).map((mode) => (
+        <div key={String(mode)} style={{ marginBottom: 16 }}>
           <DataTable
             columns={personColumns.slice(0, 6)}
             data={data.slice(0, 20)}
             getRowId={(row) => row.id}
             enableGrouping
-            enableExpanding
             groupedColumnMode={mode}
             initialState={{ grouping: ['department'] }}
             enablePagination={false}
             enableToolbar={false}
-            caption={`groupedColumnMode="${mode}"`}
+            caption={`groupedColumnMode={${JSON.stringify(mode)}}`}
             height={280}
           />
         </div>

@@ -23,6 +23,15 @@ export function header(root: Locator, columnId: string): Locator {
   return root.locator(`thead th[data-rtc-column-id="${columnId}"]`).first()
 }
 
+/** Ids of the leaf header cells, left to right. */
+export async function headerColumnIds(root: Locator): Promise<string[]> {
+  return root
+    .locator('thead tr')
+    .last()
+    .locator('th')
+    .evaluateAll((cells) => cells.map((cell) => cell.getAttribute('data-rtc-column-id') ?? ''))
+}
+
 /** Body rows, excluding detail-panel rows. */
 export function bodyRows(root: Locator): Locator {
   return root.locator('tbody tr[data-rtc-row-id]')
