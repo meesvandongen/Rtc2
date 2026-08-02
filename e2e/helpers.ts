@@ -29,6 +29,18 @@ export function bodyRows(root: Locator): Locator {
 }
 
 /**
+ * Row ids in render order.
+ *
+ * Comparing the whole sequence catches an expanded tree that came out in the
+ * wrong order or lost a level, which a row count alone lets through.
+ */
+export function rowIds(root: Locator): Promise<string[]> {
+  return bodyRows(root).evaluateAll((rows) =>
+    rows.map((row) => row.getAttribute('data-rtc-row-id') ?? ''),
+  )
+}
+
+/**
  * A toolbar control by its `data-rtc-action` marker.
  *
  * The marker sits on a span inside the button because the button itself now

@@ -10,6 +10,7 @@ import {
   openMenu,
   openStory,
   panelField,
+  rowIds,
   toolbarAction,
 } from './helpers'
 
@@ -539,6 +540,71 @@ test.describe('expanding', () => {
     await bodyRows(root).first().locator('.rtc-expand-button').click()
     await expect(root.locator('.rtc-detail-row')).toHaveCount(1)
     await expect(root.locator('.rtc-detail-row')).toContainText('@example.com')
+  })
+
+  /**
+   * `initialState.expanded` used to be discarded during the mount render:
+   * TanStack's expanded auto-reset fires the first time the grouped row model
+   * computes and restores `table.initialState`, which the table did not pass
+   * through. The tree collapsed back to its roots before anything painted.
+   */
+  test('expanded: true opens the whole tree on first paint', async ({ page }) => {
+    const root = await openStory(page, 'datatable-08-expanding--expanded-by-default')
+
+    // Three roots, three children each, and a third level under the first.
+    await expect.poll(() => rowIds(root)).toEqual([
+      'p1', 'p4', 'p13', 'p5', 'p14', 'p6', 'p15',
+      'p2', 'p7', 'p8', 'p9',
+      'p3', 'p10', 'p11', 'p12',
+    ])
+    await expect(root.locator('tbody tr[data-rtc-depth="2"]')).toHaveCount(3)
+    await expect(root.locator('thead .rtc-expand-slot')).toHaveAttribute('data-rtc-expanded', 'true')
+  })
+
+  test('an initially expanded tree collapses back to its roots', async ({ page }) => {
+    const root = await openStory(page, 'datatable-08-expanding--expanded-by-default')
+    await expect(bodyRows(root)).toHaveCount(15)
+
+    await root.locator('thead .rtc-expand-button').click()
+    await expect.poll(() => rowIds(root)).toEqual(['p1', 'p2', 'p3'])
+  })
+
+  /** Collapsing one branch must not disturb — or re-open — the others. */
+  test('an initially expanded branch collapses on its own', async ({ page }) => {
+    const root = await openStory(page, 'datatable-08-expanding--expanded-by-default')
+    await expect(bodyRows(root)).toHaveCount(15)
+
+    await bodyRows(root).first().locator('.rtc-expand-button').click()
+    await expect.poll(() => rowIds(root)).toEqual([
+      'p1',
+      'p2', 'p7', 'p8', 'p9',
+      'p3', 'p10', 'p11', 'p12',
+    ])
+  })
+
+  test('a row-id map opens only the branches it names', async ({ page }) => {
+    const root = await openStory(page, 'datatable-08-expanding--some-rows-expanded-by-default')
+
+    await expect.poll(() => rowIds(root)).toEqual(['p1', 'p4', 'p13', 'p5', 'p6', 'p2', 'p3'])
+  })
+
+  test('expanded rows stay on the page their parent is on', async ({ page }) => {
+    const root = await openStory(page, 'datatable-08-expanding--expanding-with-pagination')
+
+    // `paginateExpandedRows={false}`, so the page holds two *root* rows and
+    // every descendant they bring with them.
+    await expect.poll(() => rowIds(root)).toEqual([
+      'p1', 'p4', 'p13', 'p5', 'p14', 'p6', 'p15',
+      'p2', 'p7', 'p8', 'p9',
+    ])
+  })
+
+  test('sub-row selection starts from an expanded tree', async ({ page }) => {
+    const root = await openStory(page, 'datatable-05-selection--sub-row-selection')
+
+    await expect(bodyRows(root)).toHaveCount(15)
+    await bodyRows(root).first().getByLabel('Toggle select row').check()
+    await expect(root.locator('tbody tr[data-rtc-selected="true"]')).toHaveCount(7)
   })
 })
 
