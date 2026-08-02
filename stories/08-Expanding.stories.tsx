@@ -24,6 +24,7 @@ export const SubRows: Story = {
   ),
 }
 
+/** `expanded: true` opens every branch, at every depth, on the first render. */
 export const ExpandedByDefault: Story = {
   render: () => (
     <DataTable
@@ -32,8 +33,24 @@ export const ExpandedByDefault: Story = {
       getRowId={(row) => row.id}
       getSubRows={(row) => row.subRows}
       enableExpanding
+      enableExpandAll
       enablePagination={false}
       initialState={{ expanded: true }}
+    />
+  ),
+}
+
+/** Naming row ids opens just those branches; the rest start collapsed. */
+export const SomeRowsExpandedByDefault: Story = {
+  render: () => (
+    <DataTable
+      columns={personColumns.slice(0, 6)}
+      data={makeTree()}
+      getRowId={(row) => row.id}
+      getSubRows={(row) => row.subRows}
+      enableExpanding
+      enablePagination={false}
+      initialState={{ expanded: { p1: true, p4: true } }}
     />
   ),
 }

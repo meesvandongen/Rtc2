@@ -69,6 +69,13 @@ export interface DataTableSelectOption {
  */
 export interface DataTableColumnMeta {
   /**
+   * A human-readable name for the column, used by the column-visibility menu,
+   * the grouping chips, the filter panel and every `aria-label` that names a
+   * column. Only needed when `header` is a render function or an element,
+   * since a plain-string header is already the name.
+   */
+  label?: string
+  /**
    * The column's filter data type: a registered id, or an inline definition
    * for a one-off column. Determines which operators are offered and how the
    * operand is edited. Inferred from the data when omitted.
@@ -351,9 +358,15 @@ export interface DataTableOptions<TData extends RowData> {
   enableGrouping?: boolean
   /** Show the drag-to-group chip area in the top toolbar. */
   enableGroupingChips?: boolean
+  /**
+   * Where a grouped column goes. `reorder` (the default) moves it to the front
+   * of the table, `remove` drops it and shows the group value next to the
+   * expand chevron instead, `false` leaves the column order alone.
+   */
   groupedColumnMode?: 'reorder' | 'remove' | false
   enableAggregation?: boolean
 
+  /** Defaults to on when grouping or a detail panel is in play. */
   enableExpanding?: boolean
   enableExpandAll?: boolean
   getRowCanExpand?: (row: DataTableRow<TData>) => boolean

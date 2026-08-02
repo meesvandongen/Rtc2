@@ -1,7 +1,8 @@
 import type { RowData } from '@tanstack/react-table'
 import { CellEditor } from './CellEditor'
-import { RowExpandToggle } from './RowExpandToggle'
 import { getCellLayoutProps } from './HeaderCell'
+import { DISPLAY_COLUMN_IDS, rendersOnGroupedRow } from '../displayColumnIds'
+import { resolveEnableExpanding, resolveGroupingLayout } from '../displayColumns'
 import { cellEditId, isCellEditing } from '../editing'
 import { cx } from '../utils'
 import type { DataTableCell, DataTableInstance, DataTableRow } from '../types'
@@ -30,6 +31,16 @@ export function BodyCell<TData extends RowData>({ table, row, cell, columnIndex 
   const isPlaceholder = cell.getIsPlaceholder()
   const editing = isCellEditing(table, row, column.id)
 
+  // Under `groupedColumnMode: 'remove'` the grouped columns are gone from the
+  // table and the expand column carries their value in its place, so it gets
+  // the group cell's styling and the tree indentation.
+  const isExpandColumn = column.id === DISPLAY_COLUMN_IDS.expand
+  const grouped = resolveGroupingLayout(options, table.state.grouping)
+  const carriesGroupLabel = grouped.carriesGroupLabel && isExpandColumn && !!row.groupingColumnId
+  // A group row stands for many records: the controls that address a single
+  // one stay blank on it.
+  const isInertOnGroupRow = row.getIsGrouped() && !rendersOnGroupedRow(column.id)
+
   const cellSelectionEnabled = options.enableCellSelection ?? false
   const isSelected = cellSelectionEnabled && cell.getIsSelected()
   const isFocused = cellSelectionEnabled && cell.getIsFocused()
@@ -37,10 +48,12 @@ export function BodyCell<TData extends RowData>({ table, row, cell, columnIndex 
 
   const userProps = options.cellProps?.({ table, row, cell, column })
 
-  // Tree indentation belongs on the first non-display column so nested rows
-  // read as a hierarchy rather than a flat list.
-  const isFirstDataColumn = columnIndex === 0
-  const indent = options.enableExpanding && row.depth > 0 && isFirstDataColumn ? row.depth * 16 : 0
+  // Tree indentation goes on the cell that carries the row's identity — the
+  // expand column when it holds the group label, the leading cell otherwise —
+  // so nested rows read as a hierarchy rather than a flat list.
+  const indentTarget = grouped.active ? isExpandColumn : columnIndex === 0
+  const indent =
+    resolveEnableExpanding(options) && row.depth > 0 && indentTarget ? row.depth * 16 : 0
 
   const canActivateEditor =
     !!options.enableEditing && options.editMode === 'cell' && !editing && !isGrouped && !isAggregated
@@ -51,7 +64,7 @@ export function BodyCell<TData extends RowData>({ table, row, cell, columnIndex 
       {...userProps}
       className={cx(layout.className, userProps?.className)}
       style={{ ...layout.style, ...userProps?.style }}
-      data-rtc-grouped={isGrouped ? 'true' : undefined}
+      data-rtc-grouped={isGrouped || carriesGroupLabel ? 'true' : undefined}
       data-rtc-cell-selected={isSelected ? 'true' : undefined}
       data-rtc-cell-focused={isFocused ? 'true' : undefined}
       data-rtc-cell-edge-top={edges?.top ? 'true' : undefined}
@@ -78,9 +91,9 @@ export function BodyCell<TData extends RowData>({ table, row, cell, columnIndex 
       <div className="rtc-cell-inner">
         {indent > 0 ? <span className="rtc-cell-indent" style={{ width: indent }} /> : null}
 
-        {isGrouped ? (
+        {isInertOnGroupRow ? null : isGrouped ? (
+          // The chevron lives in the expand column, which grouping always adds.
           <>
-            <RowExpandToggle table={table} row={row} />
             <span className="rtc-cell-value">
               <table.FlexRender cell={cell} />
             </span>

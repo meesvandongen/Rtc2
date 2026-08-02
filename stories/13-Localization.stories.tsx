@@ -36,6 +36,7 @@ const dutch: Partial<DataTableLocalization> = {
   rowsPerPage: 'Rijen per pagina',
   save: 'Opslaan',
   search: 'Zoeken',
+  select: 'Selecteren',
   selectedCountOfRowCountRowsSelected: '{selectedCount} van {rowCount} rij(en) geselecteerd',
   showAllColumns: 'Alle kolommen tonen',
   showHideColumns: 'Kolommen tonen/verbergen',
@@ -77,6 +78,11 @@ export const Dutch: Story = {
       enableRowSelection
       enableColumnActions
       enableColumnPinning
+      // The columns the component generates are named from the localization
+      // too — open the column menu to see "Selecteren" and "Acties" rather
+      // than the internal ids.
+      enableEditing
+      editMode="modal"
       initialState={{ showGlobalFilter: true }}
     />
   ),

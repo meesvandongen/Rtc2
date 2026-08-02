@@ -22,7 +22,7 @@ export function ColumnFilterPopover<TData extends RowData>({
 }) {
   const ui = useComponents()
   const { localization } = table.dataTableOptions
-  const label = getColumnLabel(column)
+  const label = getColumnLabel(column, localization)
   const isActive = column.getIsFiltered()
 
   return (

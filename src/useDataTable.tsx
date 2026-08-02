@@ -2,7 +2,7 @@ import type { RowData } from '@tanstack/react-table'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTable } from '@tanstack/react-table'
 
-import { buildDisplayColumns } from './displayColumns'
+import { buildDisplayColumns, resolveEnableExpanding } from './displayColumns'
 import { STRUCTURED_FILTER_FN } from './filters/filterFn'
 import type { DataTableTableMeta } from './filters/registry'
 import { dataTableFeatures } from './features'
@@ -66,6 +66,23 @@ type SliceKey = keyof DataTableTanStackState
 const SLICE_KEYS = Object.keys(TANSTACK_CALLBACKS) as SliceKey[]
 
 /**
+ * Narrows a mixed state object down to the TanStack-owned slices.
+ *
+ * `initialState` and `state` accept UI keys (`density`, `showFilterPanel`, …)
+ * alongside the table slices. TanStack builds one atom per key it is handed,
+ * so the UI half has to be filtered out before either object reaches it.
+ */
+function pickSlices(value: object | undefined): Partial<DataTableTanStackState> {
+  if (!value) return {}
+  const result: Record<string, unknown> = {}
+  for (const key of SLICE_KEYS) {
+    const entry = (value as Record<string, unknown>)[key]
+    if (entry !== undefined) result[key] = entry
+  }
+  return result as Partial<DataTableTanStackState>
+}
+
+/**
  * Builds the table instance behind `<DataTable />`.
  *
  * The component owns every state slice in React state and mirrors TanStack's
@@ -86,14 +103,19 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
   const controlledRef = useRef(options.state)
   controlledRef.current = options.state
 
-  const [ownTanStackState, setOwnTanStackState] = useState<DataTableTanStackState>(() => ({
+  // Read once, at mount: TanStack captures `initialState` when it constructs
+  // the instance, and every later read of it — the auto-reset hooks, the
+  // `reset*` APIs — goes through that one snapshot.
+  const [initialTanStackState] = useState<DataTableTanStackState>(() => ({
     ...DEFAULT_TANSTACK_STATE,
     pagination: {
       ...DEFAULT_TANSTACK_STATE.pagination,
       pageSize: options.pageSizeOptions?.[0] ?? DEFAULT_TANSTACK_STATE.pagination.pageSize,
     },
-    ...compact(options.initialState as Partial<DataTableTanStackState>),
+    ...pickSlices(options.initialState),
   }))
+
+  const [ownTanStackState, setOwnTanStackState] = useState<DataTableTanStackState>(initialTanStackState)
 
   const [ownUiState, setOwnUiState] = useState<DataTableUiState>(() => ({
     ...DEFAULT_UI_STATE,
@@ -106,7 +128,7 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
   }))
 
   const tanStackState = useMemo<DataTableTanStackState>(
-    () => ({ ...ownTanStackState, ...compact(options.state as Partial<DataTableTanStackState>) }),
+    () => ({ ...ownTanStackState, ...pickSlices(options.state) }),
     [ownTanStackState, options.state],
   )
 
@@ -200,8 +222,18 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
   const stableUserColumns = useStableArray(options.columns) as typeof options.columns
   const stableData = useStableArray(options.data) as typeof options.data
 
+  // Only whether anything is grouped changes the display columns; which
+  // columns are grouped is read at render time by the expand column.
+  const hasGrouping = tanStackState.grouping.length > 0
+  const groupingRef = useRef(tanStackState.grouping)
+  groupingRef.current = tanStackState.grouping
+
   const columns = useMemo(() => {
-    const { leading, trailing } = buildDisplayColumns({ options: optionsRef.current, getTable })
+    const { leading, trailing } = buildDisplayColumns({
+      options: optionsRef.current,
+      grouping: groupingRef.current,
+      getTable,
+    })
     // Every column routes through the one structured filter fn, which reads
     // the operator out of the filter value. A column that sets its own
     // `filterFn` explicitly keeps it, as an escape hatch to raw TanStack.
@@ -220,6 +252,9 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
     options.enableExpanding,
     options.enableExpandAll,
     options.renderDetailPanel,
+    options.enableGrouping,
+    options.groupedColumnMode,
+    hasGrouping,
     options.enableRowNumbers,
     options.rowNumberDisplayMode,
     options.enableRowActions,
@@ -243,6 +278,12 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
     columns,
     data: stableData,
     state: tanStackState,
+    // TanStack's auto-reset hooks restore `table.initialState` rather than the
+    // feature default — and one of them, `autoResetExpanded`, fires the first
+    // time the grouped row model computes, which is during the mount render.
+    // Without this the initial `expanded` is wiped before anything paints and
+    // `initialState={{ expanded: true }}` renders a collapsed table.
+    initialState: initialTanStackState,
     ...(options.getRowId ? { getRowId: options.getRowId as never } : {}),
     ...(options.getSubRows ? { getSubRows: options.getSubRows as never } : {}),
     ...(options.defaultColumn ? { defaultColumn: options.defaultColumn as never } : {}),
@@ -274,7 +315,7 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
     manualGrouping: options.manualGrouping ?? false,
     manualAggregation: !(options.enableAggregation ?? true),
 
-    enableExpanding: options.enableExpanding ?? hasDetailPanel,
+    enableExpanding: resolveEnableExpanding(options),
     manualExpanding: options.manualExpanding ?? false,
     paginateExpandedRows: options.paginateExpandedRows ?? true,
     ...(hasDetailPanel && !options.getRowCanExpand

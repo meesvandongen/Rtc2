@@ -65,13 +65,18 @@ const preview: Preview = {
   decorators: [
     (Story, context) => {
       const theme = context.globals.theme === 'dark' ? 'dark' : 'light'
-      // Both attributes go on `<html>` rather than a wrapper element around the
-      // story. `data-sb-theme` drives the page chrome in `storybook.css`;
+      // Both attributes go on `<html>`, and there is no wrapper element around
+      // the story. `data-sb-theme` drives the page chrome in `storybook.css`.
+      //
       // `data-rtc-theme` is the library's own ancestor opt-in, and `<html>` is
-      // an ancestor of every story, so the toolbar switch still exercises that
-      // route. Storybook's `layout` parameter handles the padding a wrapper
-      // would otherwise supply, and it already knows how Docs differs from
-      // Canvas — which a hand-rolled wrapper has to be taught.
+      // the only ancestor every themed surface shares. Overlays would escape a
+      // wrapper: the modal editor portals to `document.body`, and every adapter
+      // renders its menus and popovers there too. Those surfaces carry
+      // `rtc-vars`, so they pick up the palette — but only from an ancestor
+      // they have in common with the table.
+      //
+      // Padding is Storybook's `layout` parameter, which already knows how Docs
+      // differs from Canvas — something a hand-rolled wrapper has to be taught.
       document.documentElement.setAttribute('data-sb-theme', theme)
       document.documentElement.setAttribute('data-rtc-theme', theme)
       return <Story />

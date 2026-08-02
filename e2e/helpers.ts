@@ -23,9 +23,30 @@ export function header(root: Locator, columnId: string): Locator {
   return root.locator(`thead th[data-rtc-column-id="${columnId}"]`).first()
 }
 
+/** Ids of the leaf header cells, left to right. */
+export async function headerColumnIds(root: Locator): Promise<string[]> {
+  return root
+    .locator('thead tr')
+    .last()
+    .locator('th')
+    .evaluateAll((cells) => cells.map((cell) => cell.getAttribute('data-rtc-column-id') ?? ''))
+}
+
 /** Body rows, excluding detail-panel rows. */
 export function bodyRows(root: Locator): Locator {
   return root.locator('tbody tr[data-rtc-row-id]')
+}
+
+/**
+ * Row ids in render order — the cheapest way to assert an exact row order.
+ *
+ * Comparing the whole sequence catches an expanded tree that came out in the
+ * wrong order or lost a level, which a row count alone lets through.
+ */
+export function rowIds(root: Locator): Promise<string[]> {
+  return bodyRows(root).evaluateAll((rows) =>
+    rows.map((row) => row.getAttribute('data-rtc-row-id') ?? ''),
+  )
 }
 
 /**
@@ -72,17 +93,33 @@ export function panelField(root: Locator, columnId: string): Locator {
   return root.locator(`[data-rtc-filter-field="${columnId}"]`)
 }
 
-/** Drives a pointer-based drag from one element to another. */
-export async function dragTo(page: Page, source: Locator, target: Locator): Promise<void> {
+/**
+ * Drives a pointer-based drag from one element to another.
+ *
+ * `edge` picks the half of the target to release over, which is what decides
+ * whether the dragged item lands before or after it. The midpoint itself is
+ * the boundary between the two halves, so an edge-sensitive test has to aim at
+ * a quarter point rather than the centre.
+ */
+export async function dragTo(
+  page: Page,
+  source: Locator,
+  target: Locator,
+  options: { edge?: 'before' | 'after' } = {},
+): Promise<void> {
   const from = await source.boundingBox()
   const to = await target.boundingBox()
   if (!from || !to) throw new Error('drag source or target is not visible')
+
+  const fraction = options.edge === 'before' ? 0.25 : options.edge === 'after' ? 0.75 : 0.5
+  const x = to.x + to.width / 2
+  const y = to.y + to.height * fraction
 
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
   await page.mouse.down()
   // Two intermediate moves: the first starts the drag, the second lets the
   // component's `elementFromPoint` hit-test settle on the target.
-  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 12 })
-  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2)
+  await page.mouse.move(x, y, { steps: 12 })
+  await page.mouse.move(x, y)
   await page.mouse.up()
 }

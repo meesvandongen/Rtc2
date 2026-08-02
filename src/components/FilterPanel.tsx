@@ -82,7 +82,7 @@ function FilterPanelContent<TData extends RowData>({
         ) : null}
 
         {columns.map((column) => {
-          const label = getColumnLabel(column)
+          const label = getColumnLabel(column, localization)
           const isActive = column.getIsFiltered()
           return (
             <div

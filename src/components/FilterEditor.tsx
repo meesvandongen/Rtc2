@@ -133,7 +133,7 @@ export function FilterEditor<TData extends RowData>({
   const { options, bounds } = useFacets(table, column, !!operator.usesFacets)
 
   const label = formatMessage(table.dataTableOptions.localization.filterByColumn, {
-    column: getColumnLabel(column),
+    column: getColumnLabel(column, table.dataTableOptions.localization),
   })
 
   const setOperand = (next: unknown) => {
@@ -236,7 +236,7 @@ export function describeFilter<TData extends RowData>(
 ): string {
   const dataType = resolveDataType(table, column)
   const typeMeta = resolveTypeMeta(column, dataType)
-  const columnLabel = getColumnLabel(column)
+  const columnLabel = getColumnLabel(column, table.dataTableOptions.localization)
   const conditions = toConditions(column.getFilterValue(), dataType)
   if (conditions.length === 0) return columnLabel
 

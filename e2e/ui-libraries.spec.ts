@@ -113,6 +113,44 @@ for (const [library, storyId] of Object.entries(STORIES) as Array<[LibraryName, 
         new Set(['Lisbon']),
       )
     })
+
+    /**
+     * A design system is free to give the table a transparent header — shadcn's
+     * is — but the header is sticky, and a transparent sticky header shows the
+     * rows scrolling behind it, which reads as two rows printed on top of each
+     * other. The header colour is therefore painted over the table surface
+     * rather than instead of it, and what that guarantees is this: whatever the
+     * theme, a header cell ends up opaque.
+     */
+    test('the sticky header is opaque, whatever the theme paints on it', async ({ page }) => {
+      const root = await openStory(page, storyId)
+      await root.locator('.rtc-container').first().evaluate((el) => el.scrollTo(0, 200))
+
+      const alpha = await header(root, 'firstName').evaluate((cell) => {
+        const colour = getComputedStyle(cell).backgroundColor
+        const parts = colour.match(/[\d.]+/g) ?? []
+        return parts.length > 3 ? Number(parts[3]) : 1
+      })
+      expect(alpha).toBe(1)
+    })
+
+    /**
+     * Toolbar buttons are icon-only and should be square. They stopped being
+     * square once — an SVG is an inline box, so it sat on a text baseline and
+     * inherited the line height of whatever font size the library's button
+     * used; MUI's 1.5rem turned a 16px glyph into a 51px-tall button.
+     */
+    test('toolbar icon buttons are square', async ({ page }) => {
+      const root = await openStory(page, storyId)
+
+      const button = root.locator(
+        '[data-rtc-toolbar="top"] button:has([data-rtc-action="toggle-columns"])',
+      )
+      const box = (await button.boundingBox())!
+
+      expect(Math.abs(box.width - box.height)).toBeLessThanOrEqual(2)
+      expect(box.height).toBeLessThanOrEqual(40)
+    })
   })
 }
 
