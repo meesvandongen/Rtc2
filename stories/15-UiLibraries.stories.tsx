@@ -4,6 +4,7 @@ import { CssBaseline, ThemeProvider, createTheme } from '@mui/material'
 import { MantineProvider } from '@mantine/core'
 
 import { DataTable, defaultComponents, type DataTableComponents } from '../src'
+import { createLolmathComponents, lolmathCssVars } from './adapters/lolmath'
 import { createMantineComponents } from './adapters/mantine'
 import { createMuiComponents } from './adapters/mui'
 import { createRadixComponents } from './adapters/radix'
@@ -21,8 +22,8 @@ type Story = StoryObj<typeof meta>
 /**
  * Everything the table renders that is interactive comes from the component
  * registry, so a whole design system can be swapped in with one prop. These
- * stories exist to prove the contract against three libraries with genuinely
- * different API shapes — if it holds for all three, it is at the right level.
+ * stories exist to prove the contract against four libraries with genuinely
+ * different API shapes — if it holds for all four, it is at the right level.
  */
 
 /**
@@ -217,16 +218,65 @@ export const Mantine: Story = {
   },
 }
 
+/**
+ * `@lolmath/ui`, a React Aria Components design system.
+ *
+ * The adapter that proves the trigger rule holds for a mechanism it was not
+ * written for. Radix, MUI and Mantine all deliver their handlers *onto* the
+ * trigger, which is why the contract insists an adapter spread the props it
+ * does not recognise. React Aria delivers them through a `PressResponder`
+ * context instead — no clone, no injected props — and it works for the same
+ * underlying reason: the registry hands over a rendered element rather than a
+ * render prop, so the library's own button is already in the tree.
+ *
+ * It is also the first adapter whose library ships exactly one colour scheme.
+ * There is no light lolmath to switch to, so rather than half-theme the table
+ * the whole palette is remapped onto `--lol-*` tokens and the surface is
+ * pinned to dark in both toolbar modes.
+ */
+export const LolmathUi: Story = {
+  render: function LolmathUi() {
+    const components = useMemo<DataTableComponents>(
+      () => createLolmathComponents(defaultComponents),
+      [],
+    )
+    return (
+      // The library's own ancestor opt-in has no equivalent, so this is the
+      // table's: `data-rtc-theme` is what makes the browser paint dark
+      // scrollbars and dark form chrome under a dark table.
+      <div data-rtc-theme="dark">
+        <p className="rtc-sb-note">
+          Buttons, fields, menus, the searchable multi-select, the modal editor and the tag chips
+          are all <code>@lolmath/ui</code>. It ships no icon set and — deliberately — no tooltip, so
+          those two stay ours.
+        </p>
+        <DataTable
+          {...commonOptions}
+          components={components}
+          // Every `--rtc-*` colour, mapped onto a `--lol-*` token. The map is
+          // exported by the adapter rather than written out here because the
+          // overlays React Aria portals to `document.body` need the same one,
+          // and an inline style on the table root cannot reach them.
+          cssVars={lolmathCssVars}
+        />
+      </div>
+    )
+  },
+}
+
 /** Switch libraries at runtime against one identical table. */
 export const SideBySideSwitcher: Story = {
   render: function SideBySideSwitcher(_args, context) {
     const mode = colorSchemeOf(context)
-    const [library, setLibrary] = useState<'built-in' | 'mui' | 'radix' | 'mantine'>('built-in')
+    const [library, setLibrary] = useState<'built-in' | 'mui' | 'radix' | 'mantine' | 'lolmath'>(
+      'built-in',
+    )
 
     const components = useMemo<DataTableComponents | undefined>(() => {
       if (library === 'mui') return createMuiComponents(defaultComponents)
       if (library === 'radix') return createRadixComponents(defaultComponents)
       if (library === 'mantine') return createMantineComponents(defaultComponents)
+      if (library === 'lolmath') return createLolmathComponents(defaultComponents)
       return undefined
     }, [library])
 
@@ -235,6 +285,7 @@ export const SideBySideSwitcher: Story = {
         {...commonOptions}
         height={480}
         components={components}
+        cssVars={library === 'lolmath' ? lolmathCssVars : undefined}
         initialState={{ showGlobalFilter: true, showFilterPanel: false }}
       />
     )
@@ -242,7 +293,7 @@ export const SideBySideSwitcher: Story = {
     return (
       <>
         <div className="rtc-sb-row">
-          {(['built-in', 'mui', 'radix', 'mantine'] as const).map((name) => (
+          {(['built-in', 'mui', 'radix', 'mantine', 'lolmath'] as const).map((name) => (
             <button
               key={name}
               type="button"
@@ -262,6 +313,9 @@ export const SideBySideSwitcher: Story = {
           <ThemeProvider theme={createTheme({ palette: { mode } })}>{table}</ThemeProvider>
         ) : library === 'mantine' ? (
           <MantineProvider forceColorScheme={mode}>{table}</MantineProvider>
+        ) : library === 'lolmath' ? (
+          // lolmath has no light scheme to follow the toolbar with.
+          <div data-rtc-theme="dark">{table}</div>
         ) : (
           table
         )}

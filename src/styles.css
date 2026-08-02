@@ -1380,10 +1380,16 @@
   min-width: 0;
 }
 
+/* The docked panel is a fixed-width column, so everything stacked inside it
+   has to be allowed to shrink below its intrinsic width.
+   `.rtc-filter-popover` is deliberately not in this list: it is the *content*
+   of a floating surface, where the constraint runs the other way — it is the
+   thing that gives the surface a width, and the 220px floor above is what
+   stops an adapter's shrink-to-fit popover collapsing onto its own controls.
+   It was in this list once, silently zeroing that floor. */
 .rtc-filter-field,
 .rtc-filter-conditions,
-.rtc-filter-condition,
-.rtc-filter-popover {
+.rtc-filter-condition {
   min-width: 0;
 }
 

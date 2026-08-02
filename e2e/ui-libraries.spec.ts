@@ -17,6 +17,7 @@ const STORIES = {
   mui: 'datatable-15-ui-libraries--material-ui',
   radix: 'datatable-15-ui-libraries--radix-shadcn',
   mantine: 'datatable-15-ui-libraries--mantine',
+  lolmath: 'datatable-15-ui-libraries--lolmath-ui',
 } as const
 
 type LibraryName = keyof typeof STORIES
@@ -65,7 +66,17 @@ for (const [library, storyId] of Object.entries(STORIES) as Array<[LibraryName, 
     test('row selection works through the adapter checkbox', async ({ page }) => {
       const root = await openStory(page, storyId)
 
-      await bodyRows(root).first().getByLabel('Toggle select row').click()
+      const row = bodyRows(root).first()
+      // Every adapter has to give the control an accessible name, and that is
+      // asserted for all of them. Clicking it is another matter: React Aria
+      // puts the name on a visually hidden `<input>` sitting behind the
+      // artwork the library draws, so the named element is a 1×1 clipped box
+      // no pointer can reach. Its `<label>` is what a user clicks, and it
+      // toggles the same input.
+      const named = row.getByLabel('Toggle select row')
+      await expect(named).toHaveCount(1)
+      await (library === 'lolmath' ? row.locator('label').first() : named).click()
+
       await expect(bodyRows(root).first()).toHaveAttribute('data-rtc-selected', 'true')
       await expect(root.locator('[data-rtc-selection-summary]')).toContainText('1 of')
     })
@@ -77,9 +88,15 @@ for (const [library, storyId] of Object.entries(STORIES) as Array<[LibraryName, 
       const popover = page.locator('[data-rtc-filter-popover="department"]')
       await expect(popover).toBeVisible()
 
-      // Mantine renders a combobox rather than a native <select>, so branch here.
+      // Mantine and lolmath render a combobox rather than a native <select>,
+      // so branch here. They differ again in what carries the accessible name:
+      // Mantine names the input, React Aria names the button that opens the
+      // listbox and folds the current value into that name.
       if (library === 'mantine') {
         await popover.getByLabel('Filter by Department').click()
+        await page.getByRole('option', { name: 'Engineering', exact: true }).first().click()
+      } else if (library === 'lolmath') {
+        await popover.getByRole('button', { name: /Filter by Department/ }).click()
         await page.getByRole('option', { name: 'Engineering', exact: true }).first().click()
       } else {
         await popover.getByLabel('Filter by Department').selectOption('Engineering')
@@ -162,7 +179,7 @@ test.describe('registry composition', () => {
     const root = await openStory(page, 'datatable-15-ui-libraries--side-by-side-switcher')
     await expect(bodyRows(root).first()).toBeVisible()
 
-    for (const library of ['mui', 'radix', 'mantine', 'built-in'] as const) {
+    for (const library of ['mui', 'radix', 'mantine', 'lolmath', 'built-in'] as const) {
       await page.getByTestId(`ui-${library}`).click()
       await expect(bodyRows(root).first()).toBeVisible()
       await expect(header(root, 'firstName')).toContainText('First name')
