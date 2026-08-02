@@ -1,8 +1,12 @@
 {
   "name": "@mvd/table",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A fully-featured, CSS-variable-themable React table component built on TanStack Table v9.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/meesvandongen/Rtc2.git"
+  },
   "type": "module",
   "publishConfig": {
     "access": "public"
