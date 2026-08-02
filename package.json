@@ -4,6 +4,9 @@
   "description": "A fully-featured, CSS-variable-themable React table component built on TanStack Table v9.",
   "license": "MIT",
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "sideEffects": [
     "*.css"
   ],
