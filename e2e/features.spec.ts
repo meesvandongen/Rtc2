@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 
 import {
   bodyRows,
@@ -11,6 +11,7 @@ import {
   openMenu,
   openStory,
   panelField,
+  rowIds,
   toolbarAction,
 } from './helpers'
 
@@ -385,6 +386,19 @@ test.describe('columns', () => {
     await expect(header(root, 'city')).toHaveCount(0)
   })
 
+  test('the visibility menu names the generated columns', async ({ page }) => {
+    const root = await openStory(page, 'datatable-15-ui-libraries--built-in-primitives')
+
+    await toolbarAction(root, 'toggle-columns').click()
+    const menu = openMenu(page)
+    // The selection and row-action columns render their header through a
+    // function, so there is no header string to name them by. They are named
+    // from the localization instead of falling back to their internal id.
+    await expect(menu.getByRole('menuitemcheckbox', { name: 'Actions' })).toBeVisible()
+    await expect(menu.getByRole('menuitemcheckbox', { name: 'Select' })).toBeVisible()
+    await expect(menu).not.toContainText('rtc-')
+  })
+
   test('the column menu sorts, pins and hides', async ({ page }) => {
     const root = await openStory(page, 'datatable-06-columns--column-actions-menu')
 
@@ -572,6 +586,71 @@ test.describe('expanding', () => {
     await expect(root.locator('.rtc-detail-row')).toHaveCount(1)
     await expect(root.locator('.rtc-detail-row')).toContainText('@example.com')
   })
+
+  /**
+   * `initialState.expanded` used to be discarded during the mount render:
+   * TanStack's expanded auto-reset fires the first time the grouped row model
+   * computes and restores `table.initialState`, which the table did not pass
+   * through. The tree collapsed back to its roots before anything painted.
+   */
+  test('expanded: true opens the whole tree on first paint', async ({ page }) => {
+    const root = await openStory(page, 'datatable-08-expanding--expanded-by-default')
+
+    // Three roots, three children each, and a third level under the first.
+    await expect.poll(() => rowIds(root)).toEqual([
+      'p1', 'p4', 'p13', 'p5', 'p14', 'p6', 'p15',
+      'p2', 'p7', 'p8', 'p9',
+      'p3', 'p10', 'p11', 'p12',
+    ])
+    await expect(root.locator('tbody tr[data-rtc-depth="2"]')).toHaveCount(3)
+    await expect(root.locator('thead .rtc-expand-slot')).toHaveAttribute('data-rtc-expanded', 'true')
+  })
+
+  test('an initially expanded tree collapses back to its roots', async ({ page }) => {
+    const root = await openStory(page, 'datatable-08-expanding--expanded-by-default')
+    await expect(bodyRows(root)).toHaveCount(15)
+
+    await root.locator('thead .rtc-expand-button').click()
+    await expect.poll(() => rowIds(root)).toEqual(['p1', 'p2', 'p3'])
+  })
+
+  /** Collapsing one branch must not disturb — or re-open — the others. */
+  test('an initially expanded branch collapses on its own', async ({ page }) => {
+    const root = await openStory(page, 'datatable-08-expanding--expanded-by-default')
+    await expect(bodyRows(root)).toHaveCount(15)
+
+    await bodyRows(root).first().locator('.rtc-expand-button').click()
+    await expect.poll(() => rowIds(root)).toEqual([
+      'p1',
+      'p2', 'p7', 'p8', 'p9',
+      'p3', 'p10', 'p11', 'p12',
+    ])
+  })
+
+  test('a row-id map opens only the branches it names', async ({ page }) => {
+    const root = await openStory(page, 'datatable-08-expanding--some-rows-expanded-by-default')
+
+    await expect.poll(() => rowIds(root)).toEqual(['p1', 'p4', 'p13', 'p5', 'p6', 'p2', 'p3'])
+  })
+
+  test('expanded rows stay on the page their parent is on', async ({ page }) => {
+    const root = await openStory(page, 'datatable-08-expanding--expanding-with-pagination')
+
+    // `paginateExpandedRows={false}`, so the page holds two *root* rows and
+    // every descendant they bring with them.
+    await expect.poll(() => rowIds(root)).toEqual([
+      'p1', 'p4', 'p13', 'p5', 'p14', 'p6', 'p15',
+      'p2', 'p7', 'p8', 'p9',
+    ])
+  })
+
+  test('sub-row selection starts from an expanded tree', async ({ page }) => {
+    const root = await openStory(page, 'datatable-05-selection--sub-row-selection')
+
+    await expect(bodyRows(root)).toHaveCount(15)
+    await bodyRows(root).first().getByLabel('Toggle select row').check()
+    await expect(root.locator('tbody tr[data-rtc-selected="true"]')).toHaveCount(7)
+  })
 })
 
 test.describe('rows', () => {
@@ -608,13 +687,120 @@ test.describe('rows', () => {
     await expect.poll(async () => (await columnText(root, 'email'))[1]).toBe(firstEmail)
   })
 
-  test('dragging a row reorders it', async ({ page }) => {
-    const root = await openStory(page, 'datatable-09-rows--row-ordering')
+  // Row ordering used to be direction-dependent: `reorder` was handed the drop
+  // target's index *after* the dragged row had been spliced out, so a downward
+  // drag landed one position too low — below the row it was dropped on, while
+  // an upward drag landed above it. These pin down both directions and both
+  // halves of the target row.
+  test.describe('row ordering', () => {
+    const story = 'datatable-09-rows--row-ordering'
+    const handle = (root: Locator, index: number) =>
+      bodyRows(root).nth(index).locator('.rtc-drag-handle')
 
-    const firstEmail = (await columnText(root, 'email'))[0]
-    await dragTo(page, bodyRows(root).nth(0).locator('.rtc-drag-handle'), bodyRows(root).nth(3))
+    test('starts in data order', async ({ page }) => {
+      const root = await openStory(page, story)
+      expect(await rowIds(root)).toEqual(['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10'])
+    })
 
-    await expect.poll(async () => (await columnText(root, 'email'))[0]).not.toBe(firstEmail)
+    test('dragging down onto the top half lands above the target', async ({ page }) => {
+      const root = await openStory(page, story)
+
+      await dragTo(page, handle(root, 0), bodyRows(root).nth(3), { edge: 'before' })
+
+      await expect
+        .poll(async () => (await rowIds(root)).slice(0, 5))
+        .toEqual(['p2', 'p3', 'p1', 'p4', 'p5'])
+    })
+
+    test('dragging down onto the bottom half lands below the target', async ({ page }) => {
+      const root = await openStory(page, story)
+
+      await dragTo(page, handle(root, 0), bodyRows(root).nth(3), { edge: 'after' })
+
+      await expect
+        .poll(async () => (await rowIds(root)).slice(0, 5))
+        .toEqual(['p2', 'p3', 'p4', 'p1', 'p5'])
+    })
+
+    test('dragging up onto the top half lands above the target', async ({ page }) => {
+      const root = await openStory(page, story)
+
+      await dragTo(page, handle(root, 4), bodyRows(root).nth(1), { edge: 'before' })
+
+      await expect
+        .poll(async () => (await rowIds(root)).slice(0, 5))
+        .toEqual(['p1', 'p5', 'p2', 'p3', 'p4'])
+    })
+
+    test('dragging up onto the bottom half lands below the target', async ({ page }) => {
+      const root = await openStory(page, story)
+
+      await dragTo(page, handle(root, 4), bodyRows(root).nth(1), { edge: 'after' })
+
+      await expect
+        .poll(async () => (await rowIds(root)).slice(0, 5))
+        .toEqual(['p1', 'p2', 'p5', 'p3', 'p4'])
+    })
+
+    test('the bottom half of the last row moves a row to the end', async ({ page }) => {
+      const root = await openStory(page, story)
+
+      await dragTo(page, handle(root, 0), bodyRows(root).nth(9), { edge: 'after' })
+
+      await expect
+        .poll(async () => (await rowIds(root)).slice(-2))
+        .toEqual(['p10', 'p1'])
+    })
+
+    test('successive drags compose', async ({ page }) => {
+      const root = await openStory(page, story)
+
+      await dragTo(page, handle(root, 0), bodyRows(root).nth(2), { edge: 'after' })
+      await expect
+        .poll(async () => (await rowIds(root)).slice(0, 4))
+        .toEqual(['p2', 'p3', 'p1', 'p4'])
+
+      // p1 now renders third; drag it back to the very top.
+      await dragTo(page, handle(root, 2), bodyRows(root).nth(0), { edge: 'before' })
+      await expect
+        .poll(async () => (await rowIds(root)).slice(0, 4))
+        .toEqual(['p1', 'p2', 'p3', 'p4'])
+    })
+
+    test('the drop indicator marks the edge the row will land on', async ({ page }) => {
+      const root = await openStory(page, story)
+
+      const source = (await handle(root, 0).boundingBox())!
+      const target = (await bodyRows(root).nth(3).boundingBox())!
+      const x = target.x + target.width / 2
+
+      await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2)
+      await page.mouse.down()
+
+      await page.mouse.move(x, target.y + target.height * 0.25, { steps: 8 })
+      await expect(bodyRows(root).nth(3)).toHaveAttribute('data-rtc-drop-edge', 'before')
+
+      await page.mouse.move(x, target.y + target.height * 0.75)
+      await expect(bodyRows(root).nth(3)).toHaveAttribute('data-rtc-drop-edge', 'after')
+
+      await page.mouse.up()
+
+      // Released on the bottom half, so the row lands below the target — the
+      // side the indicator was drawn on.
+      await expect
+        .poll(async () => (await rowIds(root)).slice(0, 4))
+        .toEqual(['p2', 'p3', 'p4', 'p1'])
+    })
+
+    test('dropping a row back on its own edge changes nothing', async ({ page }) => {
+      const root = await openStory(page, story)
+
+      await dragTo(page, handle(root, 1), bodyRows(root).nth(2), { edge: 'before' })
+
+      await expect
+        .poll(async () => (await rowIds(root)).slice(0, 4))
+        .toEqual(['p1', 'p2', 'p3', 'p4'])
+    })
   })
 })
 
@@ -750,6 +936,61 @@ test.describe('theming', () => {
     expect(darkSurface).not.toBe(lightSurface)
     expect(darkSurface).toBe('#0f172a')
   })
+
+  test('dark mode sets the color scheme so browser chrome follows', async ({ page }) => {
+    const light = await openStory(page, 'datatable-01-basics--basic')
+    expect(await light.evaluate((element) => getComputedStyle(element).colorScheme)).toBe('light')
+
+    const dark = await openStory(page, 'datatable-12-theming--dark-mode')
+    expect(await dark.evaluate((element) => getComputedStyle(element).colorScheme)).toBe('dark')
+  })
+
+  /**
+   * `rtc-vars` exists so a surface rendered outside the table can opt into the
+   * theme. Nested inside one it must do nothing at all: a declaration on the
+   * element beats one inherited from an ancestor, so the docked filter panel —
+   * which carries the class for its standalone form — used to reset every
+   * variable to the package defaults and ignore the `cssVars` set on the table
+   * root above it. A recoloured table then had a stock-coloured panel bolted to
+   * its side.
+   *
+   * The Mantine story is the case in point: it is the one that remaps the whole
+   * surface palette *and* docks a panel.
+   */
+  test('a docked filter panel inherits the root variable overrides', async ({ page }) => {
+    const root = await openStory(page, 'datatable-15-ui-libraries--mantine')
+    const readSurface = (target: Locator) =>
+      target.evaluate((element) =>
+        getComputedStyle(element).getPropertyValue('--rtc-color-surface').trim(),
+      )
+
+    const surface = await readSurface(root)
+    expect(surface).not.toBe('#ffffff')
+    expect(await readSurface(root.locator('[data-rtc-filter-panel]'))).toBe(surface)
+  })
+
+  test('an overlay scrollbar is painted from the active theme', async ({ page }) => {
+    const readMenuScrollbar = async () => {
+      await toolbarAction(page.locator('.rtc-root').first(), 'toggle-columns').click()
+      return openMenu(page).evaluate((element) => {
+        const style = getComputedStyle(element)
+        return { colorScheme: style.colorScheme, scrollbarColor: style.scrollbarColor }
+      })
+    }
+
+    await openStory(page, 'datatable-01-basics--basic')
+    const light = await readMenuScrollbar()
+
+    await openStory(page, 'datatable-12-theming--dark-mode')
+    const dark = await readMenuScrollbar()
+
+    // Both halves matter: `color-scheme` is what stops the browser painting a
+    // light scrollbar on a dark menu, and the thumb colour is ours.
+    expect(light.colorScheme).toBe('light')
+    expect(dark.colorScheme).toBe('dark')
+    expect(dark.scrollbarColor).not.toBe(light.scrollbarColor)
+    expect(dark.scrollbarColor).not.toBe('auto')
+  })
 })
 
 test.describe('localization', () => {
@@ -758,6 +999,15 @@ test.describe('localization', () => {
 
     await expect(root.getByLabel('Naar volgende pagina')).toBeVisible()
     await expect(root.locator('[data-rtc-pagination]')).toContainText('van')
+  })
+
+  test('the generated columns are translated too', async ({ page }) => {
+    const root = await openStory(page, 'datatable-13-localization--dutch')
+
+    await toolbarAction(root, 'toggle-columns').click()
+    const menu = openMenu(page)
+    await expect(menu.getByRole('menuitemcheckbox', { name: 'Acties' })).toBeVisible()
+    await expect(menu.getByRole('menuitemcheckbox', { name: 'Selecteren' })).toBeVisible()
   })
 })
 

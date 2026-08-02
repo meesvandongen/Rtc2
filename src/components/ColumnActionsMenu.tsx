@@ -22,7 +22,7 @@ export function ColumnActionsMenu<TData extends RowData>({
   const ui = useComponents()
   const options = table.dataTableOptions
   const { localization } = options
-  const label = getColumnLabel(column)
+  const label = getColumnLabel(column, localization)
 
   const sorted = column.getIsSorted()
   const pinned = column.getIsPinned()

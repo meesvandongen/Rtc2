@@ -1,12 +1,8 @@
 import type { RowData } from '@tanstack/react-table'
 import { CellEditor } from './CellEditor'
 import { getCellLayoutProps } from './HeaderCell'
-import {
-  DISPLAY_COLUMN_IDS,
-  rendersOnGroupedRow,
-  resolveEnableExpanding,
-  resolveGroupingLayout,
-} from '../displayColumns'
+import { DISPLAY_COLUMN_IDS, rendersOnGroupedRow } from '../displayColumnIds'
+import { resolveEnableExpanding, resolveGroupingLayout } from '../displayColumns'
 import { cellEditId, isCellEditing } from '../editing'
 import { cx } from '../utils'
 import type { DataTableCell, DataTableInstance, DataTableRow } from '../types'

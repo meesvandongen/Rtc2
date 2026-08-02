@@ -39,6 +39,8 @@ function BodyRowImpl<TData extends RowData>({
 
   const clickable = !!options.enableClickToSelect && row.getCanSelect()
 
+  const isDropTarget = drag.kind === 'row' && drag.overId === row.id && drag.activeId !== row.id
+
   return (
     <Subscribe source={row.table.atoms.rowSelection} selector={(selection) => !!selection[row.id]}>
       {(selected) => (
@@ -64,11 +66,8 @@ function BodyRowImpl<TData extends RowData>({
             data-rtc-depth={row.depth > 0 ? row.depth : undefined}
             data-rtc-clickable={clickable ? 'true' : undefined}
             data-rtc-dragging={drag.kind === 'row' && drag.activeId === row.id ? 'true' : undefined}
-            data-rtc-drop-target={
-              drag.kind === 'row' && drag.overId === row.id && drag.activeId !== row.id
-                ? 'true'
-                : undefined
-            }
+            data-rtc-drop-target={isDropTarget ? 'true' : undefined}
+            data-rtc-drop-edge={isDropTarget ? drag.overEdge : undefined}
             aria-selected={options.enableRowSelection ? selected : undefined}
             onClick={
               clickable

@@ -9,8 +9,8 @@ import { TableBody } from './components/TableBody'
 import { TableFoot } from './components/TableFoot'
 import { TableHead } from './components/TableHead'
 import { BottomToolbar, TopToolbar } from './components/Toolbar'
-import { DragProvider } from './dragContext'
-import { cx, reorder, toCssSize } from './utils'
+import { DragProvider, type DropEdge } from './dragContext'
+import { cx, moveItem, toCssSize } from './utils'
 import { useDataTable } from './useDataTable'
 import type { DataTableInstance, DataTableOptions } from './types'
 
@@ -74,25 +74,17 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
   const panelPosition = options.filterPanelPosition ?? 'end'
 
   const handleDropColumn = useCallback(
-    (activeId: string, overId: string) => {
+    (activeId: string, overId: string, edge: DropEdge) => {
       const order = table.getAllLeafColumns().map((column) => column.id)
       const currentOrder = table.state.columnOrder.length > 0 ? table.state.columnOrder : order
-      const from = currentOrder.indexOf(activeId)
-      const to = currentOrder.indexOf(overId)
-      if (from === -1 || to === -1) return
-      table.setColumnOrder(reorder(currentOrder, from, to))
+      table.setColumnOrder(moveItem(currentOrder, activeId, overId, edge))
     },
     [table],
   )
 
   const handleDropRow = useCallback(
-    (activeId: string, overId: string) => {
-      table.setRowOrder((order) => {
-        const from = order.indexOf(activeId)
-        const to = order.indexOf(overId)
-        if (from === -1 || to === -1) return order
-        return reorder(order, from, to)
-      })
+    (activeId: string, overId: string, edge: DropEdge) => {
+      table.setRowOrder((order) => moveItem(order, activeId, overId, edge))
     },
     [table],
   )

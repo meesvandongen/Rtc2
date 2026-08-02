@@ -219,6 +219,10 @@
   max-height: min(60vh, 420px);
   padding: 4px;
   overflow: auto;
+  /* The surface carries `rtc-vars`, so `color-scheme` is already right here;
+     this only matches the thumb to the table's own scroll containers. */
+  scrollbar-color: var(--rtc-scrollbar-thumb) var(--rtc-scrollbar-track);
+  scrollbar-width: thin;
 }
 
 .rx-menu-item {
@@ -289,6 +293,8 @@
   max-height: 85vh;
   padding: 20px;
   overflow: auto;
+  scrollbar-color: var(--rtc-scrollbar-thumb) var(--rtc-scrollbar-track);
+  scrollbar-width: thin;
   transform: translate(-50%, -50%);
 }
 

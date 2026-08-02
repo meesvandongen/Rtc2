@@ -37,6 +37,15 @@ import type { DataTableComponents } from '../../src'
  * would give MUI nothing to anchor to.
  */
 
+/**
+ * MUI's `medium` text field is a 56px form-page control — a third taller than
+ * a table row at the default density, and it set the height of the whole top
+ * toolbar. `small` is MUI's own dense size and the register a data grid reads
+ * in, so every input the table asks for gets it; the registry's `sm` has
+ * nowhere smaller to go, MUI offering only the two.
+ */
+const INPUT_SIZE = 'small' as const
+
 function useAnchor() {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null)
   return {
@@ -90,13 +99,13 @@ export function createMuiComponents(defaults: DataTableComponents): DataTableCom
       </MuiTooltip>
     ),
 
-    TextInput: ({ value, onChange, label, placeholder, type, size, autoFocus, disabled, onBlur, onKeyDown, dataAttributes }) => (
+    TextInput: ({ value, onChange, label, placeholder, type, autoFocus, disabled, onBlur, onKeyDown, dataAttributes }) => (
       <TextField
         value={value}
         type={type}
         label={undefined}
         placeholder={placeholder}
-        size={size === 'sm' ? 'small' : 'medium'}
+        size={INPUT_SIZE}
         autoFocus={autoFocus}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
@@ -107,12 +116,12 @@ export function createMuiComponents(defaults: DataTableComponents): DataTableCom
       />
     ),
 
-    NumberInput: ({ value, onChange, label, placeholder, min, max, size, ...rest }) => (
+    NumberInput: ({ value, onChange, label, placeholder, min, max, ...rest }) => (
       <TextField
         type="number"
         value={value ?? ''}
         placeholder={placeholder}
-        size={size === 'sm' ? 'small' : 'medium'}
+        size={INPUT_SIZE}
         disabled={rest.disabled}
         autoFocus={rest.autoFocus}
         onChange={(event) =>
@@ -125,11 +134,11 @@ export function createMuiComponents(defaults: DataTableComponents): DataTableCom
       />
     ),
 
-    Select: ({ value, onChange, options, label, placeholder, size, disabled, dataAttributes }) => (
+    Select: ({ value, onChange, options, label, placeholder, disabled, dataAttributes }) => (
       <MuiSelect
         native
         value={value}
-        size={size === 'sm' ? 'small' : 'medium'}
+        size={INPUT_SIZE}
         disabled={disabled}
         onChange={(event) => onChange(String(event.target.value))}
         inputProps={{ 'aria-label': label, ...dataAttributes }}
@@ -144,12 +153,12 @@ export function createMuiComponents(defaults: DataTableComponents): DataTableCom
       </MuiSelect>
     ),
 
-    MultiSelect: ({ value, onChange, options, label, size }) => (
+    MultiSelect: ({ value, onChange, options, label }) => (
       <MuiSelect
         multiple
         native
         value={value}
-        size={size === 'sm' ? 'small' : 'medium'}
+        size={INPUT_SIZE}
         onChange={(event) => {
           const select = event.target as unknown as HTMLSelectElement
           onChange(Array.from(select.selectedOptions, (option) => option.value))

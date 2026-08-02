@@ -69,6 +69,13 @@ export interface DataTableSelectOption {
  */
 export interface DataTableColumnMeta {
   /**
+   * A human-readable name for the column, used by the column-visibility menu,
+   * the grouping chips, the filter panel and every `aria-label` that names a
+   * column. Only needed when `header` is a render function or an element,
+   * since a plain-string header is already the name.
+   */
+  label?: string
+  /**
    * The column's filter data type: a registered id, or an inline definition
    * for a one-off column. Determines which operators are offered and how the
    * operand is edited. Inferred from the data when omitted.

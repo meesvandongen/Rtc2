@@ -105,15 +105,22 @@ export function makePeople(count: number, seed = 1): Person[] {
   })
 }
 
-/** A small tree for expanding / sub-row stories. */
+/**
+ * A small tree for expanding / sub-row stories: three roots of three children
+ * each, with a third level under the first branch — 15 rows fully expanded.
+ *
+ * Every person appears exactly once. Reusing one across branches would hand
+ * two rows the same id, and rows are keyed by id, so the duplicates fight over
+ * the same DOM node.
+ */
 export function makeTree(): Person[] {
-  const flat = makePeople(12, 7)
+  const flat = makePeople(15, 7)
   const roots = flat.slice(0, 3)
   return roots.map((root, index) => ({
     ...root,
-    subRows: flat.slice(3 + index * 3, 6 + index * 3).map((child) => ({
+    subRows: flat.slice(3 + index * 3, 6 + index * 3).map((child, childIndex) => ({
       ...child,
-      subRows: index === 0 ? [flat[11]!] : undefined,
+      subRows: index === 0 ? [flat[12 + childIndex]!] : undefined,
     })),
   }))
 }

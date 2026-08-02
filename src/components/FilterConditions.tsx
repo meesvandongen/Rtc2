@@ -33,7 +33,7 @@ export function FilterConditions<TData extends RowData>({
   const filterValue = column.getFilterValue()
   const conditions = toConditions(filterValue, dataType)
   const join = joinOf(filterValue)
-  const label = getColumnLabel(column)
+  const label = getColumnLabel(column, localization)
 
   const allowMultiple =
     column.columnDef.meta?.enableMultipleFilterConditions ??

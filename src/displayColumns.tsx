@@ -5,44 +5,17 @@ import { RowActionsCell } from './components/RowActionsCell'
 import { RowDragHandle } from './components/RowDragHandle'
 import { RowExpandToggle } from './components/RowExpandToggle'
 import { SelectAllCheckbox, SelectRowCheckbox } from './components/SelectionCells'
+import { DISPLAY_COLUMN_IDS } from './displayColumnIds'
 import type { DataTableFeatures } from './features'
 import { getColumnLabel } from './utils'
 import type { DataTableColumn, DataTableInstance, DataTableOptions, DataTableRow } from './types'
 
-/** Stable ids for the component-generated columns, exported so consumers can
- *  target them in `columnOrder`, `columnPinning`, `columnVisibility` and CSS. */
-export const DISPLAY_COLUMN_IDS = {
-  drag: 'rtc-row-drag',
-  select: 'rtc-select',
-  expand: 'rtc-expand',
-  rowNumber: 'rtc-row-number',
-  actions: 'rtc-row-actions',
-} as const
-
-export type DisplayColumnId = (typeof DISPLAY_COLUMN_IDS)[keyof typeof DISPLAY_COLUMN_IDS]
-
-const DISPLAY_ID_SET = new Set<string>(Object.values(DISPLAY_COLUMN_IDS))
-
-export function isDisplayColumnId(id: string): boolean {
-  return DISPLAY_ID_SET.has(id)
-}
-
-/** The display columns that still render on a group row. */
-const GROUPED_ROW_DISPLAY_IDS = new Set<string>([
-  DISPLAY_COLUMN_IDS.expand,
-  DISPLAY_COLUMN_IDS.select,
-  DISPLAY_COLUMN_IDS.rowNumber,
-])
-
-/**
- * Whether a column renders its cell on a group row.
- *
- * A group row keeps its expand chevron, checkbox and row number; the drag grip
- * and the row actions address a single record, so they stay blank.
- */
-export function rendersOnGroupedRow(columnId: string): boolean {
-  return !isDisplayColumnId(columnId) || GROUPED_ROW_DISPLAY_IDS.has(columnId)
-}
+export {
+  DISPLAY_COLUMN_IDS,
+  isDisplayColumnId,
+  getDisplayColumnLabel,
+  type DisplayColumnId,
+} from './displayColumnIds'
 
 export interface GroupingLayout {
   /** Grouping is on and at least one column is grouped. */
@@ -173,10 +146,11 @@ export function buildDisplayColumns<TData extends RowData>({
           const expandAll = showExpandAll ? <RowExpandToggle table={table} /> : null
           if (!carriesGroupLabel) return expandAll
           // Stands in for the removed columns' headers.
+          const { localization } = table.dataTableOptions
           const label = table.state.grouping
             .map((columnId) => {
               const column = table.getColumn(columnId)
-              return column ? getColumnLabel(column) : columnId
+              return column ? getColumnLabel(column, localization) : columnId
             })
             .join(', ')
           return (
@@ -193,10 +167,13 @@ export function buildDisplayColumns<TData extends RowData>({
           const groupingColumnId = groupRow.groupingColumnId
           if (!carriesGroupLabel || !groupingColumnId) return toggle
           const column = table.getColumn(groupingColumnId)
+          const label = column
+            ? getColumnLabel(column, table.dataTableOptions.localization)
+            : undefined
           return (
             <span className="rtc-group-label-cell">
               {toggle}
-              <span className="rtc-group-label" title={column ? getColumnLabel(column) : undefined}>
+              <span className="rtc-group-label" title={label}>
                 {groupingValueLabel(groupRow.groupingValue)}
               </span>
               <span className="rtc-group-count">({groupRow.subRows.length})</span>
