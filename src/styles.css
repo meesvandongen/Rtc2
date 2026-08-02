@@ -442,8 +442,14 @@
   opacity: 0.4;
 }
 
-.rtc-tr[data-rtc-drop-target="true"] .rtc-td {
+/* The line marks the slot the dragged row lands in, so it follows the edge the
+   pointer is closest to rather than always sitting on top. */
+.rtc-tr[data-rtc-drop-edge="before"] .rtc-td {
   box-shadow: inset 0 2px 0 0 var(--rtc-color-accent);
+}
+
+.rtc-tr[data-rtc-drop-edge="after"] .rtc-td {
+  box-shadow: inset 0 -2px 0 0 var(--rtc-color-accent);
 }
 
 /* The fallback is load-bearing, not defensive noise. Icons travel into menus
@@ -738,7 +744,20 @@
   cursor: grabbing;
 }
 
-.rtc-th[data-rtc-drop-target="true"] {
+.rtc-th[data-rtc-drop-edge="before"] {
+  box-shadow: inset 2px 0 0 0 var(--rtc-color-accent);
+}
+
+.rtc-th[data-rtc-drop-edge="after"] {
+  box-shadow: inset -2px 0 0 0 var(--rtc-color-accent);
+}
+
+/* `before`/`after` are writing-direction relative; `box-shadow` is not. */
+[dir="rtl"] .rtc-th[data-rtc-drop-edge="before"] {
+  box-shadow: inset -2px 0 0 0 var(--rtc-color-accent);
+}
+
+[dir="rtl"] .rtc-th[data-rtc-drop-edge="after"] {
   box-shadow: inset 2px 0 0 0 var(--rtc-color-accent);
 }
 

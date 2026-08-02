@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Locator } from '@playwright/test'
 
 import {
   bodyRows,
@@ -10,6 +10,7 @@ import {
   openMenu,
   openStory,
   panelField,
+  rowIds,
   toolbarAction,
 } from './helpers'
 
@@ -563,13 +564,120 @@ test.describe('rows', () => {
     await expect.poll(async () => (await columnText(root, 'email'))[1]).toBe(firstEmail)
   })
 
-  test('dragging a row reorders it', async ({ page }) => {
-    const root = await openStory(page, 'datatable-09-rows--row-ordering')
+  // Row ordering used to be direction-dependent: `reorder` was handed the drop
+  // target's index *after* the dragged row had been spliced out, so a downward
+  // drag landed one position too low — below the row it was dropped on, while
+  // an upward drag landed above it. These pin down both directions and both
+  // halves of the target row.
+  test.describe('row ordering', () => {
+    const story = 'datatable-09-rows--row-ordering'
+    const handle = (root: Locator, index: number) =>
+      bodyRows(root).nth(index).locator('.rtc-drag-handle')
 
-    const firstEmail = (await columnText(root, 'email'))[0]
-    await dragTo(page, bodyRows(root).nth(0).locator('.rtc-drag-handle'), bodyRows(root).nth(3))
+    test('starts in data order', async ({ page }) => {
+      const root = await openStory(page, story)
+      expect(await rowIds(root)).toEqual(['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10'])
+    })
 
-    await expect.poll(async () => (await columnText(root, 'email'))[0]).not.toBe(firstEmail)
+    test('dragging down onto the top half lands above the target', async ({ page }) => {
+      const root = await openStory(page, story)
+
+      await dragTo(page, handle(root, 0), bodyRows(root).nth(3), { edge: 'before' })
+
+      await expect
+        .poll(async () => (await rowIds(root)).slice(0, 5))
+        .toEqual(['p2', 'p3', 'p1', 'p4', 'p5'])
+    })
+
+    test('dragging down onto the bottom half lands below the target', async ({ page }) => {
+      const root = await openStory(page, story)
+
+      await dragTo(page, handle(root, 0), bodyRows(root).nth(3), { edge: 'after' })
+
+      await expect
+        .poll(async () => (await rowIds(root)).slice(0, 5))
+        .toEqual(['p2', 'p3', 'p4', 'p1', 'p5'])
+    })
+
+    test('dragging up onto the top half lands above the target', async ({ page }) => {
+      const root = await openStory(page, story)
+
+      await dragTo(page, handle(root, 4), bodyRows(root).nth(1), { edge: 'before' })
+
+      await expect
+        .poll(async () => (await rowIds(root)).slice(0, 5))
+        .toEqual(['p1', 'p5', 'p2', 'p3', 'p4'])
+    })
+
+    test('dragging up onto the bottom half lands below the target', async ({ page }) => {
+      const root = await openStory(page, story)
+
+      await dragTo(page, handle(root, 4), bodyRows(root).nth(1), { edge: 'after' })
+
+      await expect
+        .poll(async () => (await rowIds(root)).slice(0, 5))
+        .toEqual(['p1', 'p2', 'p5', 'p3', 'p4'])
+    })
+
+    test('the bottom half of the last row moves a row to the end', async ({ page }) => {
+      const root = await openStory(page, story)
+
+      await dragTo(page, handle(root, 0), bodyRows(root).nth(9), { edge: 'after' })
+
+      await expect
+        .poll(async () => (await rowIds(root)).slice(-2))
+        .toEqual(['p10', 'p1'])
+    })
+
+    test('successive drags compose', async ({ page }) => {
+      const root = await openStory(page, story)
+
+      await dragTo(page, handle(root, 0), bodyRows(root).nth(2), { edge: 'after' })
+      await expect
+        .poll(async () => (await rowIds(root)).slice(0, 4))
+        .toEqual(['p2', 'p3', 'p1', 'p4'])
+
+      // p1 now renders third; drag it back to the very top.
+      await dragTo(page, handle(root, 2), bodyRows(root).nth(0), { edge: 'before' })
+      await expect
+        .poll(async () => (await rowIds(root)).slice(0, 4))
+        .toEqual(['p1', 'p2', 'p3', 'p4'])
+    })
+
+    test('the drop indicator marks the edge the row will land on', async ({ page }) => {
+      const root = await openStory(page, story)
+
+      const source = (await handle(root, 0).boundingBox())!
+      const target = (await bodyRows(root).nth(3).boundingBox())!
+      const x = target.x + target.width / 2
+
+      await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2)
+      await page.mouse.down()
+
+      await page.mouse.move(x, target.y + target.height * 0.25, { steps: 8 })
+      await expect(bodyRows(root).nth(3)).toHaveAttribute('data-rtc-drop-edge', 'before')
+
+      await page.mouse.move(x, target.y + target.height * 0.75)
+      await expect(bodyRows(root).nth(3)).toHaveAttribute('data-rtc-drop-edge', 'after')
+
+      await page.mouse.up()
+
+      // Released on the bottom half, so the row lands below the target — the
+      // side the indicator was drawn on.
+      await expect
+        .poll(async () => (await rowIds(root)).slice(0, 4))
+        .toEqual(['p2', 'p3', 'p4', 'p1'])
+    })
+
+    test('dropping a row back on its own edge changes nothing', async ({ page }) => {
+      const root = await openStory(page, story)
+
+      await dragTo(page, handle(root, 1), bodyRows(root).nth(2), { edge: 'before' })
+
+      await expect
+        .poll(async () => (await rowIds(root)).slice(0, 4))
+        .toEqual(['p1', 'p2', 'p3', 'p4'])
+    })
   })
 })
 
