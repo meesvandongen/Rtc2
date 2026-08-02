@@ -89,6 +89,9 @@ export function HeaderCell<TData extends RowData>({
 
   const label = getColumnLabel(column, localization)
 
+  const isDropTarget =
+    drag.kind === 'column' && drag.overId === column.id && drag.activeId !== column.id
+
   const ariaSort: React.AriaAttributes['aria-sort'] = !canSort
     ? undefined
     : sorted === 'asc'
@@ -111,11 +114,8 @@ export function HeaderCell<TData extends RowData>({
       aria-sort={ariaSort}
       data-rtc-filtered={column.getIsFiltered() ? 'true' : undefined}
       data-rtc-dragging={drag.kind === 'column' && drag.activeId === column.id ? 'true' : undefined}
-      data-rtc-drop-target={
-        drag.kind === 'column' && drag.overId === column.id && drag.activeId !== column.id
-          ? 'true'
-          : undefined
-      }
+      data-rtc-drop-target={isDropTarget ? 'true' : undefined}
+      data-rtc-drop-edge={isDropTarget ? drag.overEdge : undefined}
     >
       {header.isPlaceholder ? null : (
         <div className="rtc-th-content">

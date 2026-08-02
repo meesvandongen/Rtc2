@@ -65,6 +65,24 @@ export function reorder<T>(list: T[], from: number, to: number): T[] {
   return next
 }
 
+/**
+ * Immutably move `activeId` to the `edge` side of `overId`.
+ *
+ * The insertion slot is resolved against the list as it is *before* the item
+ * is lifted out, then corrected by one when the item was removed from ahead of
+ * that slot. Skipping the correction — passing the target's index straight to
+ * `reorder` — is what made a downward drag land one position too low: removing
+ * the item first shifts every later index up, so "index of the row I dropped
+ * on" silently became "one past it".
+ */
+export function moveItem<T>(list: T[], activeId: T, overId: T, edge: 'before' | 'after'): T[] {
+  const from = list.indexOf(activeId)
+  const over = list.indexOf(overId)
+  if (from === -1 || over === -1 || from === over) return list
+  const insertAt = (edge === 'before' ? over : over + 1) - (from < over ? 1 : 0)
+  return reorder(list, from, insertAt)
+}
+
 export function toCssSize(value: string | number | undefined): string | undefined {
   if (value === undefined) return undefined
   return typeof value === 'number' ? `${value}px` : value
