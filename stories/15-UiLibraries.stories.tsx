@@ -178,13 +178,38 @@ export const Mantine: Story = {
         <DataTable
           {...commonOptions}
           components={components}
-          // Mantine's `blue.6` / `blue.4` and its two body shades, so the table
-          // lands on the same surfaces as the controls sitting in it.
+          // Mantine's own tokens rather than the hex values they resolve to.
+          //
+          // Picking colours by hand meant picking some of them: the header was
+          // pinned to a Mantine grey while the surface under it stayed on the
+          // table's default slate, so the head of a dark table read grey
+          // against a blue body. Mapping the palette wholesale keeps every
+          // surface on one scale, and — since Mantine re-declares these per
+          // scheme — it follows the light/dark switch without a branch here.
           cssVars={{
-            '--rtc-color-accent': mode === 'dark' ? '#4dabf7' : '#228be6',
-            '--rtc-color-accent-subtle':
-              mode === 'dark' ? 'rgb(77 171 247 / 15%)' : '#e7f5ff',
-            '--rtc-header-bg': mode === 'dark' ? '#25262b' : '#f8f9fa',
+            '--rtc-color-surface': 'var(--mantine-color-body)',
+            // Mantine has no single token for "one step off the body", so the
+            // two shades it uses for that — `gray.0` and `dark.6` — are picked
+            // per scheme. `light-dark()` reads the `color-scheme` the table
+            // already declares, which is the same signal Mantine itself uses.
+            '--rtc-color-surface-sunken':
+              'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))',
+            '--rtc-color-surface-raised': 'var(--mantine-color-default)',
+            '--rtc-color-text': 'var(--mantine-color-text)',
+            '--rtc-color-text-muted': 'var(--mantine-color-dimmed)',
+            // `Table`'s own divider colour, so rows are separated the way a
+            // Mantine table separates them.
+            '--rtc-color-border':
+              'light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4))',
+            '--rtc-color-border-strong': 'var(--mantine-color-default-border)',
+            '--rtc-color-accent': 'var(--mantine-primary-color-filled)',
+            '--rtc-color-accent-hover': 'var(--mantine-primary-color-filled-hover)',
+            '--rtc-color-accent-contrast': 'var(--mantine-primary-color-contrast)',
+            '--rtc-color-accent-subtle': 'var(--mantine-primary-color-light)',
+            '--rtc-color-danger': 'var(--mantine-color-error)',
+            '--rtc-font-family': 'var(--mantine-font-family)',
+            '--rtc-radius': 'var(--mantine-radius-default)',
+            '--rtc-radius-sm': 'var(--mantine-radius-sm)',
             '--rtc-row-height-comfortable': '54px',
           }}
         />

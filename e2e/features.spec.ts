@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Locator } from '@playwright/test'
 
 import {
   bodyRows,
@@ -725,6 +725,30 @@ test.describe('theming', () => {
 
     const dark = await openStory(page, 'datatable-12-theming--dark-mode')
     expect(await dark.evaluate((element) => getComputedStyle(element).colorScheme)).toBe('dark')
+  })
+
+  /**
+   * `rtc-vars` exists so a surface rendered outside the table can opt into the
+   * theme. Nested inside one it must do nothing at all: a declaration on the
+   * element beats one inherited from an ancestor, so the docked filter panel —
+   * which carries the class for its standalone form — used to reset every
+   * variable to the package defaults and ignore the `cssVars` set on the table
+   * root above it. A recoloured table then had a stock-coloured panel bolted to
+   * its side.
+   *
+   * The Mantine story is the case in point: it is the one that remaps the whole
+   * surface palette *and* docks a panel.
+   */
+  test('a docked filter panel inherits the root variable overrides', async ({ page }) => {
+    const root = await openStory(page, 'datatable-15-ui-libraries--mantine')
+    const readSurface = (target: Locator) =>
+      target.evaluate((element) =>
+        getComputedStyle(element).getPropertyValue('--rtc-color-surface').trim(),
+      )
+
+    const surface = await readSurface(root)
+    expect(surface).not.toBe('#ffffff')
+    expect(await readSurface(root.locator('[data-rtc-filter-panel]'))).toBe(surface)
   })
 
   test('an overlay scrollbar is painted from the active theme', async ({ page }) => {
