@@ -7,7 +7,6 @@ const data = makePeople(20)
 
 const meta: Meta = {
   title: 'DataTable/09 Rows',
-  parameters: { layout: 'fullscreen' },
 }
 
 export default meta
@@ -103,7 +102,7 @@ export const ActionsColumnFirst: Story = {
 export const RowPinningSticky: Story = {
   render: () => (
     <>
-      <p className="sb-note">
+      <p className="rtc-sb-note">
         Pinned rows are sticky within the scroll container. Pin from your own UI by calling
         <code> row.pin(&apos;top&apos;)</code>.
       </p>
@@ -153,7 +152,7 @@ export const RowPinningSections: Story = {
 export const RowOrdering: Story = {
   render: () => (
     <>
-      <p className="sb-note">
+      <p className="rtc-sb-note">
         Drag a row by its grip, or focus the grip and press the up/down arrow keys.
       </p>
       <DataTable

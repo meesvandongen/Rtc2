@@ -65,20 +65,21 @@ const preview: Preview = {
   decorators: [
     (Story, context) => {
       const theme = context.globals.theme === 'dark' ? 'dark' : 'light'
-      // The attribute is read by both the page chrome and `.rtc-root`.
+      // Both attributes go on `<html>`, and there is no wrapper element around
+      // the story. `data-sb-theme` drives the page chrome in `storybook.css`.
+      //
+      // `data-rtc-theme` is the library's own ancestor opt-in, and `<html>` is
+      // the only ancestor every themed surface shares. Overlays would escape a
+      // wrapper: the modal editor portals to `document.body`, and every adapter
+      // renders its menus and popovers there too. Those surfaces carry
+      // `rtc-vars`, so they pick up the palette — but only from an ancestor
+      // they have in common with the table.
+      //
+      // Padding is Storybook's `layout` parameter, which already knows how Docs
+      // differs from Canvas — something a hand-rolled wrapper has to be taught.
       document.documentElement.setAttribute('data-sb-theme', theme)
-      // `data-rtc-theme` goes on the document element as well as the wrapper.
-      // Overlays escape the wrapper: the modal editor portals to
-      // `document.body`, and every adapter renders its menus and popovers
-      // there too. Those surfaces carry `rtc-vars`, so they pick up the
-      // palette — but only from an ancestor they actually have in common with
-      // the table, which is `<html>`.
       document.documentElement.setAttribute('data-rtc-theme', theme)
-      return (
-        <div className="sb-wrapper" data-rtc-theme={theme}>
-          <Story />
-        </div>
-      )
+      return <Story />
     },
   ],
   loaders: [mswLoader(startWorker)],

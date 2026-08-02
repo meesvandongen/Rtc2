@@ -5,7 +5,6 @@ import { currency, makePeople, makeTree, personColumns } from './fixtures'
 
 const meta: Meta = {
   title: 'DataTable/08 Expanding',
-  parameters: { layout: 'fullscreen' },
 }
 
 export default meta

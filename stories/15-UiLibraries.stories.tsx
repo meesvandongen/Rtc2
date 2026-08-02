@@ -13,7 +13,6 @@ const data = makePeople(60)
 
 const meta: Meta = {
   title: 'DataTable/15 UI Libraries',
-  parameters: { layout: 'fullscreen' },
 }
 
 export default meta
@@ -60,7 +59,7 @@ const commonOptions = {
 export const BuiltInPrimitives: Story = {
   render: () => (
     <>
-      <p className="sb-note">
+      <p className="rtc-sb-note">
         No <code>components</code> prop: the dependency-free defaults that ship with the package.
       </p>
       <DataTable {...commonOptions} />
@@ -87,7 +86,7 @@ export const MaterialUi: Story = {
     return (
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <p className="sb-note">
+        <p className="rtc-sb-note">
           Buttons, inputs, menus, popovers, the modal editor and the progress bar are all MUI
           components. Only the table markup is ours.
         </p>
@@ -125,7 +124,7 @@ export const RadixShadcn: Story = {
     )
     return (
       <>
-        <p className="sb-note">
+        <p className="rtc-sb-note">
           Radix primitives with a shadcn-like stylesheet. The adapter styles itself from the same{' '}
           <code>--rtc-*</code> variables, so it follows the table's theme.
         </p>
@@ -171,7 +170,7 @@ export const Mantine: Story = {
       // the Storybook toolbar, and Mantine's default would let a stored
       // preference or the OS win over it.
       <MantineProvider forceColorScheme={mode}>
-        <p className="sb-note">
+        <p className="rtc-sb-note">
           Menus and selects are built from data arrays, and date filters use Mantine's{' '}
           <code>DateInput</code> instead of a native date input.
         </p>
@@ -242,7 +241,7 @@ export const SideBySideSwitcher: Story = {
 
     return (
       <>
-        <div className="sb-row">
+        <div className="rtc-sb-row">
           {(['built-in', 'mui', 'radix', 'mantine'] as const).map((name) => (
             <button
               key={name}
@@ -256,7 +255,7 @@ export const SideBySideSwitcher: Story = {
             </button>
           ))}
         </div>
-        <p className="sb-note">
+        <p className="rtc-sb-note">
           Same columns, same data, same options — only <code>components</code> changes.
         </p>
         {library === 'mui' ? (
@@ -278,7 +277,7 @@ export const SideBySideSwitcher: Story = {
 export const PartialOverride: Story = {
   render: () => (
     <>
-      <p className="sb-note">
+      <p className="rtc-sb-note">
         Only <code>Badge</code> is overridden here; every other control is the built-in one.
       </p>
       <DataTable

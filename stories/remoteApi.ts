@@ -15,6 +15,14 @@ export interface PeoplePage {
 export const PEOPLE_ENDPOINT = '/api/people'
 
 /**
+ * The failing endpoint gets its own path rather than a second handler for
+ * `PEOPLE_ENDPOINT`. MSW's handler set is global to the preview, and a Docs
+ * page mounts every story in the file at once, so two handlers on one path
+ * would leave whichever story loaded last deciding what the others see.
+ */
+export const PEOPLE_ERROR_ENDPOINT = '/api/people-unavailable'
+
+/**
  * MSW handler standing in for a paginated REST endpoint.
  *
  * Sorting, searching and pagination are all applied server-side here, which is
@@ -66,7 +74,7 @@ export const peopleHandler = http.get(PEOPLE_ENDPOINT, async ({ request }) => {
 })
 
 /** Always-failing variant used by the remote error story. */
-export const peopleErrorHandler = http.get(PEOPLE_ENDPOINT, async () => {
+export const peopleErrorHandler = http.get(PEOPLE_ERROR_ENDPOINT, async () => {
   await delay(80)
   return HttpResponse.json({ message: 'Upstream unavailable' }, { status: 503 })
 })

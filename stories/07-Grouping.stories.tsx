@@ -7,7 +7,6 @@ const data = makePeople(60)
 
 const meta: Meta = {
   title: 'DataTable/07 Grouping & Aggregation',
-  parameters: { layout: 'fullscreen' },
 }
 
 export default meta
@@ -35,7 +34,7 @@ export const Grouping: Story = {
 export const GroupingChips: Story = {
   render: () => (
     <>
-      <p className="sb-note">
+      <p className="rtc-sb-note">
         Drag a column grip into the dashed zone to group by it, or remove a chip to ungroup.
       </p>
       <DataTable

@@ -21,7 +21,6 @@ const NOW = new Date('2026-07-28T12:00:00Z')
 
 const meta: Meta = {
   title: 'DataTable/16 Filter Data Types',
-  parameters: { layout: 'fullscreen' },
 }
 
 export default meta
@@ -108,7 +107,7 @@ const typedColumns: Array<DataTableColumn<Person, any>> = helper.columns([
 export const AllBuiltInTypes: Story = {
   render: () => (
     <>
-      <p className="sb-note">
+      <p className="rtc-sb-note">
         Text, enum, number, boolean, date, datetime, collection, duration and geoPoint. Compare the
         operator menus between the Age, Last seen and Location columns.
       </p>
@@ -135,7 +134,7 @@ export const AllBuiltInTypes: Story = {
 export const DateOperators: Story = {
   render: () => (
     <>
-      <p className="sb-note">
+      <p className="rtc-sb-note">
         Switch the operator on <strong>Last seen</strong> to see the operand change shape: a single
         datetime, two datetimes, a period picker, an amount-plus-unit pair, weekday toggles, or two
         clock times.
@@ -161,7 +160,7 @@ export const DateOperators: Story = {
 export const RestrictedOperators: Story = {
   render: () => (
     <>
-      <p className="sb-note">
+      <p className="rtc-sb-note">
         Age offers only <code>between</code> and <code>greaterThan</code> here, via
         <code> meta.filterOperators</code>.
       </p>
@@ -280,7 +279,7 @@ const releaseHelper = createDataTableColumnHelper<Release>()
 export const CustomDataType: Story = {
   render: () => (
     <>
-      <p className="sb-note">
+      <p className="rtc-sb-note">
         A <code>semver</code> type registered through <code>dataTypes</code>. Filtering by "is at
         least 2.0.0" keeps 2.10.0 and drops 1.4.7 — which string comparison would get backwards.
       </p>
@@ -313,7 +312,7 @@ export const CustomDataType: Story = {
 export const InlineDataType: Story = {
   render: () => (
     <>
-      <p className="sb-note">
+      <p className="rtc-sb-note">
         Salary keeps the numeric operators and gains "is a round number", declared inline on the
         column via <code>meta.dataType</code>.
       </p>
@@ -357,7 +356,7 @@ export const InlineDataType: Story = {
 export const GeoFiltering: Story = {
   render: () => (
     <>
-      <p className="sb-note">
+      <p className="rtc-sb-note">
         Set the centre to 52.37 / 4.90 (Amsterdam) with a 600 km radius to keep Amsterdam and
         Berlin and drop Prague, Dublin, Oslo, Madrid and Lisbon.
       </p>
@@ -386,7 +385,7 @@ export const GeoFiltering: Story = {
 export const MultipleConditions: Story = {
   render: () => (
     <>
-      <p className="sb-note">
+      <p className="rtc-sb-note">
         Open the <strong>Age</strong> filter, add a second condition and switch the joiner to{' '}
         <em>Match any</em>.
       </p>
@@ -414,7 +413,7 @@ export const MultipleConditions: Story = {
 export const InferredTypes: Story = {
   render: () => (
     <>
-      <p className="sb-note">
+      <p className="rtc-sb-note">
         No <code>meta.dataType</code> anywhere. Booleans, numbers, ISO dates, arrays and
         coordinates are recognised from the first non-empty cell.
       </p>

@@ -3,13 +3,24 @@ import type { Meta, StoryObj } from '@storybook/react-vite'
 
 import { DataTable, type PaginationState, type SortingState } from '../src'
 import { makePeople, personColumns, type Person } from './fixtures'
-import { PEOPLE_ENDPOINT, peopleErrorHandler, peopleHandler, type PeoplePage } from './remoteApi'
+import {
+  PEOPLE_ENDPOINT,
+  PEOPLE_ERROR_ENDPOINT,
+  peopleErrorHandler,
+  peopleHandler,
+  type PeoplePage,
+} from './remoteApi'
 
 const data = makePeople(137)
 
 const meta: Meta = {
   title: 'DataTable/04 Pagination',
-  parameters: { layout: 'fullscreen' },
+  parameters: {
+    // Registered on the meta rather than per story: MSW's handler set is
+    // global, and a Docs page mounts both remote stories at once, so the
+    // successful and failing endpoints have to be live at the same time.
+    msw: { handlers: [peopleHandler, peopleErrorHandler] },
+  },
 }
 
 export default meta
@@ -77,7 +88,7 @@ export const ControlledPagination: Story = {
     const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 2, pageSize: 5 })
     return (
       <>
-        <div className="sb-row">
+        <div className="rtc-sb-row">
           <button
             type="button"
             className="rtc-button"
@@ -95,7 +106,7 @@ export const ControlledPagination: Story = {
             setPagination((old) => (typeof updater === 'function' ? updater(old) : updater))
           }
         />
-        <pre className="sb-panel">{JSON.stringify(pagination)}</pre>
+        <pre className="rtc-sb-panel">{JSON.stringify(pagination)}</pre>
       </>
     )
   },
@@ -108,7 +119,7 @@ export const ControlledPagination: Story = {
  * many rows exist server-side so the page count and range read correctly. The
  * same pattern covers `manualSorting` and `manualFiltering`, both wired here.
  */
-function RemoteTable() {
+function RemoteTable({ endpoint = PEOPLE_ENDPOINT }: { endpoint?: string }) {
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 })
   const [sorting, setSorting] = useState<SortingState>([])
   const [search, setSearch] = useState('')
@@ -134,7 +145,7 @@ function RemoteTable() {
       params.set('sortDesc', String(sorting[0].desc))
     }
 
-    fetch(`${PEOPLE_ENDPOINT}?${params.toString()}`)
+    fetch(`${endpoint}?${params.toString()}`)
       .then(async (response) => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`)
         return (await response.json()) as PeoplePage
@@ -155,12 +166,12 @@ function RemoteTable() {
       .finally(() => {
         if (id === requestId.current) setIsLoading(false)
       })
-  }, [pagination.pageIndex, pagination.pageSize, sorting, search])
+  }, [endpoint, pagination.pageIndex, pagination.pageSize, sorting, search])
 
   return (
     <>
-      <p className="sb-note">
-        Rows come from a mocked <code>GET {PEOPLE_ENDPOINT}</code> endpoint. Paging, sorting and
+      <p className="rtc-sb-note">
+        Rows come from a mocked <code>GET {endpoint}</code> endpoint. Paging, sorting and
         searching each trigger a new request.
       </p>
       <DataTable
@@ -188,7 +199,7 @@ function RemoteTable() {
           setPagination((old) => ({ ...old, pageIndex: 0 }))
         }}
       />
-      <pre className="sb-panel" data-testid="remote-status">
+      <pre className="rtc-sb-panel" data-testid="remote-status">
         {JSON.stringify({ page: pagination.pageIndex, total, fetchCount, isLoading, isError })}
       </pre>
     </>
@@ -196,12 +207,10 @@ function RemoteTable() {
 }
 
 export const RemotePagination: Story = {
-  parameters: { msw: { handlers: [peopleHandler] } },
   render: () => <RemoteTable />,
 }
 
 /** The same table when the endpoint returns 503. */
 export const RemoteError: Story = {
-  parameters: { msw: { handlers: [peopleErrorHandler] } },
-  render: () => <RemoteTable />,
+  render: () => <RemoteTable endpoint={PEOPLE_ERROR_ENDPOINT} />,
 }

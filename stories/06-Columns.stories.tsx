@@ -8,7 +8,6 @@ const data = makePeople(25)
 
 const meta: Meta = {
   title: 'DataTable/06 Columns',
-  parameters: { layout: 'fullscreen' },
 }
 
 export default meta
@@ -47,7 +46,7 @@ export const ColumnVisibility: Story = {
 export const ColumnOrdering: Story = {
   render: () => (
     <>
-      <p className="sb-note">Drag the grip in any header to move that column.</p>
+      <p className="rtc-sb-note">Drag the grip in any header to move that column.</p>
       <DataTable
         columns={personColumns.slice(0, 6)}
         data={data}
@@ -69,7 +68,7 @@ export const ColumnPinning: Story = {
     })
     return (
       <>
-        <p className="sb-note">Scroll horizontally — the pinned columns stay put.</p>
+        <p className="rtc-sb-note">Scroll horizontally — the pinned columns stay put.</p>
         <DataTable
           columns={makeWideColumns(12)}
           data={data.slice(0, 10)}
@@ -85,7 +84,7 @@ export const ColumnPinning: Story = {
             setColumnPinning((old) => (typeof updater === 'function' ? updater(old) : updater))
           }
         />
-        <pre className="sb-panel">{JSON.stringify(columnPinning)}</pre>
+        <pre className="rtc-sb-panel">{JSON.stringify(columnPinning)}</pre>
       </>
     )
   },
@@ -95,7 +94,7 @@ export const ColumnPinning: Story = {
 export const ColumnResizing: Story = {
   render: () => (
     <>
-      <p className="sb-note">
+      <p className="rtc-sb-note">
         Drag a column edge to resize, double-click it to reset. The grip is keyboard-operable with
         the left/right arrows.
       </p>
