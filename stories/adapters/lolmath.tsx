@@ -91,9 +91,13 @@ export const lolmathCssVars: Record<string, string> = {
   '--rtc-color-surface': 'var(--lol-color-hextech-black)',
   '--rtc-color-surface-sunken': 'var(--lol-color-grey-300)',
   '--rtc-color-surface-raised': 'var(--lol-color-grey-cool)',
-  '--rtc-color-text': 'var(--lol-color-gold-100)',
-  '--rtc-color-text-muted': 'var(--lol-color-grey-100)',
-  '--rtc-color-border': 'var(--lol-color-grey-200)',
+  // Rows sit at grey-100 and come up to gold-100 under the pointer — the
+  // library's `Table` treats row text as recessed until you reach for it.
+  '--rtc-color-text': 'var(--lol-color-grey-100)',
+  '--rtc-color-text-muted': 'var(--lol-color-grey-150)',
+  // The hairline its `Table` separates the header from the body with. There is
+  // no rule between rows at all, which `enableBorders: 'none'` takes care of.
+  '--rtc-color-border': 'rgb(from var(--lol-color-grey-100) r g b / 0.25)',
   '--rtc-color-border-strong': 'var(--lol-color-gold-600)',
   '--rtc-color-accent': 'var(--lol-color-gold-400)',
   '--rtc-color-accent-hover': 'var(--lol-color-gold-200)',
@@ -101,25 +105,44 @@ export const lolmathCssVars: Record<string, string> = {
   '--rtc-color-accent-subtle': 'rgb(200 155 60 / 14%)',
   '--rtc-color-danger': 'var(--lol-color-gold-400)',
   '--rtc-color-overlay': 'rgb(1 10 19 / 75%)',
-  // The two selection tints are declared per scheme rather than derived from
-  // the accent, so remapping the accent alone leaves a gold table with blue
-  // selected rows the moment the pointer is over one.
-  '--rtc-row-bg-selected-hover': 'rgb(200 155 60 / 22%)',
-  '--rtc-cell-bg-selected': 'rgb(200 155 60 / 26%)',
-  // Beaufort is the display face the library reserves for headings and
-  // buttons; Spiegel is its body text, which is what a data grid is.
+  // Row states, copied from `table.module.css` rather than approximated: hover
+  // is a gold wash that fades out to the right, and a selected row is a blue
+  // sweep with a gold spine down its leading edge. Both are gradients, which
+  // is why the table applies these through `background` and not a colour.
+  '--rtc-row-bg-hover':
+    'linear-gradient(90deg, rgb(from var(--lol-color-gold-100) r g b / 0.08), transparent)',
+  '--rtc-row-bg-selected':
+    'linear-gradient(90deg, var(--lol-color-gold-500) 0 0.25rem, transparent 0.25rem) no-repeat,' +
+    'linear-gradient(90deg, rgb(from var(--lol-color-blue-400) r g b / 0.55), rgb(from var(--lol-color-blue-300) r g b / 0.1))',
+  '--rtc-row-bg-selected-hover':
+    'linear-gradient(90deg, var(--lol-color-gold-500) 0 0.25rem, transparent 0.25rem) no-repeat,' +
+    'linear-gradient(90deg, rgb(from var(--lol-color-blue-400) r g b / 0.7), rgb(from var(--lol-color-blue-300) r g b / 0.2))',
+  '--rtc-cell-bg-selected': 'rgb(from var(--lol-color-blue-400) r g b / 0.55)',
+  // Spiegel for the body, Beaufort for the header — the split the library
+  // itself makes between body text and display type.
   '--rtc-font-family': 'var(--lol-font-family-spiegel), sans-serif',
-  '--rtc-header-font-size': 'var(--lol-font-size-sm)',
+  '--rtc-font-size': 'var(--lol-font-size-sm)',
+  '--rtc-line-height': 'var(--lol-line-height-sm)',
+  '--rtc-header-font-size': '0.75rem',
+  '--rtc-header-font-weight': '700',
   '--rtc-header-text-transform': 'uppercase',
-  '--rtc-header-letter-spacing': '0.05em',
-  '--rtc-header-color': 'var(--lol-color-gold-200)',
-  '--rtc-header-bg': 'var(--lol-color-grey-300)',
+  '--rtc-header-letter-spacing': '0.075em',
+  '--rtc-header-color': 'var(--lol-color-gold-100)',
+  // Its header carries no fill of its own, only the hairline underneath. The
+  // table paints this *over* the surface rather than instead of it, so a sticky
+  // header stays opaque with rows scrolling behind it.
+  '--rtc-header-bg': 'transparent',
+  '--rtc-footer-bg': 'transparent',
   // Nothing in the design system is rounded — every border is a straight gold
   // edge — so a rounded table would read as foreign.
   '--rtc-radius': '0px',
   '--rtc-radius-sm': '0px',
   '--rtc-radius-lg': '0px',
-  '--rtc-row-height-comfortable': '48px',
+  // `0.375rem 0.75rem`, its own cell padding, and rows sized to match.
+  '--rtc-cell-padding-x': '0.75rem',
+  '--rtc-cell-padding-y-comfortable': '0.375rem',
+  '--rtc-row-height-comfortable': '36px',
+  '--rtc-scrollbar-thumb': 'var(--lol-color-gold-600)',
 }
 
 /**
@@ -390,7 +413,6 @@ export function createLolmathComponents(defaults: DataTableComponents): DataTabl
 
     Checkbox: ({ checked, indeterminate, onChange, label, disabled, onClick }) => (
       <Checkbox
-        className="lol-checkbox"
         aria-label={label}
         isSelected={checked}
         isIndeterminate={!checked && !!indeterminate}

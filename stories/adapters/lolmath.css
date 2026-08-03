@@ -1,13 +1,69 @@
 /* Fit-and-finish for the `@lolmath/ui` adapter.
  *
  * The library is fully styled, so unlike `radix.css` this is not a visual
- * layer — it is the handful of places where a control designed for a page has
- * to work inside a data table instead: an intrinsic minimum width that a
- * filter field cannot afford, a progress bar that assumes it is showing a
- * percentage, and a couple of pieces the library does not ship at all.
+ * layer. It is the two things `--rtc-*` cannot carry — a gradient border is a
+ * pair of backgrounds in different boxes rather than a colour, and there is no
+ * variable for the header's typeface — plus the handful of places where a
+ * control designed for a page has to work inside a data table instead: an
+ * intrinsic minimum width a filter field cannot afford, a progress bar that
+ * assumes it is reporting a percentage, and a couple of pieces the library
+ * does not ship at all.
  *
  * Everything here reads `--lol-*` so the adapter stays on the library's own
  * palette rather than drifting to a hand-picked colour. */
+
+/* ------------------------------------------------------------------ table -- */
+
+/* The chrome the palette cannot express.
+ *
+ * `--rtc-*` covers colours, type and metrics, and `lolmathCssVars` maps every
+ * one of those onto a `--lol-*` token. What is left is the shapes: the
+ * library's signature is a gradient *border*, which is two backgrounds in
+ * different boxes rather than a colour, and it has no variable for a header
+ * typeface. Both are lifted from `@lolmath/ui`'s own `Table` and panel styles.
+ *
+ * `.rtc-root.lol-table` rather than `.lol-table` alone: `.rtc-root` sets the
+ * background and border these replace, and a single class would only outrank it
+ * on source order — which is a bundler's business, not ours. */
+.rtc-root.lol-table {
+  border: 2px solid transparent;
+  background:
+    linear-gradient(var(--lol-color-hextech-black), var(--lol-color-hextech-black)) padding-box,
+    var(--lol-gradient-gold) border-box;
+}
+
+/* Beaufort is the display face, and the header is the one part of a data table
+   set in it. There is no `--rtc-header-font-family`, so it goes here — and on
+   the cell, which `.rtc-th-sort` inherits from. */
+.lol-table .rtc-th {
+  font-family: var(--lol-font-family-beaufort);
+}
+
+/* Toolbars and the footer are part of the same panel, not bands laid on top of
+   it, so the only thing dividing them is the header's hairline. */
+.lol-table .rtc-toolbar,
+.lol-table .rtc-tfoot .rtc-th,
+.lol-table .rtc-tfoot .rtc-td {
+  border-color: rgb(from var(--lol-color-grey-100) r g b / 0.25);
+}
+
+/* The library's resizer is a permanent gold hairline that brightens on hover,
+   where ours is invisible until the pointer is near it. */
+.lol-table .rtc-resizer {
+  opacity: 1;
+}
+
+.lol-table .rtc-resizer::after {
+  inset-block: 0;
+  inset-inline-end: 5px;
+  width: 2px;
+  background: rgb(from var(--lol-color-gold-500) r g b / 0.6);
+}
+
+.lol-table .rtc-resizer:hover::after,
+.lol-table .rtc-resizer[data-rtc-resizing='true']::after {
+  background: var(--lol-color-gold-400);
+}
 
 /* ---------------------------------------------------------------- selects -- */
 
@@ -93,49 +149,6 @@ button[aria-label='Clear search'],
    search box carries a permanent ✕. */
 .lol-search[data-empty] > button {
   display: none;
-}
-
-/* The checkbox artwork, redrawn.
- *
- * `@lolmath/ui@9.1.0` inlines its checkbox PNGs with tsdown's `base64` loader,
- * which yields the payload *without* the `data:image/png;base64,` prefix — so
- * the `<img>` the component renders is a relative URL that 404s, and every
- * checkbox in the table is an empty gap. Its images imported through CSS are
- * fine; this is only the ones that go through JavaScript.
- *
- * Drawn from the same tokens the artwork uses, and keyed off the `data-*`
- * attributes React Aria puts on the label, so the states still come from the
- * library rather than from a second copy of the state here. */
-.lol-checkbox > img {
-  display: none;
-}
-
-.lol-checkbox::before {
-  content: '';
-  flex: 0 0 auto;
-  width: 0.875rem;
-  height: 0.875rem;
-  border: 1px solid var(--lol-color-gold-400);
-  background: var(--lol-color-hextech-black);
-}
-
-.lol-checkbox[data-hovered]::before {
-  border-color: var(--lol-color-gold-200);
-}
-
-.lol-checkbox[data-selected]::before {
-  border-color: var(--lol-color-gold-200);
-  background:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M3 7.4l2.9 2.9L11 4.7' fill='none' stroke='%23010a13' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
-      center / 100% no-repeat,
-    var(--lol-gradient-gold);
-}
-
-.lol-checkbox[data-indeterminate]::before {
-  border-color: var(--lol-color-gold-200);
-  background:
-    linear-gradient(var(--lol-color-gold-200), var(--lol-color-gold-200)) center / 60% 2px no-repeat,
-    var(--lol-color-hextech-black);
 }
 
 /* A range slider's thumb is a 1.75rem disc centred on the track end, so half

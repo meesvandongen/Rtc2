@@ -253,10 +253,18 @@ export const LolmathUi: Story = {
         <DataTable
           {...commonOptions}
           components={components}
-          // Every `--rtc-*` colour, mapped onto a `--lol-*` token. The map is
-          // exported by the adapter rather than written out here because the
-          // overlays React Aria portals to `document.body` need the same one,
-          // and an inline style on the table root cannot reach them.
+          // The library's `Table` puts no rule between rows — a row is
+          // separated from the next by colour alone, and only the header keeps
+          // a hairline under it.
+          enableBorders="none"
+          // The gradient border and the header typeface, which no `--rtc-*`
+          // variable can express. See `lolmath.css`.
+          className="lol-table"
+          // Every `--rtc-*` colour, metric and face, mapped onto a `--lol-*`
+          // token. The map is exported by the adapter rather than written out
+          // here because the overlays React Aria portals to `document.body`
+          // need the same one, and an inline style on the table root cannot
+          // reach them.
           cssVars={lolmathCssVars}
         />
       </div>
@@ -286,6 +294,8 @@ export const SideBySideSwitcher: Story = {
         height={480}
         components={components}
         cssVars={library === 'lolmath' ? lolmathCssVars : undefined}
+        className={library === 'lolmath' ? 'lol-table' : undefined}
+        enableBorders={library === 'lolmath' ? 'none' : undefined}
         initialState={{ showGlobalFilter: true, showFilterPanel: false }}
       />
     )

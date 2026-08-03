@@ -226,6 +226,26 @@ otherwise a filter editor in a popover is painted in the stock colours while
 the identical editor docked in the panel is painted in yours. The `@lolmath/ui`
 adapter exports its map for that reason and the story reuses it.
 
+### What the variables cannot carry
+
+`--rtc-*` covers colour, type and metrics, which is most of a design system —
+but not all of one. Two things always need a stylesheet:
+
+- **Shapes that are not values.** A gradient border is two backgrounds painted
+  into different boxes, not a colour, so it cannot be a variable at all. It is
+  `@lolmath/ui`'s signature, and the adapter sets it on a class of its own
+  rather than trying to express it through `--rtc-color-border`.
+- **Anything with no variable.** There is no `--rtc-header-font-family`,
+  because a header is the only part of a table that would want one — and
+  `@lolmath/ui` is the first library here that reserves a separate display face
+  for exactly that.
+
+Everything else should go through `cssVars`, including the parts that look like
+they need CSS. Row states are the case worth knowing: `--rtc-row-bg-hover` and
+`--rtc-row-bg-selected` are applied with the `background` shorthand, so a
+gradient — a wash that fades out to the right, a spine down the leading edge —
+is a variable, not a rule.
+
 ### The built-in overlays
 
 The defaults use the platform's [Popover
