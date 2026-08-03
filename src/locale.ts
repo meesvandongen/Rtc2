@@ -15,10 +15,12 @@ export interface DataTableLocalization {
   clearSearch: string
   clearSort: string
   clickToCopy: string
+  close: string
   collapse: string
   collapseAll: string
   columnActions: string
   copiedToClipboard: string
+  done: string
   edit: string
   expand: string
   expandAll: string
@@ -109,10 +111,12 @@ export const defaultLocalization: DataTableLocalization = {
   clearSearch: 'Clear search',
   clearSort: 'Clear sort',
   clickToCopy: 'Click to copy',
+  close: 'Close',
   collapse: 'Collapse',
   collapseAll: 'Collapse all',
   columnActions: 'Column actions',
   copiedToClipboard: 'Copied to clipboard',
+  done: 'Done',
   edit: 'Edit',
   expand: 'Expand',
   expandAll: 'Expand all',

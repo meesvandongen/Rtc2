@@ -1214,6 +1214,218 @@
   min-width: 240px;
 }
 
+/* ------------------------------------------------------------- drawer ---- */
+
+/* The built-in drawer is a native modal `<dialog>`, so the top layer, the
+   backdrop, the focus trap and Escape all come from the platform — nothing
+   here has to fake them. What is left is geometry and motion.
+
+   The UA stylesheet centres a dialog with `inset: 0; margin: auto` and gives
+   it a border and padding, all of which is undone before the edge-anchored
+   boxes below can take effect. `display: flex` overrides the UA's `block`,
+   which also overrides `dialog:not([open]) { display: none }` — hence the
+   explicit closed rule, which the discrete `display` transition then defers
+   until the sheet has finished sliding out. */
+.rtc-drawer {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  color: var(--rtc-color-text);
+  font-family: var(--rtc-font-family);
+  font-size: var(--rtc-font-size);
+  background: var(--rtc-color-surface-raised);
+  border: 0;
+  box-shadow: var(--rtc-shadow-menu);
+  transition:
+    translate 220ms ease,
+    display 220ms allow-discrete,
+    overlay 220ms allow-discrete;
+}
+
+.rtc-drawer:not([open]) {
+  display: none;
+}
+
+/* No transition while a finger is on the sheet: it has to track the pointer,
+   not chase it. */
+.rtc-drawer[data-rtc-dragging="true"] {
+  transition: none;
+}
+
+/* Custom properties do not reliably inherit into `::backdrop`, so the scrim
+   carries the palette value's own fallback rather than relying on the lookup. */
+.rtc-drawer::backdrop {
+  background: var(--rtc-color-overlay, rgb(15 23 42 / 0.45));
+  opacity: 0;
+  transition:
+    opacity 220ms ease,
+    display 220ms allow-discrete,
+    overlay 220ms allow-discrete;
+}
+
+.rtc-drawer[open]::backdrop {
+  opacity: 1;
+}
+
+.rtc-drawer[data-rtc-side="bottom"] {
+  inset: auto 0 0;
+  width: 100%;
+  max-width: none;
+  /* `svh`, not `vh`: on a phone the browser chrome must not push the footer
+     out of reach. */
+  max-height: min(88svh, 100%);
+  border-start-start-radius: var(--rtc-radius-lg);
+  border-start-end-radius: var(--rtc-radius-lg);
+  translate: 0 100%;
+}
+
+.rtc-drawer[data-rtc-side="start"],
+.rtc-drawer[data-rtc-side="end"] {
+  inset-block: 0;
+  height: 100%;
+  width: min(360px, 90vw);
+  max-height: none;
+}
+
+.rtc-drawer[data-rtc-side="start"] {
+  inset-inline: 0 auto;
+  translate: -100% 0;
+}
+
+.rtc-drawer[data-rtc-side="end"] {
+  inset-inline: auto 0;
+  translate: 100% 0;
+}
+
+/* `translate` is physical, so the side sheets flip with the writing direction.
+   `[dir]` rather than `:dir()`: the attribute is what the table sets from its
+   own `direction` option, and it is the form the build keeps — `:dir()` is
+   downlevelled to a list of RTL *languages*, which a table made RTL by prop
+   does not match. */
+[dir="rtl"] .rtc-drawer[data-rtc-side="start"] {
+  translate: 100% 0;
+}
+
+[dir="rtl"] .rtc-drawer[data-rtc-side="end"] {
+  translate: -100% 0;
+}
+
+.rtc-drawer[open] {
+  translate: 0 0;
+}
+
+/* The entry animation: without a starting style the sheet is already in place
+   on the first frame and there is nothing to transition from. */
+@starting-style {
+  .rtc-drawer[open] {
+    translate: var(--rtc-drawer-from, 0 100%);
+  }
+
+  .rtc-drawer[open]::backdrop {
+    opacity: 0;
+  }
+}
+
+.rtc-drawer[data-rtc-side="start"] {
+  --rtc-drawer-from: -100% 0;
+}
+
+.rtc-drawer[data-rtc-side="end"] {
+  --rtc-drawer-from: 100% 0;
+}
+
+[dir="rtl"] .rtc-drawer[data-rtc-side="start"] {
+  --rtc-drawer-from: 100% 0;
+}
+
+[dir="rtl"] .rtc-drawer[data-rtc-side="end"] {
+  --rtc-drawer-from: -100% 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rtc-drawer,
+  .rtc-drawer::backdrop {
+    transition: none;
+  }
+}
+
+.rtc-drawer-sheet {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* The drag strip. `touch-action: none` so a downward swipe dismisses the sheet
+   instead of scrolling the page behind it. */
+.rtc-drawer-handle {
+  flex: 0 0 auto;
+  border-bottom: var(--rtc-border-width) solid var(--rtc-color-border);
+  touch-action: none;
+}
+
+.rtc-drawer[data-rtc-side="bottom"] .rtc-drawer-handle {
+  cursor: grab;
+}
+
+.rtc-drawer[data-rtc-dragging="true"] .rtc-drawer-handle {
+  cursor: grabbing;
+}
+
+.rtc-drawer-grabber {
+  display: block;
+  width: 36px;
+  height: 4px;
+  margin: 8px auto 0;
+  background: var(--rtc-color-border);
+  border-radius: var(--rtc-radius-pill);
+}
+
+.rtc-drawer-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: var(--rtc-toolbar-padding);
+}
+
+.rtc-drawer-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.rtc-drawer-close {
+  margin-inline-start: auto;
+}
+
+.rtc-drawer-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.rtc-drawer-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 0 0 auto;
+  padding: var(--rtc-toolbar-padding);
+  border-top: var(--rtc-border-width) solid var(--rtc-color-border);
+  /* Clear of the home indicator on iOS, zero everywhere else. */
+  padding-bottom: max(var(--rtc-toolbar-padding), env(safe-area-inset-bottom));
+}
+
+.rtc-drawer-footer-start {
+  margin-inline-end: auto;
+}
+
 /* ------------------------------------------------------------ filters ---- */
 
 /* Filters live in popovers and a docked panel rather than a table row: a tall
@@ -1276,6 +1488,23 @@
   margin: 0;
   color: var(--rtc-color-text-muted);
   font-size: var(--rtc-font-size-sm);
+}
+
+/* The same panel inside a drawer: it fills the sheet rather than holding a
+   fixed docked width, and the sheet's own body owns the scrolling. */
+.rtc-filter-panel-sheet {
+  flex: 1 1 auto;
+  width: auto;
+  background: none;
+}
+
+/* One column's editor in a drawer. The docked panel spaces its fields itself;
+   a single field has to bring its own padding. */
+.rtc-filter-drawer-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
 }
 
 .rtc-filter-field {

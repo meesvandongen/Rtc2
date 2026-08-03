@@ -3,6 +3,7 @@ import type { RowData } from '@tanstack/react-table'
 
 import { defaultComponents } from './components/defaultComponents'
 import { EditRowDialog } from './components/EditRowDialog'
+import { DataTableFilterDrawer } from './components/FilterDrawer'
 import { DataTableFilterPanel } from './components/FilterPanel'
 import { DataTableComponentsProvider, useComponents } from './components/registry'
 import { TableBody } from './components/TableBody'
@@ -10,6 +11,7 @@ import { TableFoot } from './components/TableFoot'
 import { TableHead } from './components/TableHead'
 import { BottomToolbar, TopToolbar } from './components/Toolbar'
 import { DragProvider, type DropEdge } from './dragContext'
+import { usesFilterDrawer } from './responsive'
 import { cx, moveItem, toCssSize } from './utils'
 import { useDataTable } from './useDataTable'
 import type { DataTableInstance, DataTableOptions } from './types'
@@ -67,9 +69,13 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
   const bordersValue = borders === true ? 'all' : borders === false ? 'none' : borders
 
   const filterMode = options.filterDisplayMode ?? 'popover'
+  // Below the mobile breakpoint the panel is a modal sheet instead: there is
+  // no room to dock 280px of controls beside the rows.
+  const filterDrawer = usesFilterDrawer(table)
   const showPanel =
     (options.enableColumnFilters ?? true) &&
     (filterMode === 'panel' || filterMode === 'popover-and-panel') &&
+    !filterDrawer &&
     table.ui.showFilterPanel
   const panelPosition = options.filterPanelPosition ?? 'end'
 
@@ -211,6 +217,11 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
         </div>
 
         {showBottomToolbar ? <BottomToolbar table={table} /> : null}
+
+        {/* Inside the root, not beside it: the sheet is lifted into the top
+            layer either way, and a descendant inherits `cssVars`, the theme
+            attribute and the density the table was given. */}
+        {filterDrawer ? <DataTableFilterDrawer table={table} /> : null}
       </div>
 
       <EditRowDialog table={table} />

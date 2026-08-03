@@ -278,6 +278,25 @@ export function createRadixComponents(defaults: DataTableComponents): DataTableC
       </DropdownMenu.Root>
     ),
 
+    Drawer: ({ open, onClose, title, children, footer, label, closeLabel, side = 'bottom' }) => (
+      <Dialog.Root open={open} onOpenChange={(next) => !next && onClose()}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="rtc-vars rx-overlay" />
+          <Dialog.Content className="rtc-vars rx-surface rx-drawer" data-side={side} aria-label={label}>
+            {side === 'bottom' ? <span className="rx-drawer-grabber" aria-hidden="true" /> : null}
+            <div className="rx-drawer-header">
+              <Dialog.Title className="rx-dialog-title">{title}</Dialog.Title>
+              <Dialog.Close className="rx-icon-button rx-drawer-close" aria-label={closeLabel}>
+                <Icon name="close" />
+              </Dialog.Close>
+            </div>
+            <div className="rx-drawer-body">{children}</div>
+            {footer ? <div className="rx-drawer-footer">{footer}</div> : null}
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+    ),
+
     Dialog: ({ open, onClose, title, children, footer, label }) => (
       <Dialog.Root open={open} onOpenChange={(next) => !next && onClose()}>
         <Dialog.Portal>
