@@ -88,6 +88,37 @@ export const PopoverAndPanel: Story = {
 }
 
 /**
+ * On a narrow viewport both filter surfaces are wrong: a popover anchored to a
+ * 24px funnel in a sideways-scrolling header has nowhere to open, and a 280px
+ * pane docked beside the rows leaves no rows. Below `mobileBreakpoint` the
+ * table swaps both for a modal bottom sheet — a native `<dialog>`, so the top
+ * layer, the backdrop, the focus trap and Escape all come from the browser —
+ * and the toolbar always offers the funnel that opens it.
+ *
+ * The breakpoint is raised here so the sheet is visible at any window size;
+ * the real default is 640px. Drag the sheet down by its grabber to dismiss it.
+ */
+export const MobileFilterDrawer: Story = {
+  render: () => (
+    <>
+      <p className="rtc-sb-note">
+        Open the funnel in the toolbar for every column, or the one in a header for a single
+        column. Both land in the same sheet.
+      </p>
+      <DataTable
+        columns={personColumns}
+        data={data}
+        getRowId={(row) => row.id}
+        filterDisplayMode="popover-and-panel"
+        mobileBreakpoint={4000}
+        height={560}
+        enableStickyHeader
+      />
+    </>
+  ),
+}
+
+/**
  * The panel is a standalone component. Give it an instance from `useDataTable`
  * and render it anywhere — a drawer, a sidebar, another column of the page.
  */

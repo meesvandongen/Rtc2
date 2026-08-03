@@ -5,6 +5,7 @@ import {
   ActionIcon,
   Button,
   Checkbox,
+  Drawer as MantineDrawer,
   Menu,
   Modal,
   MultiSelect,
@@ -345,6 +346,41 @@ export function createMantineComponents(defaults: DataTableComponents): DataTabl
           </div>
         ) : null}
       </Modal>
+    ),
+
+    Drawer: ({ open, onClose, title, children, footer, label, closeLabel, side = 'bottom' }) => (
+      <MantineDrawer
+        opened={open}
+        onClose={onClose}
+        position={side === 'bottom' ? 'bottom' : side === 'start' ? 'left' : 'right'}
+        title={title}
+        aria-label={label}
+        closeButtonProps={{ 'aria-label': closeLabel }}
+        size={side === 'bottom' ? '88%' : 'min(360px, 90vw)'}
+        // Mantine portals its overlay outside the table, where the `--rtc-*`
+        // lookups the filter panel is styled with resolve to nothing.
+        classNames={{ content: 'rtc-vars' }}
+        styles={{
+          content: { display: 'flex', flexDirection: 'column' },
+          body: { display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: 0 },
+        }}
+      >
+        <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto' }}>{children}</div>
+        {footer ? (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              gap: 8,
+              padding: 12,
+              borderTop: '1px solid var(--mantine-color-default-border)',
+            }}
+          >
+            {footer}
+          </div>
+        ) : null}
+      </MantineDrawer>
     ),
 
     Tooltip: ({ label, children }) => (

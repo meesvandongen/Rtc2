@@ -6,6 +6,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Drawer as MuiDrawer,
   IconButton as MuiIconButton,
   LinearProgress,
   Menu as MuiMenu,
@@ -63,9 +64,11 @@ function useAnchor() {
 }
 
 export function createMuiComponents(defaults: DataTableComponents): DataTableComponents {
+  const Icon = defaults.Icon
+
   return {
     // MUI ships no icon set in its base package, so keep the built-in glyphs.
-    Icon: defaults.Icon,
+    Icon,
 
     // `...rest` carries the ref MUI clones onto the trigger to use as its
     // `anchorEl`; without it an overlay has nothing to position against.
@@ -319,6 +322,42 @@ export function createMuiComponents(defaults: DataTableComponents): DataTableCom
         </DialogContent>
         <DialogActions>{footer}</DialogActions>
       </Dialog>
+    ),
+
+    Drawer: ({ open, onClose, title, children, footer, label, closeLabel, side = 'bottom' }) => (
+      <MuiDrawer
+        anchor={side === 'bottom' ? 'bottom' : side === 'start' ? 'left' : 'right'}
+        open={open}
+        onClose={onClose}
+        aria-label={label}
+        slotProps={{
+          paper: {
+            sx: {
+              display: 'flex',
+              maxHeight: side === 'bottom' ? '88svh' : undefined,
+              width: side === 'bottom' ? undefined : 'min(360px, 90vw)',
+              borderTopLeftRadius: side === 'bottom' ? 12 : 0,
+              borderTopRightRadius: side === 'bottom' ? 12 : 0,
+            },
+          },
+        }}
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1.5 }}>
+          {title}
+          <MuiIconButton
+            size="small"
+            aria-label={closeLabel}
+            onClick={onClose}
+            sx={{ marginInlineStart: 'auto' }}
+          >
+            <Icon name="close" />
+          </MuiIconButton>
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 0, overflowY: 'auto' }}>
+          {children}
+        </DialogContent>
+        {footer ? <DialogActions>{footer}</DialogActions> : null}
+      </MuiDrawer>
     ),
 
     Tooltip: ({ label, children }) => (

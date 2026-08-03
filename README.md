@@ -69,7 +69,7 @@ Each of these has a dedicated Storybook story.
 | Area | Options |
 | --- | --- |
 | Sorting | `enableSorting`¹, `enableMultiSort`¹, `enableSortingRemoval`¹, `sortDescFirst`, `maxMultiSortColCount`, `manualSorting`, per-column `sortFn` |
-| Column filtering | `enableColumnFilters`¹, `filterDisplayMode` (`popover` \| `panel` \| `popover-and-panel` \| `none`), `filterPanelPosition`, `enableFilterModes`, `showActiveFilterChips`¹, `manualFiltering`, `enableMultipleFilterConditions`, `dataTypes`, `filterNow`, 9 built-in [data types](#filter-data-types) |
+| Column filtering | `enableColumnFilters`¹, `filterDisplayMode` (`popover` \| `panel` \| `popover-and-panel` \| `none`), `filterPanelPosition`, `enableFilterModes`, `showActiveFilterChips`¹, `manualFiltering`, `enableMultipleFilterConditions`, `dataTypes`, `filterNow`, 9 built-in [data types](#filter-data-types), `enableMobileFilterDrawer`¹, `mobileBreakpoint` |
 | Global filtering | `enableGlobalFilter`¹, `globalFilterFn`, `enableGlobalFilterToggle`¹ |
 | Faceting | `enableFaceting`¹ — auto-populates select/autocomplete/checkbox filter options |
 | Pagination | `enablePagination`¹, `paginationDisplayMode`, `paginationPosition`, `pageSizeOptions`, `manualPagination`, `rowCount`, `pageCount`, `autoResetPageIndex` |
@@ -107,8 +107,9 @@ and use `useTable` directly.
 ## Bring your own components
 
 Every interactive control the table renders — buttons, inputs, selects,
-popovers, menus, the modal editor — comes from a component registry. Supply
-your design system once and the whole table adopts it:
+popovers, menus, the modal editor, the mobile filter drawer — comes from a
+component registry. Supply your design system once and the whole table adopts
+it:
 
 ```tsx
 import { DataTable, defaultComponents } from '@mvd/table'
@@ -262,6 +263,44 @@ return (
 
 It installs its own component registry from the table's options, so it works
 anywhere in the tree.
+
+### On a phone
+
+Neither surface survives a narrow viewport: a popover anchored to a 24px funnel
+in a header that scrolls sideways has nowhere to open, and a 280px pane docked
+beside the rows leaves no rows. Below `mobileBreakpoint` (640px by default) the
+table swaps both for a modal bottom sheet — shadcn's drawer, in the shape the
+platform already ships:
+
+- the header funnel opens that column's editor in the sheet;
+- the docked panel becomes a full-width sheet holding every filterable column;
+- the toolbar always offers the funnel that opens it, whatever the display mode,
+  because the per-column buttons are off-screen as soon as the table scrolls;
+- a panel that would open by default (`filterDisplayMode: 'panel'`) starts
+  closed instead — a sheet nobody asked for is just the data hidden on arrival.
+  An explicit `initialState.showFilterPanel` still wins; that is someone asking.
+
+The default sheet is a native modal `<dialog>`, so the top layer, the
+`::backdrop`, the focus trap, Escape and focus restoration are the browser's
+rather than ours; the slide-in is CSS (`@starting-style` plus
+`transition-behavior: allow-discrete`) and the only JavaScript is the
+swipe-down-to-dismiss on the grabber. It is a registry component like every
+other overlay — override `Drawer` to use your own, as the MUI, Radix and
+Mantine adapters do:
+
+```tsx
+<DataTable
+  columns={columns}
+  data={data}
+  mobileBreakpoint={768}          // or a CSS length: '48em'
+  enableMobileFilterDrawer={false} // opt out entirely
+/>
+```
+
+`DataTableFilterDrawer` is exported for the same reason the panel is: a layout
+that owns its own chrome can put the sheet behind its own button. Both share
+`ui.showFilterPanel`, so resizing across the breakpoint keeps the user's
+intent.
 
 ## Filter data types
 

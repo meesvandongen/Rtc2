@@ -7,6 +7,7 @@ import { STRUCTURED_FILTER_FN } from './filters/filterFn'
 import type { DataTableTableMeta } from './filters/registry'
 import { dataTableFeatures } from './features'
 import { defaultLocalization, type DataTableLocalization } from './locale'
+import { useIsMobile } from './responsive'
 import type {
   DataTableDensity,
   DataTableInstance,
@@ -117,13 +118,21 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
 
   const [ownTanStackState, setOwnTanStackState] = useState<DataTableTanStackState>(initialTanStackState)
 
+  const isMobile = useIsMobile(options.mobileBreakpoint)
+
   const [ownUiState, setOwnUiState] = useState<DataTableUiState>(() => ({
     ...DEFAULT_UI_STATE,
     density: options.density ?? DEFAULT_UI_STATE.density,
-    // The docked panel starts open only when it is the sole filter surface.
+    // The docked panel starts open only when it is the sole filter surface —
+    // and never on a phone, where it is a modal sheet rather than a pane and
+    // would cover the data before anyone had asked for a filter. (`isMobile`
+    // is the value at mount: the initializer runs once.) An explicit
+    // `initialState.showFilterPanel` still wins — that is someone asking.
     showFilterPanel:
       options.initialState?.showFilterPanel ??
-      (options.filterDisplayMode === 'panel' && options.enableColumnFilters !== false),
+      (options.filterDisplayMode === 'panel' &&
+        options.enableColumnFilters !== false &&
+        !isMobile),
     ...compact(options.initialState as Partial<DataTableUiState>),
   }))
 
@@ -356,6 +365,7 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
 
   instance.dataTableOptions = { ...options, localization }
   instance.ui = ui
+  instance.isMobile = isMobile
   // Assigned every render, not from an effect: `useTable` hands back a fresh
   // shallow copy each time, so anything written to the previous one is gone.
   instance.headerMinSizes = headerMinSizes
