@@ -19,7 +19,6 @@ import {
   MultipleSelect,
   NumberField,
   Popover,
-  ProgressBar,
   Radio,
   RadioGroup,
   SearchField,
@@ -31,10 +30,12 @@ import {
   SelectValue,
   Slider,
   SliderOutput,
+  Spinner,
   Switch,
   TagGroup,
   TagList,
   TextField,
+  ToggleButton,
 } from '@lolmath/ui'
 
 import type { CSSProperties, Key, ReactNode } from 'react'
@@ -295,23 +296,38 @@ export function createLolmathComponents(defaults: DataTableComponents): DataTabl
       </Button>
     ),
 
-    IconButton: ({ label, children, active, size, className, disabled, onClick, ...rest }) => (
-      <Button
-        className={className}
-        aria-label={label}
-        // `square` is the shape that gives the button `aspect-ratio: 1`, which
-        // is what keeps an icon-only control from stretching to the width of
-        // the text padding a normal button carries.
-        shape="square"
-        preset={active ? 'hextech' : 'text'}
-        size={toSize(size)}
-        isDisabled={disabled}
-        {...clickable(onClick)}
-        {...rest}
-      >
-        {children}
-      </Button>
-    ),
+    /**
+     * An `IconButton` that carries `active` is a toggle — the table passes it
+     * for the search, filter-panel and full-screen switches, for the filter
+     * funnel on a filtered column and for a row being dragged — so it is the
+     * library's `ToggleButton`, which is where the pressed look and
+     * `aria-pressed` come from. Everything else is a plain `Button`. Both take
+     * the same preset, because a toolbar whose buttons disagree about whether
+     * they have a border reads as a mistake.
+     *
+     * `square` is the shape that gives the button `aspect-ratio: 1`, without
+     * which an icon-only control stretches to the text padding a normal button
+     * carries; `dimmed` is the thin, quiet one the library offers for a
+     * control that is chrome rather than an action.
+     */
+    IconButton: ({ label, children, active, size, className, disabled, onClick, ...rest }) => {
+      const Control = active === undefined ? Button : ToggleButton
+      return (
+        <Control
+          className={className}
+          aria-label={label}
+          shape="square"
+          preset="dimmed"
+          size={toSize(size)}
+          isSelected={active}
+          isDisabled={disabled}
+          {...clickable(onClick)}
+          {...rest}
+        >
+          {children}
+        </Control>
+      )
+    },
 
     TextInput: ({ value, onChange, label, placeholder, type = 'text', size, autoFocus, disabled, onBlur, onKeyDown, dataAttributes }) => {
       if (type === 'search') {
@@ -541,13 +557,19 @@ export function createLolmathComponents(defaults: DataTableComponents): DataTabl
       <span className="lol-skeleton" style={width ? { width } : undefined} aria-hidden="true" />
     ),
 
-    // lolmath's `ProgressBar` shows a caption and a percentage next to the
-    // track. The table's is a thin busy indicator with neither, so the caption
-    // row is hidden in CSS and the track is animated for the indeterminate
-    // case the library does not draw itself.
+    /**
+     * `Spinner`, not the library's `ProgressBar`.
+     *
+     * Its `ProgressBar` is built to report a percentage — it draws a caption
+     * and a value beside the track, and sizes the fill from `percentage`, which
+     * React Aria leaves undefined for an indeterminate bar. The table's slot is
+     * "something is happening", with no number to show, and `Spinner` is the
+     * affordance the library ships for exactly that. Using it means no reaching
+     * into another component's markup to hide the parts that do not apply.
+     */
     ProgressBar: ({ label }) => (
-      <div className="lol-progress">
-        <ProgressBar aria-label={label} label={label} isIndeterminate />
+      <div className="lol-progress" role="status" aria-label={label}>
+        <Spinner />
       </div>
     ),
   }
