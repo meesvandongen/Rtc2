@@ -1,7 +1,7 @@
 import { useCallback, useSyncExternalStore } from 'react'
 import type { RowData } from '@tanstack/react-table'
 
-import type { DataTableInstance } from './types'
+import type { DataTableInstance, DataTableOptions } from './types'
 
 /**
  * Viewport width, in pixels, below which the table treats itself as mobile.
@@ -66,9 +66,21 @@ export function useIsMobile(breakpoint?: number | string): boolean {
  * narrow viewport both surfaces are replaced by a `Drawer`.
  */
 export function usesFilterDrawer<TData extends RowData>(table: DataTableInstance<TData>): boolean {
-  const options = table.dataTableOptions
+  return filterDrawerApplies(table.dataTableOptions, table.isMobile)
+}
+
+/**
+ * The same question, asked from the options alone.
+ *
+ * `useDataTable` has to answer it while building the instance that
+ * `usesFilterDrawer` reads, which is too early to ask the instance.
+ */
+export function filterDrawerApplies<TData extends RowData>(
+  options: DataTableOptions<TData>,
+  isMobile: boolean,
+): boolean {
   return (
-    table.isMobile &&
+    isMobile &&
     (options.enableMobileFilterDrawer ?? true) &&
     (options.enableColumnFilters ?? true) &&
     (options.filterDisplayMode ?? 'popover') !== 'none'

@@ -86,6 +86,21 @@ test.describe('mobile filter drawer', () => {
     await toolbarAction(root, 'toggle-filters').click()
     await expect(page.locator(SHEET)).toBeVisible()
   })
+
+  /**
+   * The same rule for an *explicit* request. `initialState.showFilterPanel`
+   * says "the pane starts open beside the table"; a modal over the data is a
+   * different thing, and nobody asked for that one.
+   */
+  test('an explicitly-open panel still does not open the sheet', async ({ page }) => {
+    const root = await openStory(page, 'datatable-15-ui-libraries--built-in-primitives')
+
+    await expect(root.locator('tbody tr').first()).toBeVisible()
+    await expect(page.locator(SHEET)).toHaveCount(0)
+    // And the toolbar toggle is in step with it: one press opens the sheet.
+    await toolbarAction(root, 'toggle-filters').click()
+    await expect(page.locator(SHEET)).toBeVisible()
+  })
 })
 
 test.describe('wide viewport', () => {
@@ -100,5 +115,50 @@ test.describe('wide viewport', () => {
     await header(popovers, 'department').locator('.rtc-filter-trigger').click()
     await expect(page.locator('[data-rtc-filter-popover]')).toBeVisible()
     await expect(page.locator(SHEET)).toHaveCount(0)
+  })
+})
+
+/**
+ * Crossing the breakpoint at runtime.
+ *
+ * The pane and the sheet share one state flag, and the conversion in one
+ * direction is the dangerous one: a pane the reader left open must not turn
+ * into an overlay over what they were reading. The correction happens during
+ * the render that notices the switch rather than in an effect, because an
+ * overlay library handed open-then-closed-in-one-tick can be left with a
+ * full-screen invisible layer that eats every click — which is exactly what
+ * the MUI case below caught the first time.
+ */
+test.describe('crossing the breakpoint', () => {
+  test('an open pane does not become an open sheet', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 })
+    const root = await openStory(page, 'datatable-03-filtering--docked-filter-panel')
+    await expect(root.locator('[data-rtc-filter-panel]')).toBeVisible()
+
+    await page.setViewportSize(PHONE)
+    await expect(root.locator('[data-rtc-filter-panel]')).toHaveCount(0)
+    await expect(page.locator(SHEET)).toHaveCount(0)
+
+    // And the toggle is in step with that: one press, and the sheet is up.
+    await toolbarAction(root, 'toggle-filters').click()
+    await expect(page.locator(SHEET)).toBeVisible()
+  })
+
+  test('an adapter sheet leaves no invisible overlay behind', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 })
+    const root = await openStory(page, 'datatable-15-ui-libraries--material-ui')
+    await expect(root.locator('[data-rtc-filter-panel]')).toBeVisible()
+
+    await page.setViewportSize(PHONE)
+    await page.waitForTimeout(500)
+
+    const blocking = await page.evaluate(() => {
+      const node = document.elementFromPoint(195, 400)
+      return node ? `${node.tagName}.${(node as HTMLElement).className}`.slice(0, 80) : 'none'
+    })
+    expect(blocking, 'the table is clickable, not covered').not.toMatch(/Drawer|Modal|backdrop/i)
+
+    await toolbarAction(root, 'toggle-filters').click()
+    await expect(page.locator('[data-rtc-filter-field="department"]')).toBeVisible()
   })
 })

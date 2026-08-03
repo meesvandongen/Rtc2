@@ -276,9 +276,13 @@ platform already ships:
 - the docked panel becomes a full-width sheet holding every filterable column;
 - the toolbar always offers the funnel that opens it, whatever the display mode,
   because the per-column buttons are off-screen as soon as the table scrolls;
-- a panel that would open by default (`filterDisplayMode: 'panel'`) starts
-  closed instead — a sheet nobody asked for is just the data hidden on arrival.
-  An explicit `initialState.showFilterPanel` still wins; that is someone asking.
+- the sheet never opens by itself. `initialState.showFilterPanel: true` and
+  `filterDisplayMode: 'panel'` both mean "the pane starts open beside the
+  table", which is a layout choice; read as "a modal covers the data on
+  arrival" it is not one anybody made. In drawer mode the surface opens on a
+  gesture and nothing else — including when the breakpoint is crossed by a
+  resize, where a pane left open does not become an overlay. (A controlled
+  `state.showFilterPanel` is still honoured: that is you driving it directly.)
 
 The default sheet is a native modal `<dialog>`, so the top layer, the
 `::backdrop`, the focus trap, Escape and focus restoration are the browser's
@@ -298,9 +302,9 @@ Mantine adapters do:
 ```
 
 `DataTableFilterDrawer` is exported for the same reason the panel is: a layout
-that owns its own chrome can put the sheet behind its own button. Both share
-`ui.showFilterPanel`, so resizing across the breakpoint keeps the user's
-intent.
+that owns its own chrome can put the sheet behind its own button. Both are
+driven by `ui.showFilterPanel`, so the toolbar funnel, `onShowFilterPanelChange`
+and a controlled `state` work the same either side of the breakpoint.
 
 ## Filter data types
 
