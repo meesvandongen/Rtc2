@@ -95,22 +95,25 @@ export const PopoverAndPanel: Story = {
  * layer, the backdrop, the focus trap and Escape all come from the browser —
  * and the toolbar always offers the funnel that opens it.
  *
- * The breakpoint is raised here so the sheet is visible at any window size;
- * the real default is 640px. Drag the sheet down by its grabber to dismiss it.
+ * This story pins Storybook's viewport to a phone so the real 640px default
+ * applies — the Viewport toolbar resizes the preview iframe, and that is the
+ * same media query the table listens to. Pinning it also disables the picker
+ * here; to watch the switch happen, open any other filtering story and drag
+ * the canvas edge (or pick a viewport) across 640px.
  */
 export const MobileFilterDrawer: Story = {
+  globals: { viewport: { value: 'mobile2' } },
   render: () => (
     <>
       <p className="rtc-sb-note">
         Open the funnel in the toolbar for every column, or the one in a header for a single
-        column. Both land in the same sheet.
+        column. Both land in the same sheet — drag it down by its grabber to dismiss it.
       </p>
       <DataTable
         columns={personColumns}
         data={data}
         getRowId={(row) => row.id}
         filterDisplayMode="popover-and-panel"
-        mobileBreakpoint={4000}
         height={560}
         enableStickyHeader
       />
