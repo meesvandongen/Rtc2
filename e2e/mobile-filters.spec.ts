@@ -162,3 +162,42 @@ test.describe('crossing the breakpoint', () => {
     await expect(page.locator('[data-rtc-filter-field="department"]')).toBeVisible()
   })
 })
+
+/**
+ * The sheet spans the viewport, whichever library drew it.
+ *
+ * The failure this exists for: Mantine's overlay `inner` is fixed-positioned
+ * and never sets `left`, so it resolves to the *static* position of the portal
+ * node — any padding on `<body>` shifts every modal and drawer sideways while
+ * they stay a full viewport wide, clipping the far edge. Nothing else notices.
+ * The sheet is visible, the fields are all there, and only geometry catches it.
+ */
+const SHEET_SURFACES: Record<string, { story: string; surface: string }> = {
+  'built-in': {
+    story: 'datatable-15-ui-libraries--built-in-primitives',
+    surface: 'dialog[data-rtc-drawer][open]',
+  },
+  mui: { story: 'datatable-15-ui-libraries--material-ui', surface: '.MuiDrawer-paper' },
+  radix: { story: 'datatable-15-ui-libraries--radix-shadcn', surface: '.rx-drawer' },
+  mantine: { story: 'datatable-15-ui-libraries--mantine', surface: '.mantine-Drawer-content' },
+}
+
+test.describe('sheet geometry', () => {
+  test.use({ viewport: PHONE })
+
+  for (const [adapter, { story, surface }] of Object.entries(SHEET_SURFACES)) {
+    test(`${adapter}: the sheet is flush with both edges`, async ({ page }) => {
+      const root = await openStory(page, story)
+      await toolbarAction(root, 'toggle-filters').click()
+      await expect(page.locator(surface)).toBeVisible()
+
+      // Polled: the sheet is still sliding up when it first becomes visible.
+      await expect
+        .poll(async () => {
+          const box = await page.locator(surface).boundingBox()
+          return box ? { left: Math.round(box.x), right: Math.round(box.x + box.width) } : null
+        })
+        .toEqual({ left: 0, right: PHONE.width })
+    })
+  }
+})
