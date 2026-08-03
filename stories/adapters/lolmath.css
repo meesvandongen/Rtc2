@@ -85,6 +85,20 @@ button[aria-label='Clear search'],
   display: none;
 }
 
+/* The same missing reset, in the place it is least obvious: a popover's arrow.
+ *
+ * React Aria anchors the arrow by giving its wrapper `bottom: 100%` of the
+ * popover, so the wrapper's box has to *be* the arrow. The library draws the
+ * arrow as an `<svg>` and does not set `display`, which leaves it inline —
+ * sitting on a text baseline, with the wrapper a line-height tall rather than
+ * the glyph's 10px. Here that is 18px against a 17.64px line box, and the
+ * triangle floats 8px up: its tip detached from the popover, its base over the
+ * trigger. Tailwind's preflight sets `svg { display: block }`, which is why the
+ * library's own Storybook never shows it. */
+.lol-popover [data-placement] > svg {
+  display: block;
+}
+
 /* A tag group is laid out as a centred row of chips for a form field. The
    table's badges are single chips inline in a toolbar. */
 .lol-tag-group {
