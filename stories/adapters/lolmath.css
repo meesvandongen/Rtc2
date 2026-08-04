@@ -8,10 +8,17 @@
  * 1. It is on markup of *ours*, where `--rtc-*` cannot reach: the gradient
  *    border is two backgrounds in different boxes rather than a colour, and
  *    there is no `--rtc-header-font-family`.
- * 2. The library assumes a CSS reset it does not ship, so a couple of its bare
- *    `<button>`s keep the browser's default chrome.
- * 3. A control built for a form has to survive a filter field — an intrinsic
- *    minimum width, or a thumb that overhangs its track.
+ * 2. A control built for a form has to survive a filter field or a toolbar — an
+ *    intrinsic minimum width, a thumb that overhangs its track, a spinner sized
+ *    for a page.
+ * 3. The contract asks for something the library has no equivalent for: a
+ *    destructive menu item, a skeleton.
+ *
+ * There is no category for "the library needs a reset it does not ship" any
+ * more. `@lolmath/ui@9.1.2` resets the bare `<button>`s it renders and sets
+ * `display` on the shapes React Aria measures, so it no longer needs Tailwind's
+ * preflight to look right — which also retired the Vite plugin that used to
+ * repair its inlined images.
  *
  * Anything that would restyle a library component for taste is not here. */
 
@@ -57,46 +64,12 @@
   box-sizing: border-box;
 }
 
-/* `@lolmath/ui` is built to sit on top of Tailwind's preflight — it lists
-   Tailwind as an optional peer, and its own reset stops at `box-sizing`. The
-   buttons it does not paint itself therefore keep the browser's default
-   `buttonface` chrome, which under `color-scheme: dark` is a grey slab: the
-   search field's clear affordance and the number field's steppers are the two
-   that show. A design system with a reset of its own would not need this.
-
-   The clear button is matched on its name rather than on a class of ours,
-   because one of them belongs to the search box inside the multi-select's
-   picker, which the library renders itself and gives us no hook for. React
-   Aria search fields only exist in this adapter, so the reach is the same. */
-button[aria-label='Clear search'],
-.lol-number-field > button {
-  background: none;
-  border: 0;
-}
-
-.lol-number-field > button {
-  background-color: var(--lol-color-hextech-black);
-}
-
-/* The library hides the clear affordance from `[data-empty]` on the button,
-   but React Aria puts that attribute on the field. Without this, an empty
+/* The one thing still worth reporting upstream: the library hides the clear
+   affordance with `[data-empty]` on the *button*, and React Aria puts that
+   attribute on the field. The rule can never match, so without this an empty
    search box carries a permanent ✕. */
 .lol-search[data-empty] > button {
   display: none;
-}
-
-/* The same missing reset, in the place it is least obvious: a popover's arrow.
- *
- * React Aria anchors the arrow by giving its wrapper `bottom: 100%` of the
- * popover, so the wrapper's box has to *be* the arrow. The library draws the
- * arrow as an `<svg>` and does not set `display`, which leaves it inline —
- * sitting on a text baseline, with the wrapper a line-height tall rather than
- * the glyph's 10px. Here that is 18px against a 17.64px line box, and the
- * triangle floats 8px up: its tip detached from the popover, its base over the
- * trigger. Tailwind's preflight sets `svg { display: block }`, which is why the
- * library's own Storybook never shows it. */
-.lol-popover [data-placement] > svg {
-  display: block;
 }
 
 /* A tag group is laid out as a centred row of chips for a form field. The
