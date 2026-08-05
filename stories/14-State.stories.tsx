@@ -2,12 +2,14 @@ import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 
 import { DataTable, toCsv, useDataTable, type DataTableInitialState } from '../src'
+import { loadingArgTypes } from './controls'
 import { makePeople, personColumns, type Person } from './fixtures'
 
 const data = makePeople(40)
 
 const meta: Meta = {
   title: 'DataTable/14 State & Composition',
+  argTypes: { ...loadingArgTypes },
 }
 
 export default meta
@@ -18,13 +20,22 @@ type Story = StoryObj<typeof meta>
  * table needs to read or drive its state, then hand it to `<DataTable table />`.
  */
 export const ExternalInstance: Story = {
-  render: function ExternalInstance() {
+  args: {
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: function ExternalInstance(args) {
     const table = useDataTable<Person>({
       columns: personColumns.slice(0, 6),
       data,
       getRowId: (row) => row.id,
       enableRowSelection: true,
       enableColumnActions: true,
+      ...args,
     })
 
     const selectedCount = Object.values(table.state.rowSelection).filter(Boolean).length
@@ -53,7 +64,15 @@ export const ExternalInstance: Story = {
 
 /** `onStateChange` reports every slice, including the UI-only ones. */
 export const ObserveAllState: Story = {
-  render: function ObserveAllState() {
+  args: {
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: function ObserveAllState(args) {
     const [snapshot, setSnapshot] = useState<string>('')
     return (
       <>
@@ -78,6 +97,7 @@ export const ObserveAllState: Story = {
               ),
             )
           }
+          {...args}
         />
         <pre className="rtc-sb-panel" data-testid="state-snapshot">
           {snapshot}
@@ -89,7 +109,15 @@ export const ObserveAllState: Story = {
 
 /** Restore a saved layout through `initialState`. */
 export const RestoredInitialState: Story = {
-  render: () => {
+  args: {
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => {
     const saved: DataTableInitialState = {
       sorting: [{ id: 'salary', desc: true }],
       columnVisibility: { email: false, startDate: false },
@@ -112,6 +140,7 @@ export const RestoredInitialState: Story = {
           enableColumnPinning
           enableColumnActions
           filterDisplayMode="popover-and-panel"
+          {...args}
         />
       </>
     )
@@ -120,7 +149,15 @@ export const RestoredInitialState: Story = {
 
 /** Export what is currently on screen, respecting filters and sorting. */
 export const CsvExport: Story = {
-  render: function CsvExport() {
+  args: {
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: function CsvExport(args) {
     const [preview, setPreview] = useState('')
     const table = useDataTable<Person>({
       columns: personColumns.slice(0, 6),
@@ -128,6 +165,7 @@ export const CsvExport: Story = {
       getRowId: (row) => row.id,
       enableRowSelection: true,
       initialState: { showGlobalFilter: true },
+      ...args,
     })
 
     const exportCsv = (onlySelected: boolean) => {
@@ -159,7 +197,15 @@ export const CsvExport: Story = {
 
 /** Full screen takes over the viewport; Escape or the button exits. */
 export const FullScreen: Story = {
-  render: () => (
+  args: {
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <>
       <p className="rtc-sb-note">
         Use the full-screen button in the toolbar. Press Escape to return.
@@ -170,6 +216,7 @@ export const FullScreen: Story = {
         getRowId={(row) => row.id}
         enableFullScreenToggle
         enableStickyHeader
+        {...args}
       />
     </>
   ),
@@ -177,7 +224,15 @@ export const FullScreen: Story = {
 
 /** Everything on at once — the realistic upper bound of the component. */
 export const KitchenSink: Story = {
-  render: function KitchenSink() {
+  args: {
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: function KitchenSink(args) {
     const [rows, setRows] = useState<Person[]>(() => makePeople(200))
     return (
       <DataTable
@@ -224,6 +279,7 @@ export const KitchenSink: Story = {
         )}
         filterDisplayMode="popover-and-panel"
         initialState={{ showFilterPanel: true, showGlobalFilter: true }}
+        {...args}
       />
     )
   },

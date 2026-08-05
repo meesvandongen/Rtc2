@@ -1,12 +1,14 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 
 import { DataTable } from '../src'
+import { loadingArgTypes } from './controls'
 import { makePeople, personColumns } from './fixtures'
 
 const data = makePeople(20)
 
 const meta: Meta = {
   title: 'DataTable/09 Rows',
+  argTypes: { ...loadingArgTypes },
 }
 
 export default meta
@@ -37,12 +39,23 @@ export const RowNumbers: Story = {
 
 /** Inline action buttons in the generated actions column. */
 export const RowActions: Story = {
-  render: () => (
+  args: {
+    enableRowActions: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  argTypes: {
+    enableRowActions: { control: 'boolean', table: { category: 'Rows' } },
+  },
+  render: (args) => (
     <DataTable
       columns={personColumns.slice(0, 5)}
       data={data}
       getRowId={(row) => row.id}
-      enableRowActions
       renderRowActions={({ row }) => (
         <button
           type="button"
@@ -53,18 +66,30 @@ export const RowActions: Story = {
           View
         </button>
       )}
+      {...args}
     />
   ),
 }
 
 /** An overflow menu instead of inline buttons. */
 export const RowActionMenu: Story = {
-  render: () => (
+  args: {
+    enableRowActions: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  argTypes: {
+    enableRowActions: { control: 'boolean', table: { category: 'Rows' } },
+  },
+  render: (args) => (
     <DataTable
       columns={personColumns.slice(0, 5)}
       data={data}
       getRowId={(row) => row.id}
-      enableRowActions
       rowActionMenuItems={({ row }) => [
         { id: 'edit', label: 'Edit', onSelect: () => alert(`Edit ${row.original.firstName}`) },
         {
@@ -80,27 +105,65 @@ export const RowActionMenu: Story = {
           onSelect: () => alert(`Delete ${row.original.firstName}`),
         },
       ]}
+      {...args}
     />
   ),
 }
 
 export const ActionsColumnFirst: Story = {
-  render: () => (
+  args: {
+    enableRowActions: true,
+    positionActionsColumn: 'first',
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  argTypes: {
+    enableRowActions: { control: 'boolean', table: { category: 'Rows' } },
+    positionActionsColumn: {
+      control: 'select',
+      options: ['first', 'last'],
+      table: { category: 'Rows' },
+    },
+  },
+  render: (args) => (
     <DataTable
       columns={personColumns.slice(0, 5)}
       data={data.slice(0, 8)}
       getRowId={(row) => row.id}
-      enableRowActions
-      positionActionsColumn="first"
       renderRowActions={({ row }) => <span className="rtc-group-count">#{row.index + 1}</span>}
       enablePagination={false}
+      {...args}
     />
   ),
 }
 
 /** Pinned rows stay visible while the rest of the body scrolls. */
 export const RowPinningSticky: Story = {
-  render: () => (
+  args: {
+    enableRowPinning: true,
+    rowPinningDisplayMode: 'sticky',
+    enableRowActions: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  argTypes: {
+    enableRowPinning: { control: 'boolean', table: { category: 'Rows' } },
+    rowPinningDisplayMode: {
+      control: 'select',
+      options: ['sticky', 'top', 'bottom', 'top-and-bottom'],
+      table: { category: 'Rows' },
+    },
+    enableRowActions: { control: 'boolean', table: { category: 'Rows' } },
+  },
+  render: (args) => (
     <>
       <p className="rtc-sb-note">
         Pinned rows are sticky within the scroll container. Pin from your own UI by calling
@@ -110,9 +173,6 @@ export const RowPinningSticky: Story = {
         columns={personColumns.slice(0, 5)}
         data={makePeople(40)}
         getRowId={(row) => row.id}
-        enableRowPinning
-        rowPinningDisplayMode="sticky"
-        enableRowActions
         renderRowActions={({ row }) => (
           <button
             type="button"
@@ -127,6 +187,7 @@ export const RowPinningSticky: Story = {
         height={420}
         enableStickyHeader
         initialState={{ rowPinning: { top: ['p2'], bottom: [] } }}
+        {...args}
       />
     </>
   ),
@@ -134,23 +195,52 @@ export const RowPinningSticky: Story = {
 
 /** Pinned rows lifted into dedicated sections above and below the body. */
 export const RowPinningSections: Story = {
-  render: () => (
+  args: {
+    enableRowPinning: true,
+    rowPinningDisplayMode: 'top-and-bottom',
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  argTypes: {
+    enableRowPinning: { control: 'boolean', table: { category: 'Rows' } },
+    rowPinningDisplayMode: {
+      control: 'select',
+      options: ['sticky', 'top', 'bottom', 'top-and-bottom'],
+      table: { category: 'Rows' },
+    },
+  },
+  render: (args) => (
     <DataTable
       columns={personColumns.slice(0, 5)}
       data={makePeople(20)}
       getRowId={(row) => row.id}
-      enableRowPinning
-      rowPinningDisplayMode="top-and-bottom"
       enablePagination={false}
       height={420}
       initialState={{ rowPinning: { top: ['p1'], bottom: ['p20'] } }}
+      {...args}
     />
   ),
 }
 
 /** Drag the grip to reorder rows; the handle also responds to up/down arrows. */
 export const RowOrdering: Story = {
-  render: () => (
+  args: {
+    enableRowOrdering: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  argTypes: {
+    enableRowOrdering: { control: 'boolean', table: { category: 'Rows' } },
+  },
+  render: (args) => (
     <>
       <p className="rtc-sb-note">
         Drag a row by its grip, or focus the grip and press the up/down arrow keys.
@@ -159,9 +249,9 @@ export const RowOrdering: Story = {
         columns={personColumns.slice(0, 5)}
         data={data.slice(0, 10)}
         getRowId={(row) => row.id}
-        enableRowOrdering
         enablePagination={false}
         enableStripes
+        {...args}
       />
     </>
   ),
@@ -169,7 +259,15 @@ export const RowOrdering: Story = {
 
 /** `rowProps` and `cellProps` reach the underlying DOM nodes. */
 export const CustomRowAndCellProps: Story = {
-  render: () => (
+  args: {
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <DataTable
       columns={personColumns.slice(0, 6)}
       data={data.slice(0, 10)}
@@ -184,6 +282,7 @@ export const CustomRowAndCellProps: Story = {
           : {}
       }
       enablePagination={false}
+      {...args}
     />
   ),
 }

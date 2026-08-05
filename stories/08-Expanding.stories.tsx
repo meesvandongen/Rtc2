@@ -1,10 +1,31 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 
 import { DataTable } from '../src'
+import { loadingArgTypes } from './controls'
 import { currency, makePeople, makeTree, personColumns } from './fixtures'
+
+/** Expanding-related props shared across most stories in this file. */
+const expandingArgTypes = {
+  enableExpanding: {
+    control: 'boolean',
+    description: 'Defaults to on when grouping or a detail panel is in play.',
+    table: { category: 'Expanding' },
+  },
+  enableExpandAll: {
+    control: 'boolean',
+    description: 'Shows the header chevron that expands or collapses every expandable row at once.',
+    table: { category: 'Expanding' },
+  },
+  paginateExpandedRows: {
+    control: 'boolean',
+    description: 'When off, expanded children stay on the same page as their parent instead of being paginated on their own.',
+    table: { category: 'Expanding' },
+  },
+} as const
 
 const meta: Meta = {
   title: 'DataTable/08 Expanding',
+  argTypes: { ...loadingArgTypes, ...expandingArgTypes },
 }
 
 export default meta
@@ -12,60 +33,96 @@ type Story = StoryObj<typeof meta>
 
 /** Hierarchical data via `getSubRows`; depth is shown by cell indentation. */
 export const SubRows: Story = {
-  render: () => (
+  args: {
+    enableExpanding: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <DataTable
       columns={personColumns.slice(0, 6)}
       data={makeTree()}
       getRowId={(row) => row.id}
       getSubRows={(row) => row.subRows}
-      enableExpanding
       enablePagination={false}
+      {...args}
     />
   ),
 }
 
 /** `expanded: true` opens every branch, at every depth, on the first render. */
 export const ExpandedByDefault: Story = {
-  render: () => (
+  args: {
+    enableExpanding: true,
+    enableExpandAll: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <DataTable
       columns={personColumns.slice(0, 6)}
       data={makeTree()}
       getRowId={(row) => row.id}
       getSubRows={(row) => row.subRows}
-      enableExpanding
-      enableExpandAll
       enablePagination={false}
       initialState={{ expanded: true }}
+      {...args}
     />
   ),
 }
 
 /** Naming row ids opens just those branches; the rest start collapsed. */
 export const SomeRowsExpandedByDefault: Story = {
-  render: () => (
+  args: {
+    enableExpanding: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <DataTable
       columns={personColumns.slice(0, 6)}
       data={makeTree()}
       getRowId={(row) => row.id}
       getSubRows={(row) => row.subRows}
-      enableExpanding
       enablePagination={false}
       initialState={{ expanded: { p1: true, p4: true } }}
+      {...args}
     />
   ),
 }
 
 /** The header chevron expands or collapses every expandable row at once. */
 export const ExpandAll: Story = {
-  render: () => (
+  args: {
+    enableExpanding: true,
+    enableExpandAll: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <DataTable
       columns={personColumns.slice(0, 6)}
       data={makeTree()}
       getRowId={(row) => row.id}
       getSubRows={(row) => row.subRows}
-      enableExpanding
-      enableExpandAll
       enablePagination={false}
+      {...args}
     />
   ),
 }
@@ -75,7 +132,15 @@ export const ExpandAll: Story = {
  * parent. Providing `renderDetailPanel` makes every row expandable.
  */
 export const DetailPanel: Story = {
-  render: () => (
+  args: {
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <DataTable
       columns={personColumns.slice(0, 6)}
       data={makePeople(12)}
@@ -97,55 +162,83 @@ export const DetailPanel: Story = {
         </div>
       )}
       enablePagination={false}
+      {...args}
     />
   ),
 }
 
 /** Sub-rows and a detail panel together. */
 export const DetailPanelWithSubRows: Story = {
-  render: () => (
+  args: {
+    enableExpanding: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <DataTable
       columns={personColumns.slice(0, 5)}
       data={makeTree()}
       getRowId={(row) => row.id}
       getSubRows={(row) => row.subRows}
-      enableExpanding
       renderDetailPanel={({ row }) => (
         <span>
           {row.original.firstName} reports {row.subRows.length} direct report(s).
         </span>
       )}
       enablePagination={false}
+      {...args}
     />
   ),
 }
 
 /** Only rows with an even index can expand. */
 export const ConditionalExpanding: Story = {
-  render: () => (
+  args: {
+    enableExpanding: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <DataTable
       columns={personColumns.slice(0, 5)}
       data={makePeople(10)}
       getRowId={(row) => row.id}
-      enableExpanding
       getRowCanExpand={(row) => row.index % 2 === 0}
       renderDetailPanel={({ row }) => <span>Details for {row.original.firstName}</span>}
       enablePagination={false}
+      {...args}
     />
   ),
 }
 
 /** `paginateExpandedRows={false}` keeps children with their parent's page. */
 export const ExpandingWithPagination: Story = {
-  render: () => (
+  args: {
+    enableExpanding: true,
+    paginateExpandedRows: false,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <DataTable
       columns={personColumns.slice(0, 5)}
       data={makeTree()}
       getRowId={(row) => row.id}
       getSubRows={(row) => row.subRows}
-      enableExpanding
-      paginateExpandedRows={false}
       initialState={{ pagination: { pageIndex: 0, pageSize: 2 }, expanded: true }}
+      {...args}
     />
   ),
 }

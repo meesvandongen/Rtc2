@@ -2,12 +2,39 @@ import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 
 import { DataTable, type SortingState } from '../src'
+import { loadingArgTypes } from './controls'
 import { makePeople, personColumns } from './fixtures'
 
 const data = makePeople(30)
 
+/** Sorting behaviour knobs shared across the stories in this file. */
+const sortingArgTypes = {
+  enableSorting: { control: 'boolean', table: { category: 'Sorting' } },
+  enableMultiSort: {
+    control: 'boolean',
+    description: 'Allow shift-click to add a second (and further) sort column.',
+    table: { category: 'Sorting' },
+  },
+  enableSortingRemoval: {
+    control: 'boolean',
+    description: 'Whether a third click on a sorted header clears it, instead of staying sorted.',
+    table: { category: 'Sorting' },
+  },
+  sortDescFirst: {
+    control: 'boolean',
+    description: 'First click sorts descending instead of ascending.',
+    table: { category: 'Sorting' },
+  },
+  maxMultiSortColCount: {
+    control: { type: 'number', min: 1, max: 5, step: 1 },
+    description: 'Maximum number of columns that can be sorted at once.',
+    table: { category: 'Sorting' },
+  },
+} as const
+
 const meta: Meta = {
   title: 'DataTable/02 Sorting',
+  argTypes: { ...sortingArgTypes, ...loadingArgTypes },
 }
 
 export default meta
@@ -15,46 +42,76 @@ type Story = StoryObj<typeof meta>
 
 /** Click a header to cycle asc → desc → unsorted. */
 export const Basic: Story = {
-  render: () => (
-    <DataTable columns={personColumns} data={data} getRowId={(row) => row.id} enableSorting />
+  args: {
+    enableSorting: true,
+    enableMultiSort: true,
+    enableSortingRemoval: true,
+    sortDescFirst: false,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
+    <DataTable columns={personColumns} data={data} getRowId={(row) => row.id} {...args} />
   ),
 }
 
 /** Shift-click a second header to add it; the badge shows sort precedence. */
 export const MultiSort: Story = {
-  render: () => (
+  args: {
+    enableMultiSort: true,
+    maxMultiSortColCount: 3,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <DataTable
       columns={personColumns}
       data={data}
       getRowId={(row) => row.id}
-      enableMultiSort
-      maxMultiSortColCount={3}
       initialState={{ sorting: [{ id: 'department', desc: false }, { id: 'age', desc: true }] }}
+      {...args}
     />
   ),
 }
 
 /** `enableSortingRemoval={false}` keeps a column sorted once it has been sorted. */
 export const NoSortRemoval: Story = {
-  render: () => (
+  args: {
+    enableSortingRemoval: false,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <DataTable
       columns={personColumns.slice(0, 5)}
       data={data}
       getRowId={(row) => row.id}
-      enableSortingRemoval={false}
       initialState={{ sorting: [{ id: 'lastName', desc: false }] }}
+      {...args}
     />
   ),
 }
 
 export const DescendingFirst: Story = {
-  render: () => (
-    <DataTable
-      columns={personColumns.slice(0, 6)}
-      data={data}
-      getRowId={(row) => row.id}
-      sortDescFirst
-    />
+  args: {
+    sortDescFirst: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
+    <DataTable columns={personColumns.slice(0, 6)} data={data} getRowId={(row) => row.id} {...args} />
   ),
 }
 
@@ -63,7 +120,14 @@ export const DescendingFirst: Story = {
  * and `firstName` uses a case-sensitive comparison.
  */
 export const CustomSortFunctions: Story = {
-  render: () => (
+  args: {
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <DataTable
       columns={personColumns.map((column) => {
         const id = (column as { accessorKey?: string }).accessorKey
@@ -73,6 +137,7 @@ export const CustomSortFunctions: Story = {
       })}
       data={data}
       getRowId={(row) => row.id}
+      {...args}
     />
   ),
 }

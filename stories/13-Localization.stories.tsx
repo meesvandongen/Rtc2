@@ -1,12 +1,14 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 
 import { DataTable, type DataTableLocalization } from '../src'
+import { appearanceArgTypes, loadingArgTypes } from './controls'
 import { makePeople, personColumns } from './fixtures'
 
 const data = makePeople(30)
 
 const meta: Meta = {
   title: 'DataTable/13 Localization',
+  argTypes: { ...appearanceArgTypes, ...loadingArgTypes },
 }
 
 export default meta
@@ -69,12 +71,30 @@ const arabic: Partial<DataTableLocalization> = {
 }
 
 export const Dutch: Story = {
-  render: () => (
+  args: {
+    locale: 'dutch',
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  argTypes: {
+    locale: {
+      control: 'select',
+      options: ['dutch', 'english'],
+      mapping: { dutch, english: undefined },
+      description: 'Story-only knob: which `localization` object is passed to the table.',
+      table: { category: 'Localization' },
+    },
+  },
+  render: ({ locale, ...args }) => (
     <DataTable
       columns={personColumns.slice(0, 6)}
       data={data}
       getRowId={(row) => row.id}
-      localization={dutch}
+      localization={locale}
       enableRowSelection
       enableColumnActions
       enableColumnPinning
@@ -84,13 +104,22 @@ export const Dutch: Story = {
       enableEditing
       editMode="modal"
       initialState={{ showGlobalFilter: true }}
+      {...args}
     />
   ),
 }
 
 /** A right-to-left locale combined with `direction="rtl"`. */
 export const ArabicRTL: Story = {
-  render: () => (
+  args: {
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <DataTable
       columns={personColumns.slice(0, 6)}
       data={data}
@@ -101,13 +130,22 @@ export const ArabicRTL: Story = {
       enableColumnActions
       enableColumnPinning
       initialState={{ showGlobalFilter: true, columnPinning: { start: ['rtc-select'], end: [] } }}
+      {...args}
     />
   ),
 }
 
 /** Filter operator names are localizable too. */
 export const LocalizedFilterOperators: Story = {
-  render: () => (
+  args: {
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <DataTable
       columns={personColumns.slice(0, 6)}
       data={data}
@@ -127,6 +165,7 @@ export const LocalizedFilterOperators: Story = {
           notEmpty: 'Is niet leeg',
         },
       }}
+      {...args}
     />
   ),
 }
