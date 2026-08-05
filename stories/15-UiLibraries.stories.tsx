@@ -7,12 +7,14 @@ import { DataTable, defaultComponents, type DataTableComponents } from '../src'
 import { createMantineComponents } from './adapters/mantine'
 import { createMuiComponents } from './adapters/mui'
 import { createRadixComponents } from './adapters/radix'
+import { loadingArgTypes } from './controls'
 import { makePeople, personColumns, type Person } from './fixtures'
 
 const data = makePeople(60)
 
 const meta: Meta = {
   title: 'DataTable/15 UI Libraries',
+  argTypes: loadingArgTypes,
 }
 
 export default meta
@@ -57,12 +59,19 @@ const commonOptions = {
 
 /** The built-in primitives — the baseline every adapter is compared against. */
 export const BuiltInPrimitives: Story = {
-  render: () => (
+  args: {
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <>
       <p className="rtc-sb-note">
         No <code>components</code> prop: the dependency-free defaults that ship with the package.
       </p>
-      <DataTable {...commonOptions} />
+      <DataTable {...commonOptions} {...args} />
     </>
   ),
 }
@@ -76,7 +85,14 @@ export const BuiltInPrimitives: Story = {
  * anchor to.
  */
 export const MaterialUi: Story = {
-  render: function MaterialUi(_args, context) {
+  args: {
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    skeletonRowCount: 5,
+  },
+  render: function MaterialUi(args, context) {
     const mode = colorSchemeOf(context)
     const components = useMemo<DataTableComponents>(
       () => createMuiComponents(defaultComponents),
@@ -92,6 +108,7 @@ export const MaterialUi: Story = {
         </p>
         <DataTable
           {...commonOptions}
+          {...args}
           components={components}
           // MUI's own primary, per mode — `#1976d2` is unreadable on a dark
           // surface, and it is the colour the adapter's buttons already use.
@@ -116,7 +133,14 @@ export const MaterialUi: Story = {
  * element and the built-in buttons forward their refs.
  */
 export const RadixShadcn: Story = {
-  render: function RadixShadcn(_args, context) {
+  args: {
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    skeletonRowCount: 5,
+  },
+  render: function RadixShadcn(args, context) {
     const mode = colorSchemeOf(context)
     const components = useMemo<DataTableComponents>(
       () => createRadixComponents(defaultComponents),
@@ -130,6 +154,7 @@ export const RadixShadcn: Story = {
         </p>
         <DataTable
           {...commonOptions}
+          {...args}
           components={components}
           // shadcn's primary inverts between its themes — near-black on light,
           // near-white on dark — so the accent has to invert with it. Pinned to
@@ -159,7 +184,14 @@ export const RadixShadcn: Story = {
  * richer controls, not just restyled ones.
  */
 export const Mantine: Story = {
-  render: function Mantine(_args, context) {
+  args: {
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    skeletonRowCount: 5,
+  },
+  render: function Mantine(args, context) {
     const mode = colorSchemeOf(context)
     const components = useMemo<DataTableComponents>(
       () => createMantineComponents(defaultComponents),
@@ -176,6 +208,7 @@ export const Mantine: Story = {
         </p>
         <DataTable
           {...commonOptions}
+          {...args}
           components={components}
           // Mantine's own tokens rather than the hex values they resolve to.
           //
@@ -219,7 +252,14 @@ export const Mantine: Story = {
 
 /** Switch libraries at runtime against one identical table. */
 export const SideBySideSwitcher: Story = {
-  render: function SideBySideSwitcher(_args, context) {
+  args: {
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    skeletonRowCount: 5,
+  },
+  render: function SideBySideSwitcher(args, context) {
     const mode = colorSchemeOf(context)
     const [library, setLibrary] = useState<'built-in' | 'mui' | 'radix' | 'mantine'>('built-in')
 
@@ -233,6 +273,7 @@ export const SideBySideSwitcher: Story = {
     const table = (
       <DataTable
         {...commonOptions}
+        {...args}
         height={480}
         components={components}
         initialState={{ showGlobalFilter: true, showFilterPanel: false }}
@@ -275,13 +316,21 @@ export const SideBySideSwitcher: Story = {
  * component and the rest keep their defaults.
  */
 export const PartialOverride: Story = {
-  render: () => (
+  args: {
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <>
       <p className="rtc-sb-note">
         Only <code>Badge</code> is overridden here; every other control is the built-in one.
       </p>
       <DataTable
         {...commonOptions}
+        {...args}
         components={{
           Badge: ({ children, onRemove, removeLabel }) => (
             <span

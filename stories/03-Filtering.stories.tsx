@@ -7,12 +7,69 @@ import {
   useDataTable,
   type ColumnFiltersState,
 } from '../src'
+import { loadingArgTypes } from './controls'
 import { makePeople, personColumns, type Person } from './fixtures'
 
 const data = makePeople(60)
 
+/** Filtering behaviour knobs shared across the stories in this file. */
+const filteringArgTypes = {
+  filterDisplayMode: {
+    control: 'select',
+    options: ['popover', 'panel', 'popover-and-panel', 'none'],
+    table: { category: 'Filtering' },
+  },
+  filterPanelPosition: {
+    control: 'select',
+    options: ['start', 'end'],
+    description: 'Which side the docked filter panel appears on.',
+    table: { category: 'Filtering' },
+  },
+  enableFilterModes: {
+    control: 'boolean',
+    description: 'Show the per-column operator (filter mode) menu.',
+    table: { category: 'Filtering' },
+  },
+  enableMultipleFilterConditions: {
+    control: 'boolean',
+    description: 'Allow several conditions on one column (`age > 20 AND age < 30`).',
+    table: { category: 'Filtering' },
+  },
+  showActiveFilterChips: {
+    control: 'boolean',
+    description: 'Removable chips in the toolbar for each active column filter.',
+    table: { category: 'Filtering' },
+  },
+  enableFaceting: {
+    control: 'boolean',
+    description: 'Compute faceted unique values, powering select/checkbox filter options.',
+    table: { category: 'Filtering' },
+  },
+  enableGlobalFilter: { control: 'boolean', table: { category: 'Filtering' } },
+  enableGlobalFilterToggle: {
+    control: 'boolean',
+    description: 'Whether the global search box has to be toggled open, versus always visible.',
+    table: { category: 'Filtering' },
+  },
+  globalFilterFn: {
+    control: 'select',
+    options: [
+      'includesString',
+      'includesStringSensitive',
+      'equalsString',
+      'equalsStringSensitive',
+      'startsWith',
+      'endsWith',
+      'weakEquals',
+    ],
+    table: { category: 'Filtering' },
+  },
+  enableStickyHeader: { control: 'boolean', table: { category: 'Appearance' } },
+} as const
+
 const meta: Meta = {
   title: 'DataTable/03 Filtering',
+  argTypes: { ...filteringArgTypes, ...loadingArgTypes },
 }
 
 export default meta
@@ -23,18 +80,22 @@ type Story = StoryObj<typeof meta>
  * editor in a popover, so a tall control costs no row height.
  */
 export const ColumnFilterPopovers: Story = {
-  render: () => (
+  args: {
+    filterDisplayMode: 'popover',
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <>
       <p className="rtc-sb-note">
         Click the funnel icon in any header. Active filters appear as removable chips in the
         toolbar, since the editors themselves are hidden until opened.
       </p>
-      <DataTable
-        columns={personColumns}
-        data={data}
-        getRowId={(row) => row.id}
-        filterDisplayMode="popover"
-      />
+      <DataTable columns={personColumns} data={data} getRowId={(row) => row.id} {...args} />
     </>
   ),
 }
@@ -46,43 +107,58 @@ export const ColumnFilterPopovers: Story = {
  * the editors are large: the pane scrolls independently of the rows.
  */
 export const DockedFilterPanel: Story = {
-  render: () => (
-    <DataTable
-      columns={personColumns}
-      data={data}
-      getRowId={(row) => row.id}
-      filterDisplayMode="panel"
-      height={560}
-      enableStickyHeader
-    />
+  args: {
+    filterDisplayMode: 'panel',
+    enableStickyHeader: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
+    <DataTable columns={personColumns} data={data} getRowId={(row) => row.id} height={560} {...args} />
   ),
 }
 
 export const PanelOnTheStartEdge: Story = {
-  render: () => (
-    <DataTable
-      columns={personColumns}
-      data={data}
-      getRowId={(row) => row.id}
-      filterDisplayMode="panel"
-      filterPanelPosition="start"
-      height={560}
-      enableStickyHeader
-    />
+  args: {
+    filterDisplayMode: 'panel',
+    filterPanelPosition: 'start',
+    enableStickyHeader: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
+    <DataTable columns={personColumns} data={data} getRowId={(row) => row.id} height={560} {...args} />
   ),
 }
 
 /** Both surfaces: quick single-column edits in the header, everything in the pane. */
 export const PopoverAndPanel: Story = {
-  render: () => (
+  args: {
+    filterDisplayMode: 'popover-and-panel',
+    enableStickyHeader: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <DataTable
       columns={personColumns}
       data={data}
       getRowId={(row) => row.id}
-      filterDisplayMode="popover-and-panel"
       height={560}
-      enableStickyHeader
       initialState={{ showFilterPanel: true }}
+      {...args}
     />
   ),
 }
@@ -103,20 +179,23 @@ export const PopoverAndPanel: Story = {
  */
 export const MobileFilterDrawer: Story = {
   globals: { viewport: { value: 'mobile2' } },
-  render: () => (
+  args: {
+    filterDisplayMode: 'popover-and-panel',
+    enableStickyHeader: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <>
       <p className="rtc-sb-note">
         Open the funnel in the toolbar for every column, or the one in a header for a single
         column. Both land in the same sheet — drag it down by its grabber to dismiss it.
       </p>
-      <DataTable
-        columns={personColumns}
-        data={data}
-        getRowId={(row) => row.id}
-        filterDisplayMode="popover-and-panel"
-        height={560}
-        enableStickyHeader
-      />
+      <DataTable columns={personColumns} data={data} getRowId={(row) => row.id} height={560} {...args} />
     </>
   ),
 }
@@ -165,21 +244,24 @@ export const FilterPanelOutsideTheTable: Story = {
  * checkbox operands populate from TanStack's faceted unique values.
  */
 export const FilterVariants: Story = {
-  render: () => (
+  args: {
+    filterDisplayMode: 'panel',
+    enableStickyHeader: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <>
       <p className="rtc-sb-note">
         Text, enum, number, boolean and date. Switch the operator on any column to change the
         operand: the date range and the salary slider are exactly the editors that made an in-table
         filter row unworkable.
       </p>
-      <DataTable
-        columns={personColumns}
-        data={data}
-        getRowId={(row) => row.id}
-        filterDisplayMode="panel"
-        height={620}
-        enableStickyHeader
-      />
+      <DataTable columns={personColumns} data={data} getRowId={(row) => row.id} height={620} {...args} />
     </>
   ),
 }
@@ -193,7 +275,18 @@ export const FilterVariants: Story = {
  * every comparison truncates to.
  */
 export const DateAndTimeFilters: Story = {
-  render: () => (
+  args: {
+    enableFilterModes: true,
+    filterDisplayMode: 'popover-and-panel',
+    enableStickyHeader: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <>
       <p className="rtc-sb-note">
         Filter <strong>Start date</strong> "is on" a day and it matches every row from that day.
@@ -208,11 +301,9 @@ export const DateAndTimeFilters: Story = {
         )}
         data={data}
         getRowId={(row) => row.id}
-        enableFilterModes
-        filterDisplayMode="popover-and-panel"
         height={560}
-        enableStickyHeader
         initialState={{ showFilterPanel: true }}
+        {...args}
       />
     </>
   ),
@@ -220,7 +311,16 @@ export const DateAndTimeFilters: Story = {
 
 /** A multi-select driven by explicit options rather than facets. */
 export const MultiSelectFilter: Story = {
-  render: () => (
+  args: {
+    filterDisplayMode: 'panel',
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <DataTable
       columns={personColumns.map((column) =>
         (column as { accessorKey?: string }).accessorKey === 'department'
@@ -236,8 +336,8 @@ export const MultiSelectFilter: Story = {
       )}
       data={data}
       getRowId={(row) => row.id}
-      filterDisplayMode="panel"
       height={560}
+      {...args}
     />
   ),
 }
@@ -248,41 +348,63 @@ export const MultiSelectFilter: Story = {
  * chosen operator is stored inside the filter value, not beside it.
  */
 export const FilterModes: Story = {
-  render: () => (
+  args: {
+    enableFilterModes: true,
+    filterDisplayMode: 'popover-and-panel',
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <DataTable
       columns={personColumns}
       data={data}
       getRowId={(row) => row.id}
-      enableFilterModes
-      filterDisplayMode="popover-and-panel"
       height={560}
       initialState={{ showFilterPanel: true }}
+      {...args}
     />
   ),
 }
 
 /** A single search box across every globally-filterable column. */
 export const GlobalFilter: Story = {
-  render: () => (
+  args: {
+    enableGlobalFilter: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <DataTable
       columns={personColumns}
       data={data}
       getRowId={(row) => row.id}
-      enableGlobalFilter
       initialState={{ showGlobalFilter: true }}
+      {...args}
     />
   ),
 }
 
 export const AlwaysVisibleSearch: Story = {
-  render: () => (
-    <DataTable
-      columns={personColumns.slice(0, 6)}
-      data={data}
-      getRowId={(row) => row.id}
-      enableGlobalFilterToggle={false}
-      globalFilterFn="includesString"
-    />
+  args: {
+    enableGlobalFilterToggle: false,
+    globalFilterFn: 'includesString',
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
+    <DataTable columns={personColumns.slice(0, 6)} data={data} getRowId={(row) => row.id} {...args} />
   ),
 }
 
@@ -320,20 +442,23 @@ export const ControlledFilters: Story = {
  * autocomplete to the cities still present in the result set.
  */
 export const Faceting: Story = {
-  render: () => (
+  args: {
+    enableFaceting: true,
+    filterDisplayMode: 'panel',
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <>
       <p className="rtc-sb-note">
         Pick a department, then open the city filter — its suggestions are recomputed from the
         remaining rows.
       </p>
-      <DataTable
-        columns={personColumns}
-        data={data}
-        getRowId={(row) => row.id}
-        enableFaceting
-        filterDisplayMode="panel"
-        height={560}
-      />
+      <DataTable columns={personColumns} data={data} getRowId={(row) => row.id} height={560} {...args} />
     </>
   ),
 }

@@ -2,12 +2,14 @@ import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 
 import { DataTable, dataTableThemes, type DataTableThemeName } from '../src'
+import { appearanceArgTypes, loadingArgTypes } from './controls'
 import { makePeople, personColumns } from './fixtures'
 
 const data = makePeople(12)
 
 const meta: Meta = {
   title: 'DataTable/12 Theming',
+  argTypes: { ...loadingArgTypes },
 }
 
 export default meta
@@ -51,7 +53,15 @@ export const Presets: Story = {
 
 /** Switch presets at runtime. */
 export const ThemeSwitcher: Story = {
-  render: function ThemeSwitcher() {
+  args: {
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: function ThemeSwitcher(args) {
     const [theme, setTheme] = useState<DataTableThemeName>('shadcn')
     return (
       <>
@@ -84,6 +94,7 @@ export const ThemeSwitcher: Story = {
           enableStickyHeader
           height={460}
           enablePagination={false}
+          {...args}
         />
       </>
     )
@@ -92,7 +103,23 @@ export const ThemeSwitcher: Story = {
 
 /** Any individual variable can be overridden inline. */
 export const InlineVariableOverrides: Story = {
-  render: () => (
+  args: {
+    layoutMode: 'semantic',
+    enableStripes: false,
+    enableRowHover: true,
+    enableBorders: 'horizontal',
+    enableStickyHeader: false,
+    enableStickyFooter: false,
+    direction: 'ltr',
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  argTypes: { ...appearanceArgTypes },
+  render: (args) => (
     <DataTable
       columns={personColumns.slice(0, 6)}
       data={data.slice(0, 6)}
@@ -110,13 +137,30 @@ export const InlineVariableOverrides: Story = {
       enableRowSelection
       enableColumnActions
       enablePagination={false}
+      {...args}
     />
   ),
 }
 
 /** Explicit dark mode, independent of the OS preference. */
 export const DarkMode: Story = {
-  render: () => (
+  args: {
+    layoutMode: 'semantic',
+    enableStripes: true,
+    enableRowHover: true,
+    enableBorders: 'horizontal',
+    enableStickyHeader: false,
+    enableStickyFooter: false,
+    direction: 'ltr',
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  argTypes: { ...appearanceArgTypes },
+  render: (args) => (
     <div data-rtc-theme="dark">
       <DataTable
         columns={personColumns.slice(0, 7)}
@@ -124,8 +168,8 @@ export const DarkMode: Story = {
         getRowId={(row) => row.id}
         enableRowSelection
         enableColumnActions
-        enableStripes
         enablePagination={false}
+        {...args}
       />
     </div>
   ),
@@ -133,7 +177,23 @@ export const DarkMode: Story = {
 
 /** Scoped overrides through `classNames` when a variable is not enough. */
 export const CustomClassNames: Story = {
-  render: () => (
+  args: {
+    layoutMode: 'semantic',
+    enableStripes: false,
+    enableRowHover: true,
+    enableBorders: 'horizontal',
+    enableStickyHeader: false,
+    enableStickyFooter: false,
+    direction: 'ltr',
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  argTypes: { ...appearanceArgTypes },
+  render: (args) => (
     <>
       <style>{`
         .demo-head-cell { text-decoration: underline dotted; }
@@ -145,6 +205,7 @@ export const CustomClassNames: Story = {
         getRowId={(row) => row.id}
         classNames={{ headCell: 'demo-head-cell', bodyRow: 'demo-row' }}
         enablePagination={false}
+        {...args}
       />
     </>
   ),
