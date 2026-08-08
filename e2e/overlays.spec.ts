@@ -28,6 +28,7 @@ const ADAPTERS = {
   mui: 'datatable-15-ui-libraries--material-ui',
   radix: 'datatable-15-ui-libraries--radix-shadcn',
   mantine: 'datatable-15-ui-libraries--mantine',
+  lolmath: 'datatable-15-ui-libraries--lolmath-ui',
 } as const
 
 /**
@@ -51,6 +52,10 @@ function anyOverlay(page: Page): Locator {
       '.mantine-Menu-dropdown:visible',
       '[data-radix-popper-content-wrapper] > *',
       '.MuiPopover-paper',
+      // React Aria unmounts a closed popover, so lolmath's surfaces need no
+      // `:visible` filter — but they also replace React Aria's default class
+      // with their own hashed one, so the adapter tags them itself.
+      '.lol-popover',
     ].join(', '),
   )
 }
@@ -62,11 +67,22 @@ function anyOverlay(page: Page): Locator {
  * outside its parent and clip it with `overflow: hidden` — a number input's
  * stepper typically does exactly that. Only an overflow that no ancestor clips
  * is a real one.
+ *
+ * The other over-report is an element clipped to nothing by *itself*. React
+ * Aria parks a real `<select>` next to its combobox so browser autofill and
+ * form submission still work, in a container the visually-hidden idiom shrinks
+ * to a point — and one absolutely positioned against the viewport, so its box
+ * lands wherever the page starts. It is not on screen and is not an overflow.
  */
 async function visualOverflow(scope: Locator): Promise<Array<{ el: string; by: number }>> {
   return scope.evaluate((root) => {
     const bounds = root.getBoundingClientRect()
     const found: Array<{ el: string; by: number }> = []
+
+    const isHidden = (node: Element) => {
+      const style = getComputedStyle(node)
+      return style.clipPath === 'inset(50%)' || style.clip === 'rect(0px, 0px, 0px, 0px)'
+    }
 
     const isClipped = (node: Element) => {
       let parent = node.parentElement
@@ -82,7 +98,7 @@ async function visualOverflow(scope: Locator): Promise<Array<{ el: string; by: n
       const box = node.getBoundingClientRect()
       if (box.width === 0 || box.height === 0) continue
       const over = Math.max(box.right - bounds.right, bounds.left - box.left)
-      if (over <= 1 || isClipped(node)) continue
+      if (over <= 1 || isHidden(node) || isClipped(node)) continue
       found.push({
         el: `${node.tagName.toLowerCase()}.${(node as HTMLElement).className}`.slice(0, 80),
         by: Math.round(over),

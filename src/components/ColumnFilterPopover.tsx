@@ -86,7 +86,7 @@ export function ColumnFilterPopover<TData extends RowData>({
     <ui.Popover align="start" label={triggerLabel} trigger={trigger}>
       <div className="rtc-filter-popover" data-rtc-filter-popover={column.id}>
         <div className="rtc-filter-popover-header">
-          <span className="rtc-filter-field-label">{label}</span>
+          <ui.Label className="rtc-filter-field-label">{label}</ui.Label>
           {clearButton}
         </div>
 

@@ -108,8 +108,9 @@ and use `useTable` directly.
 
 Every interactive control the table renders — buttons, inputs, selects,
 popovers, menus, the modal editor, the mobile filter drawer — comes from a
-component registry. Supply your design system once and the whole table adopts
-it:
+component registry, along with the one piece of chrome that is not a control:
+`Label`, the text over a field. Supply your design system once and the whole
+table adopts it:
 
 ```tsx
 import { DataTable, defaultComponents } from '@mvd/table'
@@ -138,9 +139,11 @@ registry. Column pinning, resizing and virtualization all depend on the exact
 DOM and data attributes the table emits, so those stay ours and are styled
 with CSS variables instead.
 
-Working adapters for **MUI**, **Radix/shadcn** and **Mantine** live in
-`stories/adapters/` and are exercised by both Storybook (*15 UI Libraries*) and
-the Playwright suite, which runs the same interaction tests against all three.
+Working adapters for **MUI**, **Radix/shadcn**, **Mantine** and
+**[`@lolmath/ui`](https://github.com/lolmath/lolmath/tree/main/packages/ui)**
+live in `stories/adapters/` and are exercised by both Storybook
+(*15 UI Libraries*) and the Playwright suite, which runs the same interaction
+tests against all four.
 
 ```tsx
 import type { DataTableComponents } from '@mvd/table'
@@ -167,6 +170,13 @@ adapter that destructures the props it knows and drops the rest renders a
 button that looks perfect and opens nothing — or one whose overlay has no
 element to measure and lands in the corner of the viewport. Nothing about it
 looks wrong in a screenshot.
+
+React Aria — which `@lolmath/ui` is built on — is the case that shows why the
+rule is stated in terms of the *element* rather than the props: it delivers
+nothing onto the trigger at all, wiring it through a `PressResponder` context
+instead. That works for the same underlying reason the other three do, which
+is that the registry hands over a rendered element and the library's own
+button is therefore already in the tree.
 
 `e2e/overlays.spec.ts` opens every overlay in every adapter for exactly this
 reason, and it is what actually enforces the rule. A new adapter has to pass
@@ -199,8 +209,9 @@ it uppercase and primary-blue, overruling the `--rtc-header-*` variables that
 exist to control exactly that.
 
 One consequence worth knowing if you write an adapter: **anything portalled
-needs the `rtc-vars` class**. Radix, MUI and Mantine all render overlays into
-`document.body`, outside the table, where `--rtc-*` is not defined. An adapter
+needs the `rtc-vars` class**. Radix, MUI, Mantine and React Aria all render
+overlays into `document.body`, outside the table, where `--rtc-*` is not
+defined. An adapter
 stylesheet written against those variables produces a menu with no background;
 worse, an icon we hand the library as menu-item content loses
 `--rtc-icon-size`, and an SVG whose `width` is an invalid `var()` falls back to
@@ -209,6 +220,33 @@ fallback for that reason, but the class is what keeps everything else themed.
 The class resolves the palette from wherever the portal lands, so in dark mode
 it only works if `data-rtc-theme` is somewhere both the table and
 `document.body` can see it — see [Theming](#theming).
+
+The class declares the variables, though; it does not carry your overrides.
+`cssVars` is an inline style on the table root and cannot reach a portal, so an
+adapter that remaps the palette has to apply the same map to its own surfaces —
+otherwise a filter editor in a popover is painted in the stock colours while
+the identical editor docked in the panel is painted in yours. The `@lolmath/ui`
+adapter exports its map for that reason and the story reuses it.
+
+### What the variables cannot carry
+
+`--rtc-*` covers colour, type and metrics, which is most of a design system —
+but not all of one. Two things always need a stylesheet:
+
+- **Shapes that are not values.** A gradient border is two backgrounds painted
+  into different boxes, not a colour, so it cannot be a variable at all. It is
+  `@lolmath/ui`'s signature, and the adapter sets it on a class of its own
+  rather than trying to express it through `--rtc-color-border`.
+- **Anything with no variable.** There is no `--rtc-header-font-family`,
+  because a header is the only part of a table that would want one — and
+  `@lolmath/ui` is the first library here that reserves a separate display face
+  for exactly that.
+
+Everything else should go through `cssVars`, including the parts that look like
+they need CSS. Row states are the case worth knowing: `--rtc-row-bg-hover` and
+`--rtc-row-bg-selected` are applied with the `background` shorthand, so a
+gradient — a wash that fades out to the right, a spine down the leading edge —
+is a variable, not a rule.
 
 ### The built-in overlays
 
@@ -774,7 +812,7 @@ src/
     FilterPanel.tsx    standalone filter pane
     FilterEditor.tsx   per-variant editor, shared by popover and panel
 stories/               one file per feature area
-stories/adapters/      MUI, Radix and Mantine registry adapters
+stories/adapters/      MUI, Radix, Mantine and @lolmath/ui registry adapters
 e2e/                   Playwright specs
 tsdown.config.ts       library build (rolldown + lightningcss)
 ```

@@ -12,6 +12,7 @@ import {
   Menu as MuiMenu,
   MenuItem as MuiMenuItem,
   Divider,
+  FormLabel,
   ListItemIcon,
   ListItemText,
   ListSubheader,
@@ -364,6 +365,14 @@ export function createMuiComponents(defaults: DataTableComponents): DataTableCom
       <MuiTooltip title={label}>
         <span>{children}</span>
       </MuiTooltip>
+    ),
+
+    // `component="span"`: the modal editor already wraps each field in a
+    // `<label>`, and MUI's `FormLabel` is a `<label>` element by default.
+    Label: ({ children, className }) => (
+      <FormLabel component="span" className={className}>
+        {children}
+      </FormLabel>
     ),
 
     Badge: ({ children, onRemove, removeLabel }) => (

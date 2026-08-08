@@ -70,6 +70,7 @@ export {
   type DataTableComponents,
   type DataTableComponentsOverride,
   type RtcBadgeProps,
+  type RtcLabelProps,
   type RtcButtonProps,
   type RtcCheckboxProps,
   type RtcDialogProps,

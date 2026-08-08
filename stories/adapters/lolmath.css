@@ -1,0 +1,160 @@
+/* Fit-and-finish for the `@lolmath/ui` adapter.
+ *
+ * The library is fully styled, so unlike `radix.css` this is not a visual
+ * layer — every control's appearance is the library's own, chosen by preset.
+ * What is left is deliberately small, and each rule is here for one of three
+ * reasons:
+ *
+ * 1. It is on markup of *ours*, where `--rtc-*` cannot reach: the gradient
+ *    border is two backgrounds in different boxes rather than a colour, and
+ *    there is no `--rtc-header-font-family`.
+ * 2. A control built for a form has to survive a filter field or a toolbar — an
+ *    intrinsic minimum width, a thumb that overhangs its track, a spinner sized
+ *    for a page.
+ * 3. The contract asks for something the library has no equivalent for: a
+ *    destructive menu item, a skeleton.
+ *
+ * There is no category for "the library needs a reset it does not ship" any
+ * more. `@lolmath/ui@9.1.2` resets the bare `<button>`s it renders and sets
+ * `display` on the shapes React Aria measures, so it no longer needs Tailwind's
+ * preflight to look right — which also retired the Vite plugin that used to
+ * repair its inlined images.
+ *
+ * Anything that would restyle a library component for taste is not here. */
+
+/* ------------------------------------------------------------------ table -- */
+
+/* The table root is ours, and this is the one part of the library's look that
+ * cannot be a variable: its panels are drawn with a gradient in the border box
+ * and a flat fill in the padding box.
+ *
+ * `.rtc-root.lol-table` rather than `.lol-table` alone: `.rtc-root` sets the
+ * background and border this replaces, and a single class would only outrank it
+ * on source order — which is a bundler's business, not ours. */
+.rtc-root.lol-table {
+  border: 2px solid transparent;
+  background:
+    linear-gradient(var(--lol-color-hextech-black), var(--lol-color-hextech-black)) padding-box,
+    var(--lol-gradient-gold) border-box;
+}
+
+/* Beaufort is the display face, and a header is the one part of a data table
+   set in it. There is no `--rtc-header-font-family`, so it goes here — on the
+   cell, which `.rtc-th-sort` inherits from. */
+.lol-table .rtc-th {
+  font-family: var(--lol-font-family-beaufort);
+}
+
+/* ---------------------------------------------------------------- controls -- */
+
+/* `min-width: 200px` on the library's select trigger is right for a form and
+   far too wide for a filter field: without this the docked panel scrolls
+   sideways and the popover editors spill past their own border. */
+.lol-select-button,
+.lol-select-button > button {
+  min-width: 0;
+  width: 100%;
+}
+
+/* A range slider's thumb is a 1.75rem disc centred on the track end, so half of
+   it hangs outside the control. The gutters are the thumb's radius. */
+.lol-slider {
+  width: 100%;
+  padding-inline: 14px;
+  box-sizing: border-box;
+}
+
+/* The one thing still worth reporting upstream: the library hides the clear
+   affordance with `[data-empty]` on the *button*, and React Aria puts that
+   attribute on the field. The rule can never match, so without this an empty
+   search box carries a permanent ✕. */
+.lol-search[data-empty] > button {
+  display: none;
+}
+
+/* A tag group is laid out as a centred row of chips for a form field. The
+   table's badges are single chips inline in a toolbar. */
+.lol-tag-group {
+  padding: 0;
+  display: inline-flex;
+}
+
+/* --------------------------------------------------------------- overlays -- */
+
+/* Our own span, wrapping an icon the table passes as menu-item content. The
+   flex context it would sit in inside the table does not exist in a surface
+   React Aria portals to `document.body`. */
+.lol-menu-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  margin-inline-end: 6px;
+  color: var(--lol-color-gold-400);
+}
+
+/* `RtcMenuItem.danger` has no equivalent preset in the library — there is no
+   destructive variant to map onto — so the one property it means is set here
+   rather than left silently unsupported. */
+.lol-popover [role='menuitem'][data-danger='true'] {
+  color: var(--lol-color-gold-400);
+}
+
+/* The library's `Modal` leaves the dialog's padding to the caller, and its
+   overlay centres text for a prose dialog. The table's is a form. */
+.lol-modal [role='dialog'] {
+  padding: 20px;
+  text-align: start;
+}
+
+.lol-modal-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 16px 0;
+}
+
+/* ----------------------------------------------------------------- states -- */
+
+/* The library has no skeleton, so this is the one control drawn from scratch,
+   using its own greys. */
+.lol-skeleton {
+  display: inline-block;
+  width: 80%;
+  height: 12px;
+  background: linear-gradient(
+    90deg,
+    var(--lol-color-grey-300),
+    var(--lol-color-grey-200),
+    var(--lol-color-grey-300)
+  );
+  background-size: 200% 100%;
+  animation: lol-skeleton-sweep 1.4s linear infinite;
+}
+
+@keyframes lol-skeleton-sweep {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lol-skeleton {
+    animation: none;
+  }
+}
+
+/* `Spinner` is sized for a page — 3rem — and this slot is a strip above the
+   table, so the only thing set here is the box it sits in. */
+.lol-progress {
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: center;
+  padding: 2px 0;
+}
+
+.lol-progress > img {
+  width: 1.25rem;
+}
