@@ -180,8 +180,30 @@ const SHEET_SURFACES: Record<string, { story: string; surface: string }> = {
   mui: { story: 'datatable-15-ui-libraries--material-ui', surface: '.MuiDrawer-paper' },
   radix: { story: 'datatable-15-ui-libraries--radix-shadcn', surface: '.rx-drawer' },
   mantine: { story: 'datatable-15-ui-libraries--mantine', surface: '.mantine-Drawer-content' },
-  lolmath: { story: 'datatable-15-ui-libraries--lolmath-ui', surface: '.lol-drawer' },
 }
+
+/**
+ * Not every library has a drawer, and the contract says so: an adapter with
+ * only a centred dialog may ignore `side`. `@lolmath/ui` takes that route, so
+ * the geometry below does not apply to it — but the substitution still has to
+ * deliver the thing the sheet exists for.
+ */
+test.describe('a modal substituted for the drawer', () => {
+  test.use({ viewport: PHONE })
+
+  test('still opens the filters on a phone', async ({ page }) => {
+    const root = await openStory(page, 'datatable-15-ui-libraries--lolmath-ui')
+    await toolbarAction(root, 'toggle-filters').click()
+
+    const surface = page.getByRole('dialog')
+    await expect(surface).toBeVisible()
+    await expect(surface.locator('[data-rtc-filter-field="department"]')).toBeVisible()
+
+    // And it is dismissable, which is what pays for having no close button.
+    await page.keyboard.press('Escape')
+    await expect(surface).toHaveCount(0)
+  })
+})
 
 test.describe('sheet geometry', () => {
   test.use({ viewport: PHONE })

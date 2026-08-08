@@ -44,7 +44,14 @@ import {
 
 import type { CSSProperties, Key, ReactNode } from 'react'
 
-import type { DataTableComponents, RtcMenuItem, RtcOption, RtcSize } from '../../src'
+import type {
+  DataTableComponents,
+  RtcDialogProps,
+  RtcDrawerProps,
+  RtcMenuItem,
+  RtcOption,
+  RtcSize,
+} from '../../src'
 import './lolmath.css'
 
 /**
@@ -287,6 +294,41 @@ function toMenuNodes(items: RtcMenuItem[]): ReactNode[] {
 
   flushCheckboxes()
   return nodes
+}
+
+/**
+ * The library's `Modal`, which backs both `Dialog` and `Drawer`.
+ *
+ * The contract keeps the two slots close in shape for exactly this: a design
+ * system with one modal satisfies both with it. `Drawer` may be rendered while
+ * closed, which `Modal` handles — React Aria mounts nothing until `isOpen`.
+ */
+function LolmathDialog({
+  open,
+  onClose,
+  title,
+  children,
+  footer,
+  label,
+}: RtcDialogProps | RtcDrawerProps) {
+  return (
+    <Modal
+      isOpen={open}
+      isDismissable
+      onOpenChange={(next) => {
+        if (!next) onClose()
+      }}
+      className="rtc-vars lol-modal"
+      modalOverlayClassName="rtc-vars"
+      data-rtc-theme="dark"
+      style={lolmathCssVars as CSSProperties}
+      dialogProps={{ 'aria-label': label }}
+    >
+      <DialogHeading slot="title">{title}</DialogHeading>
+      <div className="lol-modal-fields">{children}</div>
+      {footer ? <DialogButtons>{footer}</DialogButtons> : null}
+    </Modal>
+  )
 }
 
 export function createLolmathComponents(defaults: DataTableComponents): DataTableComponents {
@@ -587,55 +629,18 @@ export function createLolmathComponents(defaults: DataTableComponents): DataTabl
     ),
 
     /**
-     * The library has no drawer, so this is its `Modal` anchored to an edge —
-     * the same call the Radix adapter makes, and what the contract has in mind
-     * when it says an adapter with a modal can satisfy both slots with it.
-     * `lolmath.css` supplies the anchoring, which is geometry the modal has no
-     * prop for; everything visible is still the library's own dialog chrome.
+     * The drawer slot, as the library's `Modal`.
+     *
+     * `@lolmath/ui` has no drawer, and nothing in it wants to look like one —
+     * so rather than anchor its modal to an edge and call the result a sheet,
+     * this is the modal, unchanged. The contract allows it in as many words: an
+     * adapter that only has a centred dialog may ignore `side`. Dismissal comes
+     * from the modal itself, by Escape or a click outside, and from the action
+     * the table pins in the footer.
      */
-    Drawer: ({ open, onClose, title, children, footer, label, closeLabel, side = 'bottom' }) => (
-      <Modal
-        isOpen={open}
-        isDismissable
-        onOpenChange={(next) => {
-          if (!next) onClose()
-        }}
-        className="rtc-vars lol-modal lol-drawer"
-        modalOverlayClassName="rtc-vars lol-drawer-overlay"
-        data-rtc-theme="dark"
-        data-side={side}
-        style={lolmathCssVars as CSSProperties}
-        dialogProps={{ 'aria-label': label }}
-      >
-        <div className="lol-drawer-header">
-          <DialogHeading slot="title">{title}</DialogHeading>
-          <Button preset="dimmed" shape="square" size="small" aria-label={closeLabel} slot="close">
-            <defaults.Icon name="close" />
-          </Button>
-        </div>
-        <div className="lol-drawer-body">{children}</div>
-        {footer ? <DialogButtons>{footer}</DialogButtons> : null}
-      </Modal>
-    ),
+    Drawer: (props) => <LolmathDialog {...props} />,
 
-    Dialog: ({ open, onClose, title, children, footer, label }) => (
-      <Modal
-        isOpen={open}
-        isDismissable
-        onOpenChange={(next) => {
-          if (!next) onClose()
-        }}
-        className="rtc-vars lol-modal"
-        modalOverlayClassName="rtc-vars"
-        data-rtc-theme="dark"
-        style={lolmathCssVars as CSSProperties}
-        dialogProps={{ 'aria-label': label }}
-      >
-        <DialogHeading slot="title">{title}</DialogHeading>
-        <div className="lol-modal-fields">{children}</div>
-        {footer ? <DialogButtons>{footer}</DialogButtons> : null}
-      </Modal>
-    ),
+    Dialog: (props) => <LolmathDialog {...props} />,
 
     /**
      * `elementType="span"`: the library's `Label` is a `<label>`, and the modal

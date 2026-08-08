@@ -106,58 +106,6 @@
   text-align: start;
 }
 
-/* The library has no drawer, so the drawer slot is its `Modal` pinned to an
-   edge. Only the geometry is here — the surface, its border and its overlay are
-   the modal's own. */
-.lol-drawer-overlay {
-  align-items: stretch;
-  justify-content: flex-end;
-  padding: 0;
-}
-
-.lol-drawer {
-  max-width: none;
-  display: flex;
-  max-height: 85vh;
-}
-
-.lol-drawer[data-side='start'],
-.lol-drawer[data-side='end'] {
-  width: min(360px, 100%);
-  max-height: none;
-  margin-inline-start: auto;
-}
-
-.lol-drawer[data-side='start'] {
-  margin-inline: 0 auto;
-}
-
-.lol-drawer[data-side='start'] ~ *,
-.lol-drawer-overlay:has([data-side='start']) {
-  justify-content: flex-start;
-}
-
-.lol-drawer [role='dialog'] {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  width: 100%;
-}
-
-.lol-drawer-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.lol-drawer-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
-  margin: 16px 0;
-}
-
 .lol-modal-fields {
   display: flex;
   flex-direction: column;
