@@ -24,9 +24,12 @@ importers:
       '@emotion/styled':
         specifier: ^11.14.1
         version: 11.14.1(@emotion/react@11.14.0(@types/react@19.2.17)(react@19.2.8))(@types/react@19.2.17)(react@19.2.8)
+      '@internationalized/date':
+        specifier: ^3.12.3
+        version: 3.12.3
       '@lolmath/ui':
-        specifier: ^9.1.2
-        version: 9.1.2(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3)
+        specifier: ^9.2.0
+        version: 9.2.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3)
       '@mantine/core':
         specifier: 9.5.0
         version: 9.5.0(@mantine/hooks@9.5.0(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -573,8 +576,8 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@lolmath/ui@9.1.2':
-    resolution: {integrity: sha512-0qGqQt8Ab9MQukoxCXSVSYNAXV472G44556FKJjOSnLMoiErzyS1ebZFIqe4DB+R0EnSWEsZllKggtfj24EYLA==}
+  '@lolmath/ui@9.2.0':
+    resolution: {integrity: sha512-5cy/KYsPRtv2hgmK8vyyBXNfvzG0J95ZDrhvCUUSqhvjq7gqLv8bttE1qXKsLUUKhLiBqtIBBeJAgpVeLG++OQ==}
     peerDependencies:
       react: '>=19'
       react-dom: '>=19'
@@ -3789,7 +3792,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@lolmath/ui@9.1.2(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3)':
+  '@lolmath/ui@9.2.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3)':
     dependencies:
       cva: 1.0.0-beta.4(typescript@5.9.3)
       react: 19.2.8

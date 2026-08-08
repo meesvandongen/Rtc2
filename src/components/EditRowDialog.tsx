@@ -63,7 +63,7 @@ export function EditRowDialog<TData extends RowData>({
       {row
         ? editableColumns.map((column) => (
             <label className="rtc-field" key={column.id}>
-              <span className="rtc-field-label">{getColumnLabel(column, localization)}</span>
+              <ui.Label className="rtc-field-label">{getColumnLabel(column, localization)}</ui.Label>
               <CellEditor table={table} row={row as never} columnId={column.id} />
             </label>
           ))

@@ -2,12 +2,15 @@ import '@lolmath/ui/css'
 import '@lolmath/ui/font/beaufort'
 import '@lolmath/ui/font/spiegel'
 
+import { parseDate, parseDateTime, parseTime } from '@internationalized/date'
 import {
   Button,
   Checkbox,
+  DatePicker,
   DialogButtons,
   DialogHeading,
   DialogTrigger,
+  Label,
   Menu,
   MenuHeader,
   MenuItem,
@@ -35,6 +38,7 @@ import {
   TagGroup,
   TagList,
   TextField,
+  TimeField,
   ToggleButton,
 } from '@lolmath/ui'
 
@@ -165,6 +169,23 @@ const toSize = (size: RtcSize | undefined) => (size === 'sm' ? 'small' : 'medium
 
 /** RAC collections key on `id`; `RtcOption` keys on `value`. */
 const toItems = (options: RtcOption[]) => options.map((option) => ({ ...option, id: option.value }))
+
+/**
+ * A wire-format string as the value React Aria's date fields work in.
+ *
+ * The parsers throw on anything they do not fully recognise, and the table
+ * hands over whatever the filter currently holds — empty before a value is
+ * picked, half-typed while a segmented field is being filled in. Neither is an
+ * error, so both become "no value".
+ */
+const parse = <T,>(parser: (value: string) => T, value: string): T | null => {
+  if (!value) return null
+  try {
+    return parser(value)
+  } catch {
+    return null
+  }
+}
 
 /**
  * `onClick`, which React Aria types away but still honours.
@@ -349,6 +370,60 @@ export function createLolmathComponents(defaults: DataTableComponents): DataTabl
         )
       }
 
+      // The three temporal types are real pickers rather than native inputs:
+      // segmented fields that respect the locale, and a calendar behind the
+      // date ones. Everything below converts between the table's wire format
+      // — the `value` a native input of that type would carry — and the
+      // `@internationalized/date` values React Aria works in.
+      if (type === 'date') {
+        return (
+          <DatePicker
+            aria-label={label}
+            value={parse(parseDate, value)}
+            size={toSize(size)}
+            isDisabled={disabled}
+            onChange={(next) => onChange(next?.toString() ?? '')}
+            onBlur={onBlur}
+            onKeyDown={onKeyDown}
+            popoverProps={surface}
+            {...dataAttributes}
+          />
+        )
+      }
+
+      if (type === 'datetime-local') {
+        return (
+          <DatePicker
+            aria-label={label}
+            granularity="minute"
+            value={parse(parseDateTime, value)}
+            size={toSize(size)}
+            isDisabled={disabled}
+            // `toString()` carries seconds; the wire format stops at minutes.
+            onChange={(next) => onChange(next?.toString().slice(0, 16) ?? '')}
+            onBlur={onBlur}
+            onKeyDown={onKeyDown}
+            popoverProps={surface}
+            {...dataAttributes}
+          />
+        )
+      }
+
+      if (type === 'time') {
+        return (
+          <TimeField
+            aria-label={label}
+            value={parse(parseTime, value)}
+            size={toSize(size)}
+            isDisabled={disabled}
+            onChange={(next) => onChange(next?.toString().slice(0, 5) ?? '')}
+            onBlur={onBlur}
+            onKeyDown={onKeyDown}
+            {...dataAttributes}
+          />
+        )
+      }
+
       return (
         <TextField
           aria-label={label}
@@ -359,7 +434,7 @@ export function createLolmathComponents(defaults: DataTableComponents): DataTabl
           onBlur={onBlur}
           onKeyDown={onKeyDown}
           // `TextField` hard-codes `type="text"` on its input and spreads
-          // `inputProps` after it, so date and time variants are set here.
+          // `inputProps` after it, so the remaining variants are set here.
           inputProps={{ type, placeholder, autoFocus, ...dataAttributes }}
         />
       )
@@ -528,6 +603,17 @@ export function createLolmathComponents(defaults: DataTableComponents): DataTabl
         <div className="lol-modal-fields">{children}</div>
         {footer ? <DialogButtons>{footer}</DialogButtons> : null}
       </Modal>
+    ),
+
+    /**
+     * `elementType="span"`: the library's `Label` is a `<label>`, and the modal
+     * editor already wraps each field in one — nesting them is invalid markup
+     * and costs the association the table has already made.
+     */
+    Label: ({ children, className }) => (
+      <Label elementType="span" preset="label" className={className}>
+        {children}
+      </Label>
     ),
 
     /**

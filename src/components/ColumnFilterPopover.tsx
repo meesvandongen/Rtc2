@@ -42,7 +42,7 @@ export function ColumnFilterPopover<TData extends RowData>({
     >
       <div className="rtc-filter-popover" data-rtc-filter-popover={column.id}>
         <div className="rtc-filter-popover-header">
-          <span className="rtc-filter-field-label">{label}</span>
+          <ui.Label className="rtc-filter-field-label">{label}</ui.Label>
           {isActive ? (
             <ui.Button
               size="sm"

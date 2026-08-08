@@ -17,6 +17,7 @@ import {
   Select,
   Skeleton,
   Switch,
+  Text,
   TextInput,
   Tooltip,
 } from '@mantine/core'
@@ -351,6 +352,14 @@ export function createMantineComponents(defaults: DataTableComponents): DataTabl
       <Tooltip label={label} withinPortal>
         <span>{children}</span>
       </Tooltip>
+    ),
+
+    // Mantine's `Input.Label` is a `<label>`; the modal editor already wraps
+    // each field in one, so this is its label typography on a span.
+    Label: ({ children, className }) => (
+      <Text component="span" size="sm" fw={500} className={className}>
+        {children}
+      </Text>
     ),
 
     Badge: ({ children, onRemove, removeLabel }) => (

@@ -92,7 +92,7 @@ function FilterPanelContent<TData extends RowData>({
               data-rtc-active={isActive ? 'true' : undefined}
             >
               <div className="rtc-filter-field-header">
-                <span className="rtc-filter-field-label">{label}</span>
+                <ui.Label className="rtc-filter-field-label">{label}</ui.Label>
 
                 {isActive ? (
                   <ui.IconButton

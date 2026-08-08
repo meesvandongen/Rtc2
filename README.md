@@ -107,8 +107,9 @@ and use `useTable` directly.
 ## Bring your own components
 
 Every interactive control the table renders — buttons, inputs, selects,
-popovers, menus, the modal editor — comes from a component registry. Supply
-your design system once and the whole table adopts it:
+popovers, menus, the modal editor — comes from a component registry, along with
+the one piece of chrome that is not a control: `Label`, the text over a field.
+Supply your design system once and the whole table adopts it:
 
 ```tsx
 import { DataTable, defaultComponents } from '@mvd/table'

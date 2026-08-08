@@ -20,6 +20,7 @@ import type {
   RtcIconButtonProps,
   RtcIconName,
   RtcIconProps,
+  RtcLabelProps,
   RtcMenuProps,
   RtcMultiSelectProps,
   RtcNumberInputProps,
@@ -724,6 +725,11 @@ function Tooltip({ label, children }: RtcTooltipProps) {
   return <span title={label}>{children}</span>
 }
 
+/** A span, so it nests inside the `<label>` the modal editor wraps a field in. */
+function Label({ children, className }: RtcLabelProps) {
+  return <span className={className}>{children}</span>
+}
+
 function Badge({ children, onRemove, removeLabel }: RtcBadgeProps) {
   return (
     <span className="rtc-chip">
@@ -761,6 +767,7 @@ export const defaultComponents: DataTableComponents = {
   Menu,
   Dialog,
   Tooltip,
+  Label,
   Badge,
   Skeleton,
   ProgressBar,

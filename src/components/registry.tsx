@@ -212,6 +212,23 @@ export interface RtcTooltipProps {
   children: ReactNode
 }
 
+/**
+ * The text of a field's label.
+ *
+ * Presentational only: the table owns the *association* — in the modal editor
+ * the field is a `<label>` wrapping its control, and every registry control
+ * takes an `aria-label` of its own — so this slot supplies typography and
+ * nothing else. An adapter whose library labels with a `<label>` element should
+ * render it as a span (React Aria's `Label` takes an `elementType` for exactly
+ * this); nesting one inside the table's own `<label>` is invalid and breaks the
+ * association the table already made.
+ */
+export interface RtcLabelProps {
+  children: ReactNode
+  /** A structural hook; see the class-name rules in the README. */
+  className?: string
+}
+
 export interface RtcBadgeProps {
   children: ReactNode
   onRemove?: () => void
@@ -275,6 +292,7 @@ export interface DataTableComponents {
   Menu: ComponentType<RtcMenuProps>
   Dialog: ComponentType<RtcDialogProps>
   Tooltip: ComponentType<RtcTooltipProps>
+  Label: ComponentType<RtcLabelProps>
   Badge: ComponentType<RtcBadgeProps>
   Skeleton: ComponentType<RtcSkeletonProps>
   ProgressBar: ComponentType<RtcProgressBarProps>

@@ -246,9 +246,9 @@ export const LolmathUi: Story = {
       // scrollbars and dark form chrome under a dark table.
       <div data-rtc-theme="dark">
         <p className="rtc-sb-note">
-          Buttons, fields, menus, the searchable multi-select, the modal editor and the tag chips
-          are all <code>@lolmath/ui</code>. It ships no icon set and — deliberately — no tooltip, so
-          those two stay ours.
+          Buttons, field labels, menus, the searchable multi-select, the segmented date pickers,
+          the modal editor and the tag chips are all <code>@lolmath/ui</code>. It ships no icon set
+          and — deliberately — no tooltip, so those two stay ours.
         </p>
         <DataTable
           {...commonOptions}
