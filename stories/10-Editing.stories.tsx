@@ -2,10 +2,12 @@ import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 
 import { DataTable } from '../src'
+import { loadingArgTypes } from './controls'
 import { makePeople, personColumns, type Person } from './fixtures'
 
 const meta: Meta = {
   title: 'DataTable/10 Editing',
+  argTypes: { ...loadingArgTypes },
 }
 
 export default meta
@@ -13,9 +15,29 @@ type Story = StoryObj<typeof meta>
 
 const editableColumns = personColumns.slice(0, 7)
 
+/** `editMode` control shared by the stories that expose a fixed editing mode. */
+const editModeArgType = {
+  control: 'select',
+  options: ['cell', 'row', 'table', 'modal'],
+  table: { category: 'Editing' },
+} as const
+
+const enableEditingArgType = { control: 'boolean', table: { category: 'Editing' } } as const
+
 /** Double-click a cell to edit it. Enter or blur commits, Escape reverts. */
 export const CellEditing: Story = {
-  render: function CellEditing() {
+  args: {
+    editMode: 'cell',
+    enableEditing: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  argTypes: { editMode: editModeArgType, enableEditing: enableEditingArgType },
+  render: function CellEditing(args) {
     const [rows, setRows] = useState<Person[]>(() => makePeople(10))
     return (
       <>
@@ -24,10 +46,9 @@ export const CellEditing: Story = {
           columns={editableColumns}
           data={rows}
           getRowId={(row) => row.id}
-          enableEditing
-          editMode="cell"
           onDataChange={setRows}
           enablePagination={false}
+          {...args}
         />
       </>
     )
@@ -36,20 +57,30 @@ export const CellEditing: Story = {
 
 /** The whole row becomes editable, with explicit save and cancel actions. */
 export const RowEditing: Story = {
-  render: function RowEditing() {
+  args: {
+    editMode: 'row',
+    enableEditing: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  argTypes: { editMode: editModeArgType, enableEditing: enableEditingArgType },
+  render: function RowEditing(args) {
     const [rows, setRows] = useState<Person[]>(() => makePeople(10))
     return (
       <DataTable
         columns={editableColumns}
         data={rows}
         getRowId={(row) => row.id}
-        enableEditing
-        editMode="row"
         onEditingRowSave={({ values, exitEditingMode }) => {
           setRows((old) => old.map((row) => (row.id === values.id ? values : row)))
           exitEditingMode()
         }}
         enablePagination={false}
+        {...args}
       />
     )
   },
@@ -57,7 +88,18 @@ export const RowEditing: Story = {
 
 /** Every cell is an input at once — useful for bulk data entry. */
 export const TableEditing: Story = {
-  render: function TableEditing() {
+  args: {
+    editMode: 'table',
+    enableEditing: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  argTypes: { editMode: editModeArgType, enableEditing: enableEditingArgType },
+  render: function TableEditing(args) {
     const [rows, setRows] = useState<Person[]>(() => makePeople(6))
     return (
       <>
@@ -65,11 +107,10 @@ export const TableEditing: Story = {
           columns={editableColumns}
           data={rows}
           getRowId={(row) => row.id}
-          enableEditing
-          editMode="table"
           onDataChange={setRows}
           enablePagination={false}
           density="compact"
+          {...args}
         />
         <pre className="rtc-sb-panel">{JSON.stringify(rows.slice(0, 2), null, 2)}</pre>
       </>
@@ -79,7 +120,18 @@ export const TableEditing: Story = {
 
 /** Editing in a modal dialog, with focus trapped inside it. */
 export const ModalEditing: Story = {
-  render: function ModalEditing() {
+  args: {
+    editMode: 'modal',
+    enableEditing: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  argTypes: { editMode: editModeArgType, enableEditing: enableEditingArgType },
+  render: function ModalEditing(args) {
     const [rows, setRows] = useState<Person[]>(() => makePeople(10))
     return (
       <>
@@ -88,13 +140,12 @@ export const ModalEditing: Story = {
           columns={editableColumns}
           data={rows}
           getRowId={(row) => row.id}
-          enableEditing
-          editMode="modal"
           onEditingRowSave={({ values, exitEditingMode }) => {
             setRows((old) => old.map((row) => (row.id === values.id ? values : row)))
             exitEditingMode()
           }}
           enablePagination={false}
+          {...args}
         />
       </>
     )
@@ -103,7 +154,17 @@ export const ModalEditing: Story = {
 
 /** Only active employees are editable. */
 export const ConditionalEditing: Story = {
-  render: function ConditionalEditing() {
+  args: {
+    editMode: 'row',
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  argTypes: { editMode: editModeArgType },
+  render: function ConditionalEditing(args) {
     const [rows, setRows] = useState<Person[]>(() => makePeople(10))
     return (
       <>
@@ -113,12 +174,12 @@ export const ConditionalEditing: Story = {
           data={rows}
           getRowId={(row) => row.id}
           enableEditing={(row) => row.original.active}
-          editMode="row"
           onEditingRowSave={({ values, exitEditingMode }) => {
             setRows((old) => old.map((row) => (row.id === values.id ? values : row)))
             exitEditingMode()
           }}
           enablePagination={false}
+          {...args}
         />
       </>
     )
@@ -130,7 +191,18 @@ export const ConditionalEditing: Story = {
  * for department and a checkbox for the boolean column.
  */
 export const EditorVariants: Story = {
-  render: function EditorVariants() {
+  args: {
+    editMode: 'table',
+    enableEditing: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  argTypes: { editMode: editModeArgType, enableEditing: enableEditingArgType },
+  render: function EditorVariants(args) {
     const [rows, setRows] = useState<Person[]>(() => makePeople(8))
     return (
       <DataTable
@@ -150,10 +222,9 @@ export const EditorVariants: Story = {
         })}
         data={rows}
         getRowId={(row) => row.id}
-        enableEditing
-        editMode="table"
         onDataChange={setRows}
         enablePagination={false}
+        {...args}
       />
     )
   },
@@ -161,7 +232,17 @@ export const EditorVariants: Story = {
 
 /** A save handler that takes time; `isSaving` shows the progress bar. */
 export const AsyncSave: Story = {
-  render: function AsyncSave() {
+  args: {
+    editMode: 'row',
+    enableEditing: true,
+    isLoading: false,
+    showProgressBars: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  argTypes: { editMode: editModeArgType, enableEditing: enableEditingArgType },
+  render: function AsyncSave(args) {
     const [rows, setRows] = useState<Person[]>(() => makePeople(8))
     const [isSaving, setIsSaving] = useState(false)
     return (
@@ -169,9 +250,6 @@ export const AsyncSave: Story = {
         columns={editableColumns}
         data={rows}
         getRowId={(row) => row.id}
-        enableEditing
-        editMode="row"
-        isSaving={isSaving}
         onEditingRowSave={async ({ values, exitEditingMode }) => {
           setIsSaving(true)
           await new Promise((resolve) => setTimeout(resolve, 700))
@@ -180,6 +258,8 @@ export const AsyncSave: Story = {
           exitEditingMode()
         }}
         enablePagination={false}
+        {...args}
+        isSaving={isSaving}
       />
     )
   },

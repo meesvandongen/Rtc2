@@ -207,6 +207,32 @@ export interface RtcDialogProps {
   label?: string
 }
 
+/**
+ * A sheet that slides in from an edge of the viewport — shadcn's drawer, MUI's
+ * `Drawer`, Mantine's `Drawer`, or the built-in native `<dialog>`.
+ *
+ * Deliberately close in shape to `RtcDialogProps` so an adapter that already
+ * has a modal can satisfy both with the same component; `side` is the only
+ * addition, and an adapter that only has a centred dialog may ignore it.
+ *
+ * Unlike `Dialog`, this one may be rendered while closed — the built-in keeps
+ * the `<dialog>` mounted so the sheet can animate out. Implementations are
+ * free to render `children` lazily.
+ */
+export interface RtcDrawerProps {
+  open: boolean
+  onClose: () => void
+  title: ReactNode
+  children: ReactNode
+  /** Action row pinned below the scrolling content. */
+  footer?: ReactNode
+  label?: string
+  /** Accessible name for the close control. */
+  closeLabel?: string
+  /** Edge the sheet is anchored to. Defaults to `bottom`. */
+  side?: 'bottom' | 'start' | 'end'
+}
+
 export interface RtcTooltipProps {
   label: string
   children: ReactNode
@@ -291,6 +317,7 @@ export interface DataTableComponents {
   Popover: ComponentType<RtcPopoverProps>
   Menu: ComponentType<RtcMenuProps>
   Dialog: ComponentType<RtcDialogProps>
+  Drawer: ComponentType<RtcDrawerProps>
   Tooltip: ComponentType<RtcTooltipProps>
   Label: ComponentType<RtcLabelProps>
   Badge: ComponentType<RtcBadgeProps>

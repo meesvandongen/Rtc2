@@ -289,6 +289,22 @@ export interface DataTableOptions<TData extends RowData> {
   filterDisplayMode?: 'popover' | 'panel' | 'popover-and-panel' | 'none'
   /** Which side the docked filter panel appears on. */
   filterPanelPosition?: 'start' | 'end'
+  /**
+   * On a narrow viewport, edit filters in a modal sheet instead.
+   *
+   * Defaults to on. Below `mobileBreakpoint` the header funnel opens the
+   * column's editor in a `Drawer`, the docked panel is replaced by a
+   * full-height sheet, and the toolbar always offers the funnel that opens it
+   * — a popover anchored to a 24px button and a 280px pane docked beside the
+   * rows are both unusable on a phone. Has no effect when
+   * `filterDisplayMode: 'none'`.
+   */
+  enableMobileFilterDrawer?: boolean
+  /**
+   * Viewport width below which the table treats itself as mobile. A number is
+   * pixels; a string is any CSS length (`'40em'`). Defaults to `640`.
+   */
+  mobileBreakpoint?: number | string
   /** Removable chips in the toolbar for each active column filter. Defaults to on. */
   showActiveFilterChips?: boolean
   /**
@@ -501,6 +517,14 @@ export type DataTableInstance<TData extends RowData> = import('@tanstack/react-t
   }
   /** Presentation state owned by the component rather than TanStack. */
   ui: DataTableUiState
+  /**
+   * Whether the viewport is narrower than `mobileBreakpoint`.
+   *
+   * Not part of `ui` state, for the same reason as `headerMinSizes`: it is
+   * measured rather than chosen, so it has no business round-tripping through
+   * `initialState` or being reported by `onStateChange`.
+   */
+  isMobile: boolean
   setDensity: (density: DataTableDensity) => void
   setIsFullScreen: (value: boolean | ((old: boolean) => boolean)) => void
   setShowFilterPanel: (value: boolean | ((old: boolean) => boolean)) => void

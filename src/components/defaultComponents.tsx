@@ -17,6 +17,7 @@ import type {
   RtcButtonProps,
   RtcCheckboxProps,
   RtcDialogProps,
+  RtcDrawerProps,
   RtcIconButtonProps,
   RtcIconName,
   RtcIconProps,
@@ -719,6 +720,196 @@ function Dialog({ open, onClose, title, children, footer, label }: RtcDialogProp
   )
 }
 
+/**
+ * How long the sheet is given to slide out, in step with `styles.css`.
+ *
+ * Only used to decide when the contents may be unmounted; the animation
+ * itself is entirely CSS, so a browser without `transition-behavior:
+ * allow-discrete` simply hides the sheet at once and unmounts a beat later.
+ */
+const DRAWER_EXIT_MS = 220
+
+/** Drag distance past which releasing the sheet dismisses it. */
+const DRAWER_DISMISS_RATIO = 0.3
+const DRAWER_DISMISS_MIN_PX = 64
+
+/**
+ * The built-in drawer is a native modal `<dialog>`.
+ *
+ * `showModal()` supplies everything a sheet needs and a hand-rolled one has to
+ * reimplement: the top layer, a `::backdrop`, a focus trap, the rest of the
+ * page made inert, Escape to dismiss, and focus returned to the trigger
+ * afterwards. What is left here is the sheet's own manners — sliding in and
+ * out (pure CSS: `@starting-style` plus `allow-discrete`) and swiping it down
+ * to dismiss.
+ *
+ * Every dismissal path goes through the dialog's own `close` event, so
+ * `onClose` fires exactly once whether the user pressed Escape, clicked the
+ * backdrop, dragged the sheet away or hit the close button.
+ */
+function Drawer({
+  open,
+  onClose,
+  title,
+  children,
+  footer,
+  label,
+  closeLabel = 'Close',
+  side = 'bottom',
+}: RtcDrawerProps) {
+  const dialogRef = useRef<HTMLDialogElement>(null)
+
+  // The contents mount with the sheet and stay mounted until it has finished
+  // sliding out: a closed drawer should cost nothing, and an empty box gliding
+  // off-screen is worse than no exit animation at all.
+  const [mounted, setMounted] = useState(open)
+  if (open && !mounted) setMounted(true)
+
+  // `drag` is the sheet's inline offset; `dragging` is whether a finger is on
+  // it. They are separate because the dismissal animates the offset *after*
+  // the finger has gone, and that last stretch is the one that needs the
+  // transition back.
+  const [drag, setDrag] = useState<number | null>(null)
+  const [dragging, setDragging] = useState(false)
+  const dragFrom = useRef<{ pointerId: number; y: number } | null>(null)
+  const flingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const openRef = useRef(open)
+  openRef.current = open
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+
+  useLayoutEffect(() => {
+    const dialog = dialogRef.current
+    if (!dialog) return
+    if (open && !dialog.open) dialog.showModal()
+    else if (!open && dialog.open) dialog.close()
+  }, [open, mounted])
+
+  useEffect(() => {
+    const dialog = dialogRef.current
+    if (!dialog) return
+    const onNativeClose = () => {
+      setDrag(null)
+      setDragging(false)
+      dragFrom.current = null
+      if (flingTimer.current) clearTimeout(flingTimer.current)
+      // Reached only when the browser closed the sheet — Escape, the backdrop,
+      // the close button. Our own `dialog.close()` above runs when `open` is
+      // already false, and telling the owner to close again would be noise.
+      if (openRef.current) onCloseRef.current()
+    }
+    dialog.addEventListener('close', onNativeClose)
+    return () => dialog.removeEventListener('close', onNativeClose)
+  }, [])
+
+  useEffect(() => {
+    if (open) return
+    const timer = setTimeout(() => setMounted(false), DRAWER_EXIT_MS)
+    return () => clearTimeout(timer)
+  }, [open])
+
+  // A sheet over a page that still scrolls behind it is the classic bottom-
+  // sheet annoyance; `inert` does not cover it.
+  useEffect(() => {
+    if (!open || typeof document === 'undefined') return
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previous
+    }
+  }, [open])
+
+  const canDrag = side === 'bottom'
+
+  const onPointerDown = (event: React.PointerEvent) => {
+    if (!canDrag || event.button !== 0) return
+    // The close button lives in the same strip; a press on it is not a drag.
+    if ((event.target as HTMLElement).closest('button, a, input, select')) return
+    if (flingTimer.current) clearTimeout(flingTimer.current)
+    dragFrom.current = { pointerId: event.pointerId, y: event.clientY }
+    event.currentTarget.setPointerCapture(event.pointerId)
+    setDragging(true)
+    setDrag(0)
+  }
+
+  const onPointerMove = (event: React.PointerEvent) => {
+    const from = dragFrom.current
+    if (!from || from.pointerId !== event.pointerId) return
+    // Downwards only: dragging up would lift the sheet off its own edge.
+    setDrag(Math.max(0, event.clientY - from.y))
+  }
+
+  const onPointerUp = (event: React.PointerEvent) => {
+    const from = dragFrom.current
+    if (!from || from.pointerId !== event.pointerId) return
+    dragFrom.current = null
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+    const offset = Math.max(0, event.clientY - from.y)
+    const height = dialogRef.current?.getBoundingClientRect().height ?? 0
+    // Transitions come back the moment the finger leaves, so both outcomes are
+    // animated: the sheet either springs back to its edge or carries on off
+    // the bottom, and only then is the dialog actually closed.
+    setDragging(false)
+    if (offset > Math.max(DRAWER_DISMISS_MIN_PX, height * DRAWER_DISMISS_RATIO)) {
+      setDrag(height)
+      flingTimer.current = setTimeout(() => dialogRef.current?.close(), DRAWER_EXIT_MS)
+    } else {
+      setDrag(null)
+    }
+  }
+
+  return (
+    // `rtc-vars` because a drawer may be opened from the standalone filter
+    // panel, outside any `<DataTable>`; harmless inside one, where the block
+    // does not apply and the variables are inherited instead.
+    <dialog
+      ref={dialogRef}
+      className="rtc-vars rtc-drawer"
+      data-rtc-drawer=""
+      data-rtc-side={side}
+      data-rtc-dragging={dragging ? 'true' : undefined}
+      aria-label={label}
+      style={drag === null ? undefined : { translate: `0 ${drag}px` }}
+      // A click that lands on the dialog itself came through the backdrop:
+      // the sheet fills the element completely.
+      onClick={(event) => {
+        if (event.target === dialogRef.current) dialogRef.current?.close()
+      }}
+    >
+      {mounted ? (
+        <div className="rtc-drawer-sheet">
+          <div
+            className="rtc-drawer-handle"
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerUp}
+          >
+            {canDrag ? <span className="rtc-drawer-grabber" aria-hidden="true" /> : null}
+            <div className="rtc-drawer-header">
+              <h2 className="rtc-drawer-title">{title}</h2>
+              <IconButton
+                size="sm"
+                label={closeLabel}
+                className="rtc-drawer-close"
+                onClick={() => dialogRef.current?.close()}
+              >
+                <Icon name="close" />
+              </IconButton>
+            </div>
+          </div>
+
+          <div className="rtc-drawer-body">{children}</div>
+          {footer ? <div className="rtc-drawer-footer">{footer}</div> : null}
+        </div>
+      ) : null}
+    </dialog>
+  )
+}
+
 function Tooltip({ label, children }: RtcTooltipProps) {
   // The native title attribute keeps the default set dependency-free; adapters
   // that have a real tooltip should override this.
@@ -766,6 +957,7 @@ export const defaultComponents: DataTableComponents = {
   Popover,
   Menu,
   Dialog,
+  Drawer,
   Tooltip,
   Label,
   Badge,

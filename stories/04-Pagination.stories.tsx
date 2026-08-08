@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 
 import { DataTable, type PaginationState, type SortingState } from '../src'
+import { loadingArgTypes } from './controls'
 import { makePeople, personColumns, type Person } from './fixtures'
 import {
   PEOPLE_ENDPOINT,
@@ -13,8 +14,33 @@ import {
 
 const data = makePeople(137)
 
+/** Pagination behaviour knobs shared across the stories in this file. */
+const paginationArgTypes = {
+  enablePagination: { control: 'boolean', table: { category: 'Pagination' } },
+  paginationDisplayMode: {
+    control: 'select',
+    options: ['default', 'pages', 'simple'],
+    description: '`default` (arrows), `pages` (numbered) and `simple` (prev/next only).',
+    table: { category: 'Pagination' },
+  },
+  paginationPosition: {
+    control: 'select',
+    options: ['top', 'bottom', 'both'],
+    table: { category: 'Pagination' },
+  },
+  pageSizeOptions: {
+    control: 'object',
+    description: 'Page sizes offered by the page-size select. The first value is the initial page size.',
+    table: { category: 'Pagination' },
+  },
+  enableTopToolbar: { control: 'boolean', table: { category: 'Appearance' } },
+  enableBottomToolbar: { control: 'boolean', table: { category: 'Appearance' } },
+  enableStickyHeader: { control: 'boolean', table: { category: 'Appearance' } },
+} as const
+
 const meta: Meta = {
   title: 'DataTable/04 Pagination',
+  argTypes: { ...paginationArgTypes, ...loadingArgTypes },
   parameters: {
     // Registered on the meta rather than per story: MSW's handler set is
     // global, and a Docs page mounts both remote stories at once, so the
@@ -27,12 +53,24 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 export const Basic: Story = {
-  render: () => (
+  args: {
+    enablePagination: true,
+    paginationDisplayMode: 'default',
+    paginationPosition: 'bottom',
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <DataTable
       columns={personColumns}
       data={data}
       getRowId={(row) => row.id}
       initialState={{ pagination: { pageIndex: 0, pageSize: 10 } }}
+      {...args}
     />
   ),
 }
@@ -58,27 +96,40 @@ export const DisplayModes: Story = {
 }
 
 export const PaginationOnTop: Story = {
-  render: () => (
-    <DataTable
-      columns={personColumns.slice(0, 5)}
-      data={data}
-      getRowId={(row) => row.id}
-      paginationPosition="top"
-      enableBottomToolbar={false}
-      pageSizeOptions={[5, 10, 20]}
-    />
+  args: {
+    paginationPosition: 'top',
+    enableBottomToolbar: false,
+    pageSizeOptions: [5, 10, 20],
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
+    <DataTable columns={personColumns.slice(0, 5)} data={data} getRowId={(row) => row.id} {...args} />
   ),
 }
 
 export const NoPagination: Story = {
-  render: () => (
+  args: {
+    enablePagination: false,
+    enableStickyHeader: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <DataTable
       columns={personColumns.slice(0, 5)}
       data={makePeople(15)}
       getRowId={(row) => row.id}
-      enablePagination={false}
       height={420}
-      enableStickyHeader
+      {...args}
     />
   ),
 }

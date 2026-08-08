@@ -6,6 +6,7 @@ import { GroupingChips } from './GroupingChips'
 import { Pagination } from './Pagination'
 import { useComponents, type RtcMenuItem } from './registry'
 import { formatMessage } from '../locale'
+import { usesFilterDrawer } from '../responsive'
 import { cx, getColumnLabel } from '../utils'
 import type { DataTableDensity, DataTableInstance } from '../types'
 
@@ -177,7 +178,12 @@ function InternalActions<TData extends RowData>({ table }: { table: DataTableIns
   const options = table.dataTableOptions
   const { localization } = options
   const filterMode = options.filterDisplayMode ?? 'popover'
-  const panelAvailable = filterMode === 'panel' || filterMode === 'popover-and-panel'
+  // On a narrow viewport the sheet is the only filter surface worth offering,
+  // so the funnel appears whatever the display mode — including plain
+  // `popover`, whose header buttons sit off-screen the moment the table
+  // scrolls sideways.
+  const panelAvailable =
+    filterMode === 'panel' || filterMode === 'popover-and-panel' || usesFilterDrawer(table)
 
   return (
     <div className="rtc-toolbar-actions">

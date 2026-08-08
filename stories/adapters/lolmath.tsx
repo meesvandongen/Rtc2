@@ -586,6 +586,38 @@ export function createLolmathComponents(defaults: DataTableComponents): DataTabl
       </MenuTrigger>
     ),
 
+    /**
+     * The library has no drawer, so this is its `Modal` anchored to an edge —
+     * the same call the Radix adapter makes, and what the contract has in mind
+     * when it says an adapter with a modal can satisfy both slots with it.
+     * `lolmath.css` supplies the anchoring, which is geometry the modal has no
+     * prop for; everything visible is still the library's own dialog chrome.
+     */
+    Drawer: ({ open, onClose, title, children, footer, label, closeLabel, side = 'bottom' }) => (
+      <Modal
+        isOpen={open}
+        isDismissable
+        onOpenChange={(next) => {
+          if (!next) onClose()
+        }}
+        className="rtc-vars lol-modal lol-drawer"
+        modalOverlayClassName="rtc-vars lol-drawer-overlay"
+        data-rtc-theme="dark"
+        data-side={side}
+        style={lolmathCssVars as CSSProperties}
+        dialogProps={{ 'aria-label': label }}
+      >
+        <div className="lol-drawer-header">
+          <DialogHeading slot="title">{title}</DialogHeading>
+          <Button preset="dimmed" shape="square" size="small" aria-label={closeLabel} slot="close">
+            <defaults.Icon name="close" />
+          </Button>
+        </div>
+        <div className="lol-drawer-body">{children}</div>
+        {footer ? <DialogButtons>{footer}</DialogButtons> : null}
+      </Modal>
+    ),
+
     Dialog: ({ open, onClose, title, children, footer, label }) => (
       <Modal
         isOpen={open}

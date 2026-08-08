@@ -9,6 +9,7 @@ import {
   type ColumnDataType,
   type DataTableColumn,
 } from '../src'
+import { appearanceArgTypes, loadingArgTypes } from './controls'
 import { currency, makePeople, timestamp, type Person } from './fixtures'
 
 const data = makePeople(200)
@@ -21,6 +22,7 @@ const NOW = new Date('2026-07-28T12:00:00Z')
 
 const meta: Meta = {
   title: 'DataTable/16 Filter Data Types',
+  argTypes: { ...appearanceArgTypes, ...loadingArgTypes },
 }
 
 export default meta
@@ -105,7 +107,15 @@ const typedColumns: Array<DataTableColumn<Person, any>> = helper.columns([
  * knows about dates or coordinates — the types supply all of it.
  */
 export const AllBuiltInTypes: Story = {
-  render: () => (
+  args: {
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <>
       <p className="rtc-sb-note">
         Text, enum, number, boolean, date, datetime, collection, duration and geoPoint. Compare the
@@ -121,6 +131,7 @@ export const AllBuiltInTypes: Story = {
         height={620}
         enableStickyHeader
         initialState={{ showFilterPanel: true }}
+        {...args}
       />
     </>
   ),
@@ -132,7 +143,15 @@ export const AllBuiltInTypes: Story = {
  * of weekdays, and a time-of-day band independent of date.
  */
 export const DateOperators: Story = {
-  render: () => (
+  args: {
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <>
       <p className="rtc-sb-note">
         Switch the operator on <strong>Last seen</strong> to see the operand change shape: a single
@@ -151,6 +170,7 @@ export const DateOperators: Story = {
         filterNow={NOW}
         height={620}
         enableStickyHeader
+        {...args}
       />
     </>
   ),
@@ -158,7 +178,15 @@ export const DateOperators: Story = {
 
 /** Restrict a column to a subset of its type's operators. */
 export const RestrictedOperators: Story = {
-  render: () => (
+  args: {
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <>
       <p className="rtc-sb-note">
         Age offers only <code>between</code> and <code>greaterThan</code> here, via
@@ -181,6 +209,7 @@ export const RestrictedOperators: Story = {
         getRowId={(row) => row.id}
         filterDisplayMode="panel"
         height={520}
+        {...args}
       />
     </>
   ),
@@ -277,7 +306,15 @@ const releases: Release[] = [
 const releaseHelper = createDataTableColumnHelper<Release>()
 
 export const CustomDataType: Story = {
-  render: () => (
+  args: {
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <>
       <p className="rtc-sb-note">
         A <code>semver</code> type registered through <code>dataTypes</code>. Filtering by "is at
@@ -298,6 +335,7 @@ export const CustomDataType: Story = {
         filterDisplayMode="panel"
         enablePagination={false}
         height={400}
+        {...args}
       />
     </>
   ),
@@ -310,7 +348,15 @@ export const CustomDataType: Story = {
  * types compose rather than having to be written from scratch.
  */
 export const InlineDataType: Story = {
-  render: () => (
+  args: {
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <>
       <p className="rtc-sb-note">
         Salary keeps the numeric operators and gains "is a round number", declared inline on the
@@ -347,6 +393,7 @@ export const InlineDataType: Story = {
         getRowId={(row) => row.id}
         filterDisplayMode="panel"
         height={520}
+        {...args}
       />
     </>
   ),
@@ -354,7 +401,15 @@ export const InlineDataType: Story = {
 
 /** Coordinates filtered by distance from a point. */
 export const GeoFiltering: Story = {
-  render: () => (
+  args: {
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <>
       <p className="rtc-sb-note">
         Set the centre to 52.37 / 4.90 (Amsterdam) with a 600 km radius to keep Amsterdam and
@@ -370,6 +425,7 @@ export const GeoFiltering: Story = {
         getRowId={(row) => row.id}
         filterDisplayMode="panel"
         height={520}
+        {...args}
       />
     </>
   ),
@@ -383,7 +439,15 @@ export const GeoFiltering: Story = {
  * value becomes `{ join, conditions }` and still round-trips as JSON.
  */
 export const MultipleConditions: Story = {
-  render: () => (
+  args: {
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <>
       <p className="rtc-sb-note">
         Open the <strong>Age</strong> filter, add a second condition and switch the joiner to{' '}
@@ -404,6 +468,7 @@ export const MultipleConditions: Story = {
         enableMultipleFilterConditions
         filterDisplayMode="panel"
         height={560}
+        {...args}
       />
     </>
   ),
@@ -411,7 +476,15 @@ export const MultipleConditions: Story = {
 
 /** Types inferred from the data when a column declares nothing. */
 export const InferredTypes: Story = {
-  render: () => (
+  args: {
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <>
       <p className="rtc-sb-note">
         No <code>meta.dataType</code> anywhere. Booleans, numbers, ISO dates, arrays and
@@ -437,6 +510,7 @@ export const InferredTypes: Story = {
         getRowId={(row) => row.id}
         filterDisplayMode="panel"
         height={520}
+        {...args}
       />
     </>
   ),

@@ -5,6 +5,7 @@ import {
   ActionIcon,
   Button,
   Checkbox,
+  Drawer as MantineDrawer,
   Menu,
   Modal,
   MultiSelect,
@@ -93,6 +94,19 @@ function toMenuItems(items: RtcMenuItem[]): ReactNode {
     )
   })
 }
+
+/**
+ * Pins Mantine's overlay layer to the viewport.
+ *
+ * `ModalBase`'s `inner` is `position: fixed; width: 100%; top: 0; bottom: 0`
+ * and never sets `left`, so `left: auto` resolves to the element's *static*
+ * position — wherever the portal node happens to sit in `document.body`. Give
+ * the body any padding (Storybook's preview has 1rem) and every Mantine modal
+ * and drawer is shifted by it while still being a full viewport wide, so the
+ * far edge is clipped. `Modal` centres its content, which hides the offset;
+ * the bottom sheet spans the width, which does not.
+ */
+const MODAL_INNER = { insetInlineStart: 0, insetInlineEnd: 0, width: 'auto' } as const
 
 export function createMantineComponents(defaults: DataTableComponents): DataTableComponents {
   return {
@@ -338,6 +352,7 @@ export function createMantineComponents(defaults: DataTableComponents): DataTabl
         aria-label={label}
         centered
         classNames={{ content: 'rtc-vars' }}
+        styles={{ inner: MODAL_INNER }}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>{children}</div>
         {footer ? (
@@ -346,6 +361,42 @@ export function createMantineComponents(defaults: DataTableComponents): DataTabl
           </div>
         ) : null}
       </Modal>
+    ),
+
+    Drawer: ({ open, onClose, title, children, footer, label, closeLabel, side = 'bottom' }) => (
+      <MantineDrawer
+        opened={open}
+        onClose={onClose}
+        position={side === 'bottom' ? 'bottom' : side === 'start' ? 'left' : 'right'}
+        title={title}
+        aria-label={label}
+        closeButtonProps={{ 'aria-label': closeLabel }}
+        size={side === 'bottom' ? '88%' : 'min(360px, 90vw)'}
+        // Mantine portals its overlay outside the table, where the `--rtc-*`
+        // lookups the filter panel is styled with resolve to nothing.
+        classNames={{ content: 'rtc-vars' }}
+        styles={{
+          inner: MODAL_INNER,
+          content: { display: 'flex', flexDirection: 'column' },
+          body: { display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0, padding: 0 },
+        }}
+      >
+        <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto' }}>{children}</div>
+        {footer ? (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              gap: 8,
+              padding: 12,
+              borderTop: '1px solid var(--mantine-color-default-border)',
+            }}
+          >
+            {footer}
+          </div>
+        ) : null}
+      </MantineDrawer>
     ),
 
     Tooltip: ({ label, children }) => (

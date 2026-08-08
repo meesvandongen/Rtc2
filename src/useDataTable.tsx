@@ -7,6 +7,7 @@ import { STRUCTURED_FILTER_FN } from './filters/filterFn'
 import type { DataTableTableMeta } from './filters/registry'
 import { dataTableFeatures } from './features'
 import { defaultLocalization, type DataTableLocalization } from './locale'
+import { filterDrawerApplies, useIsMobile } from './responsive'
 import type {
   DataTableDensity,
   DataTableInstance,
@@ -117,15 +118,45 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
 
   const [ownTanStackState, setOwnTanStackState] = useState<DataTableTanStackState>(initialTanStackState)
 
-  const [ownUiState, setOwnUiState] = useState<DataTableUiState>(() => ({
-    ...DEFAULT_UI_STATE,
-    density: options.density ?? DEFAULT_UI_STATE.density,
-    // The docked panel starts open only when it is the sole filter surface.
-    showFilterPanel:
-      options.initialState?.showFilterPanel ??
-      (options.filterDisplayMode === 'panel' && options.enableColumnFilters !== false),
-    ...compact(options.initialState as Partial<DataTableUiState>),
-  }))
+  const isMobile = useIsMobile(options.mobileBreakpoint)
+  const drawerMode = filterDrawerApplies(options, isMobile)
+
+  const [ownUiState, setOwnUiState] = useState<DataTableUiState>(() => {
+    const state: DataTableUiState = {
+      ...DEFAULT_UI_STATE,
+      density: options.density ?? DEFAULT_UI_STATE.density,
+      // The docked panel starts open only when it is the sole filter surface.
+      showFilterPanel:
+        options.initialState?.showFilterPanel ??
+        (options.filterDisplayMode === 'panel' && options.enableColumnFilters !== false),
+      ...compact(options.initialState as Partial<DataTableUiState>),
+    }
+    // …but a sheet is a layer over the content, not a pane beside it, and the
+    // two do not mean the same thing. "The panel starts open" is a layout
+    // choice; the same value read as "a modal covers the table on arrival" is
+    // not one anybody made. In drawer mode the surface opens on a gesture and
+    // nothing else. (The initializer runs once, so this is the mount value.)
+    return drawerMode ? { ...state, showFilterPanel: false } : state
+  })
+
+  // The same rule when the breakpoint is crossed at runtime: a pane the reader
+  // left open must not become an overlay over what they were reading.
+  //
+  // A render-phase adjustment rather than an effect, because the difference is
+  // observable: an effect commits `open` first and closes it on the next tick,
+  // and an overlay library that is handed open-then-immediately-closed inside
+  // one tick can be left with its transition half-applied — a full-screen,
+  // invisible, click-eating layer. Corrected here, the drawer never renders
+  // open at all.
+  const [wasDrawerMode, setWasDrawerMode] = useState(drawerMode)
+  const correctedShowFilterPanel = useRef(false)
+  if (drawerMode !== wasDrawerMode) {
+    setWasDrawerMode(drawerMode)
+    if (drawerMode && ownUiState.showFilterPanel) {
+      setOwnUiState((prev) => ({ ...prev, showFilterPanel: false }))
+      correctedShowFilterPanel.current = true
+    }
+  }
 
   const tanStackState = useMemo<DataTableTanStackState>(
     () => ({ ...ownTanStackState, ...pickSlices(options.state) }),
@@ -356,6 +387,7 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
 
   instance.dataTableOptions = { ...options, localization }
   instance.ui = ui
+  instance.isMobile = isMobile
   // Assigned every render, not from an effect: `useTable` hands back a fresh
   // shallow copy each time, so anything written to the previous one is gone.
   instance.headerMinSizes = headerMinSizes
@@ -443,6 +475,16 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
   useEffect(() => {
     onStateChange?.({ ...tanStackState, ...ui })
   }, [onStateChange, tanStackState, ui])
+
+  // Report the drawer-mode correction once the render that made it has
+  // committed. Notifying from the render itself would be a side effect at the
+  // wrong moment, and leaving it unreported would tell an observer the panel
+  // is open while the sheet is shut.
+  useEffect(() => {
+    if (!correctedShowFilterPanel.current) return
+    correctedShowFilterPanel.current = false
+    optionsRef.current.onShowFilterPanelChange?.(false)
+  })
 
   // Seed the manual row order the first time rows become available.
   const rowOrderInitialized = useRef(false)

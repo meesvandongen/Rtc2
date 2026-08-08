@@ -38,6 +38,15 @@ export {
 
 export { toCsv, stringifyValue } from './utils'
 
+/** Viewport helpers behind the mobile filter drawer. */
+export {
+  DEFAULT_MOBILE_BREAKPOINT,
+  mobileMediaQuery,
+  useIsMobile,
+  useMediaQuery,
+  usesFilterDrawer,
+} from './responsive'
+
 export {
   dataTableThemes,
   materialTheme,
@@ -65,6 +74,7 @@ export {
   type RtcButtonProps,
   type RtcCheckboxProps,
   type RtcDialogProps,
+  type RtcDrawerProps,
   type RtcIconButtonProps,
   type RtcIconName,
   type RtcIconProps,
@@ -149,6 +159,10 @@ export type {
 
 /** Filter surfaces, usable standalone with an instance from `useDataTable`. */
 export { DataTableFilterPanel, type DataTableFilterPanelProps } from './components/FilterPanel'
+export {
+  DataTableFilterDrawer,
+  type DataTableFilterDrawerProps,
+} from './components/FilterDrawer'
 export { ColumnFilterPopover } from './components/ColumnFilterPopover'
 export { FilterConditions } from './components/FilterConditions'
 export {

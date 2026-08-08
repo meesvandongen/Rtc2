@@ -2,12 +2,30 @@ import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 
 import { DataTable, type ColumnPinningState } from '../src'
+import { loadingArgTypes } from './controls'
 import { groupedHeaderColumns, makePeople, makeWideColumns, personColumns } from './fixtures'
 
 const data = makePeople(25)
 
+/** Column-management props shared across most stories in this file. */
+const columnsArgTypes = {
+  enableColumnVisibility: { control: 'boolean', table: { category: 'Columns' } },
+  enableColumnOrdering: { control: 'boolean', table: { category: 'Columns' } },
+  enableColumnDragging: { control: 'boolean', table: { category: 'Columns' } },
+  enableColumnPinning: { control: 'boolean', table: { category: 'Columns' } },
+  enableColumnResizing: { control: 'boolean', table: { category: 'Columns' } },
+  columnResizeMode: {
+    control: 'select',
+    options: ['onChange', 'onEnd'],
+    description: '`onChange` resizes live while dragging; `onEnd` defers the layout change until the pointer is released.',
+    table: { category: 'Columns' },
+  },
+  enableColumnActions: { control: 'boolean', table: { category: 'Columns' } },
+} as const
+
 const meta: Meta = {
   title: 'DataTable/06 Columns',
+  argTypes: { ...loadingArgTypes, ...columnsArgTypes },
 }
 
 export default meta
@@ -15,45 +33,74 @@ type Story = StoryObj<typeof meta>
 
 /** Per-column menu with sorting, grouping, pinning, sizing and hiding. */
 export const ColumnActionsMenu: Story = {
-  render: () => (
-    <DataTable
-      columns={personColumns}
-      data={data}
-      getRowId={(row) => row.id}
-      enableColumnActions
-      enableColumnPinning
-      enableColumnResizing
-      enableGrouping
-    />
+  args: {
+    enableColumnActions: true,
+    enableColumnPinning: true,
+    enableColumnResizing: true,
+    enableGrouping: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  argTypes: {
+    enableGrouping: {
+      control: 'boolean',
+      description: 'Adds "Group by" to the column actions menu.',
+      table: { category: 'Behaviour' },
+    },
+  },
+  render: (args) => (
+    <DataTable columns={personColumns} data={data} getRowId={(row) => row.id} {...args} />
   ),
 }
 
 /** Toggle columns from the toolbar, or hide one from its own menu. */
 export const ColumnVisibility: Story = {
-  render: () => (
+  args: {
+    enableColumnVisibility: true,
+    enableColumnActions: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <DataTable
       columns={personColumns}
       data={data}
       getRowId={(row) => row.id}
-      enableColumnVisibility
-      enableColumnActions
       initialState={{ columnVisibility: { startDate: false, active: false } }}
+      {...args}
     />
   ),
 }
 
 /** Drag a header by its grip to reorder. Column order is also controllable. */
 export const ColumnOrdering: Story = {
-  render: () => (
+  args: {
+    enableColumnOrdering: true,
+    enableColumnDragging: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <>
       <p className="rtc-sb-note">Drag the grip in any header to move that column.</p>
       <DataTable
         columns={personColumns.slice(0, 6)}
         data={data}
         getRowId={(row) => row.id}
-        enableColumnOrdering
-        enableColumnDragging
         layoutMode="grid"
+        {...args}
       />
     </>
   ),
@@ -61,7 +108,17 @@ export const ColumnOrdering: Story = {
 
 /** Pinned columns stick to the start/end edge with a shadow at the boundary. */
 export const ColumnPinning: Story = {
-  render: function ColumnPinningStory() {
+  args: {
+    enableColumnPinning: true,
+    enableColumnActions: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: function ColumnPinningStory(args) {
     const [columnPinning, setColumnPinning] = useState<ColumnPinningState>({
       start: ['firstName'],
       end: ['metric-12'],
@@ -73,8 +130,6 @@ export const ColumnPinning: Story = {
           columns={makeWideColumns(12)}
           data={data.slice(0, 10)}
           getRowId={(row) => row.id}
-          enableColumnPinning
-          enableColumnActions
           layoutMode="grid-no-grow"
           enablePagination={false}
           height={420}
@@ -83,6 +138,7 @@ export const ColumnPinning: Story = {
           onColumnPinningChange={(updater) =>
             setColumnPinning((old) => (typeof updater === 'function' ? updater(old) : updater))
           }
+          {...args}
         />
         <pre className="rtc-sb-panel">{JSON.stringify(columnPinning)}</pre>
       </>
@@ -92,7 +148,17 @@ export const ColumnPinning: Story = {
 
 /** Drag the right edge of a header, or focus it and use the arrow keys. */
 export const ColumnResizing: Story = {
-  render: () => (
+  args: {
+    enableColumnResizing: true,
+    columnResizeMode: 'onChange',
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <>
       <p className="rtc-sb-note">
         Drag a column edge to resize, double-click it to reset. The grip is keyboard-operable with
@@ -102,10 +168,9 @@ export const ColumnResizing: Story = {
         columns={personColumns.slice(0, 6)}
         data={data.slice(0, 8)}
         getRowId={(row) => row.id}
-        enableColumnResizing
-        columnResizeMode="onChange"
         layoutMode="grid"
         enablePagination={false}
+        {...args}
       />
     </>
   ),
@@ -113,35 +178,61 @@ export const ColumnResizing: Story = {
 
 /** `onEnd` defers the layout change until the pointer is released. */
 export const ColumnResizingOnEnd: Story = {
-  render: () => (
+  args: {
+    enableColumnResizing: true,
+    columnResizeMode: 'onEnd',
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <DataTable
       columns={personColumns.slice(0, 6)}
       data={data.slice(0, 8)}
       getRowId={(row) => row.id}
-      enableColumnResizing
-      columnResizeMode="onEnd"
       layoutMode="grid"
       enablePagination={false}
+      {...args}
     />
   ),
 }
 
 /** Nested header groups, spanning their child columns. */
 export const HeaderGroups: Story = {
-  render: () => (
+  args: {
+    enableColumnActions: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <DataTable
       columns={groupedHeaderColumns}
       data={data}
       getRowId={(row) => row.id}
-      enableColumnActions
       enableBorders="all"
+      {...args}
     />
   ),
 }
 
 /** Column footers render whenever any column defines `footer`. */
 export const ColumnFooters: Story = {
-  render: () => {
+  args: {
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => {
     const rows = data.slice(0, 8)
     const totalSalary = rows.reduce((sum, person) => sum + person.salary, 0)
     return (
@@ -157,6 +248,7 @@ export const ColumnFooters: Story = {
         data={rows}
         getRowId={(row) => row.id}
         enablePagination={false}
+        {...args}
       />
     )
   },
@@ -164,7 +256,15 @@ export const ColumnFooters: Story = {
 
 /** Per-column alignment and a shared `defaultColumn`. */
 export const AlignmentAndDefaults: Story = {
-  render: () => (
+  args: {
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
     <DataTable
       columns={personColumns}
       data={data.slice(0, 6)}
@@ -172,6 +272,7 @@ export const AlignmentAndDefaults: Story = {
       defaultColumn={{ minSize: 80, maxSize: 400 }}
       enablePagination={false}
       enableBorders="all"
+      {...args}
     />
   ),
 }
