@@ -5,11 +5,23 @@ import * as Popover from '@radix-ui/react-popover'
 import * as Slider from '@radix-ui/react-slider'
 import * as Switch from '@radix-ui/react-switch'
 
-import type { DataTableComponents } from '../../src'
+import type { DataTableComponents } from '../index'
+// Collected by the build into `dist/adapters/radix.css` and stripped from
+// this module's JS output, exactly like the root `styles.css` — importing
+// `@mvd/table/radix` does not inject it. Consumers import
+// `@mvd/table/radix.css` themselves.
 import './radix.css'
 
 /**
- * Radix adapter, in a shadcn/ui-like flavour.
+ * Radix adapter — `@mvd/table/radix`, in a shadcn/ui-like flavour.
+ *
+ * The `@radix-ui/react-*` packages are peer dependencies of this entry point
+ * only (see `package.json`); the root `@mvd/table` import never pulls them
+ * in. There is no `@mvd/table/shadcn`: shadcn/ui is not a package you depend
+ * on, it is components you copy into your own source tree, so it has no
+ * peer-dependency boundary to build an optional export against — see
+ * "UI library exports" in the README. What ships here is Radix itself,
+ * styled to look like shadcn's defaults via `radix.css`.
  *
  * Every portalled surface carries `rtc-vars`. Radix renders overlays into
  * `document.body`, outside the table, and `radix.css` is written against the

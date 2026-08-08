@@ -3,11 +3,22 @@ import type { Meta, StoryObj } from '@storybook/react-vite'
 import { CssBaseline, ThemeProvider, createTheme } from '@mui/material'
 import { MantineProvider } from '@mantine/core'
 
+// The published `@mvd/table/mantine` and `@mvd/table/lolmath` entries render
+// components from these libraries but deliberately do not import their
+// global stylesheets or fonts — see the "UI library exports" section of the
+// README. Storybook is a consumer like any other, so it brings its own,
+// exactly as an app using these adapters would.
+import '@mantine/core/styles.layer.css'
+import '@mantine/dates/styles.layer.css'
+import '@lolmath/ui/css'
+import '@lolmath/ui/font/beaufort'
+import '@lolmath/ui/font/spiegel'
+
 import { DataTable, defaultComponents, type DataTableComponents } from '../src'
-import { createLolmathComponents, lolmathCssVars } from './adapters/lolmath'
-import { createMantineComponents } from './adapters/mantine'
-import { createMuiComponents } from './adapters/mui'
-import { createRadixComponents } from './adapters/radix'
+import { createLolmathComponents, lolmathCssVars } from '../src/adapters/lolmath'
+import { createMantineComponents } from '../src/adapters/mantine'
+import { createMuiComponents } from '../src/adapters/mui'
+import { createRadixComponents } from '../src/adapters/radix'
 import { loadingArgTypes } from './controls'
 import { makePeople, personColumns, type Person } from './fixtures'
 

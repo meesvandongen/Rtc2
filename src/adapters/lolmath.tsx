@@ -1,7 +1,3 @@
-import '@lolmath/ui/css'
-import '@lolmath/ui/font/beaufort'
-import '@lolmath/ui/font/spiegel'
-
 import { parseDate, parseDateTime, parseTime } from '@internationalized/date'
 import {
   Button,
@@ -51,11 +47,25 @@ import type {
   RtcMenuItem,
   RtcOption,
   RtcSize,
-} from '../../src'
+} from '../index'
+// Collected by the build into `dist/adapters/lolmath.css` and stripped from
+// this module's JS output, exactly like the root `styles.css` — importing
+// `@mvd/table/lolmath` does not inject it. Consumers import
+// `@mvd/table/lolmath.css` themselves. This is fit-and-finish for markup
+// *ours* (see the file itself); it is not `@lolmath/ui`'s own stylesheet.
 import './lolmath.css'
 
 /**
- * `@lolmath/ui` adapter — https://github.com/lolmath/lolmath/tree/main/packages/ui
+ * `@lolmath/ui` adapter — `@mvd/table/lolmath` —
+ * https://github.com/lolmath/lolmath/tree/main/packages/ui
+ *
+ * `@lolmath/ui` is a peer dependency of this entry point only (see
+ * `package.json`); the root `@mvd/table` import never pulls it in. Bring
+ * your own copy of the library's required CSS and fonts
+ * (`@lolmath/ui/css`, `@lolmath/ui/font/beaufort`, `@lolmath/ui/font/spiegel`)
+ * — this module renders `@lolmath/ui` components but does not import the
+ * library's own global stylesheet or fonts, exactly as its own docs expect
+ * you to for any consumer of its components.
  *
  * The fourth API shape in the set, and the one that stresses parts of the
  * contract MUI, Radix and Mantine never touch:

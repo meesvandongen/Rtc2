@@ -27,10 +27,15 @@ import {
 } from '@mui/material'
 import { cloneElement, isValidElement, useState, type ReactElement } from 'react'
 
-import type { DataTableComponents } from '../../src'
+import type { DataTableComponents } from '../index'
 
 /**
- * Material UI adapter.
+ * Material UI adapter — `@mvd/table/mui`.
+ *
+ * `@mui/material` is a peer dependency of this entry point only (see
+ * `package.json`); the root `@mvd/table` import never pulls it in. Bring your
+ * own `ThemeProvider` — this module renders MUI components but does not
+ * provide one.
  *
  * The interesting constraint is the overlay trigger: MUI positions menus and
  * popovers against an `anchorEl`, so the adapter has to `cloneElement` the
