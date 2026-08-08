@@ -1,6 +1,3 @@
-import '@mantine/core/styles.layer.css'
-import '@mantine/dates/styles.layer.css'
-
 import {
   ActionIcon,
   Button,
@@ -23,14 +20,21 @@ import {
   Tooltip,
 } from '@mantine/core'
 import { DateInput, DateTimePicker } from '@mantine/dates'
-import dayjs from 'dayjs'
 
 import type { ReactNode } from 'react'
 
-import type { DataTableComponents, RtcMenuItem, RtcSize } from '../../src'
+import type { DataTableComponents, RtcMenuItem, RtcSize } from '../index'
 
 /**
- * Mantine adapter.
+ * Mantine adapter — `@mvd/table/mantine`.
+ *
+ * `@mantine/core` and `@mantine/dates` are peer dependencies of this entry
+ * point only (see `package.json`); the root `@mvd/table` import never pulls
+ * them in. Bring your own `MantineProvider` and Mantine's own stylesheets
+ * (`@mantine/core/styles.css`, `@mantine/dates/styles.css` or their `.layer`
+ * forms) — this module renders Mantine components but sets neither up,
+ * exactly as Mantine's own docs expect you to for any consumer of its
+ * components.
  *
  * This is the adapter that justifies the data-driven parts of the contract.
  * Mantine's `Select` and `MultiSelect` take a `data` array and render a
@@ -43,16 +47,28 @@ import type { DataTableComponents, RtcMenuItem, RtcSize } from '../../src'
  * `TextInput` for `type="date"` and `type="datetime-local"` — a demonstration
  * that the seam allows richer controls than the built-ins, not just restyled
  * ones.
- *
- * The stylesheets are imported in their `@layer mantine` form. Mantine's reset
- * is global, and the table's own rules are unlayered: keeping Mantine in a
- * layer means an adapted table is styled by Mantine while the surrounding
- * stories — which share this bundle — keep the appearance they had before the
- * adapter existed.
  */
 
 /** The registry's two sizes onto Mantine's scale; the table runs compact. */
 const toSize = (size: RtcSize | undefined) => (size === 'sm' ? 'xs' : 'sm')
+
+/**
+ * The wire format is HTML's `datetime-local` (`YYYY-MM-DDTHH:mm[:ss]`);
+ * Mantine's is `YYYY-MM-DD HH:mm:ss`. Both order the same components the
+ * same way, so converting between them is a separator swap and a seconds
+ * default — no date parsing, no timezone, no dependency required.
+ */
+const toMantineDateTime = (value: string): string => {
+  const [date, time = ''] = value.split('T')
+  const [hh = '00', mm = '00', ss = '00'] = time.split(':')
+  return `${date} ${hh.padStart(2, '0')}:${mm.padStart(2, '0')}:${ss.padStart(2, '0')}`
+}
+
+const toWireDateTime = (value: string): string => {
+  const [date, time = ''] = value.split(' ')
+  const [hh = '00', mm = '00'] = time.split(':')
+  return `${date}T${hh}:${mm}`
+}
 
 function toMenuItems(items: RtcMenuItem[]): ReactNode {
   return items.map((item) => {
@@ -174,13 +190,13 @@ export function createMantineComponents(defaults: DataTableComponents): DataTabl
         // rather than leaking a picker's format into the filter values.
         return (
           <DateTimePicker
-            value={value ? dayjs(value).format('YYYY-MM-DD HH:mm:ss') : null}
+            value={value ? toMantineDateTime(value) : null}
             size={toSize(size)}
             disabled={disabled}
             placeholder={placeholder}
             aria-label={label}
             popoverProps={{ withinPortal: true, classNames: { dropdown: 'rtc-vars' } }}
-            onChange={(next) => onChange(next ? dayjs(next).format('YYYY-MM-DDTHH:mm') : '')}
+            onChange={(next) => onChange(next ? toWireDateTime(next) : '')}
             onBlur={onBlur}
             onKeyDown={onKeyDown}
             {...dataAttributes}

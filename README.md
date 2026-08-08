@@ -36,6 +36,7 @@ export function People({ data }: { data: Person[] }) {
 - [Install](#install)
 - [Features](#features)
 - [Bring your own components](#bring-your-own-components)
+  - [UI library exports](#ui-library-exports)
 - [Filtering](#filtering)
 - [Filter data types](#filter-data-types)
 - [Grouping](#grouping)
@@ -54,7 +55,9 @@ pnpm add @mvd/table   # or npm install / yarn add
 
 `react` and `react-dom` (>= 18) are peer dependencies. `@tanstack/react-table`
 and `@tanstack/react-virtual` are direct dependencies, so a plain install is
-enough.
+enough — MUI, Mantine, Radix and `@lolmath/ui` are optional peers needed only
+if you use the matching `@mvd/table/<name>` export, see
+[UI library exports](#ui-library-exports).
 
 Import the stylesheet once, anywhere in your app:
 
@@ -139,11 +142,12 @@ registry. Column pinning, resizing and virtualization all depend on the exact
 DOM and data attributes the table emits, so those stay ours and are styled
 with CSS variables instead.
 
-Working adapters for **MUI**, **Radix/shadcn**, **Mantine** and
+Working adapters for **MUI**, **Radix**, **Mantine** and
 **[`@lolmath/ui`](https://github.com/lolmath/lolmath/tree/main/packages/ui)**
-live in `stories/adapters/` and are exercised by both Storybook
-(*15 UI Libraries*) and the Playwright suite, which runs the same interaction
-tests against all four.
+ship with the package as optional subpath exports — see
+[UI library exports](#ui-library-exports) — and are exercised by both
+Storybook (*15 UI Libraries*) and the Playwright suite, which runs the same
+interaction tests against all four.
 
 ```tsx
 import type { DataTableComponents } from '@mvd/table'
@@ -264,6 +268,72 @@ hand-maintained overlay stack.
 Positioning is still JavaScript: CSS anchor positioning would replace it, but
 it is not yet in Firefox or Safari, and an overlay in the wrong corner is a
 worse failure than a few lines of measurement.
+
+### UI library exports
+
+The MUI, Radix, Mantine and `@lolmath/ui` adapters described above ship
+*with* the package, as separate, optional subpath exports:
+
+| Import | Peer dependencies (all optional) |
+| --- | --- |
+| `@mvd/table/mui` | `@mui/material` |
+| `@mvd/table/mantine` | `@mantine/core`, `@mantine/dates` |
+| `@mvd/table/radix` + `@mvd/table/radix.css` | `@radix-ui/react-checkbox`, `@radix-ui/react-dialog`, `@radix-ui/react-dropdown-menu`, `@radix-ui/react-popover`, `@radix-ui/react-slider`, `@radix-ui/react-switch` |
+| `@mvd/table/lolmath` + `@mvd/table/lolmath.css` | `@lolmath/ui` |
+
+```tsx
+import { DataTable, defaultComponents } from '@mvd/table'
+import { createMuiComponents } from '@mvd/table/mui'
+
+const components = createMuiComponents(defaultComponents)
+
+<DataTable columns={columns} data={data} components={components} />
+```
+
+Each library above is a **peer dependency of its own entry point only**, and
+`peerDependenciesMeta` marks every one of them `optional: true` — installing
+`@mvd/table` installs none of them, and your package manager won't warn about
+a missing peer until you actually import that entry. Nothing about importing
+the root `.` export touches adapter code either way: `dist/index.js` contains
+no reference to any of these libraries, at any size, whether or not their
+adapters exist in the package. The same isolation applies to CSS —
+`@mvd/table/styles.css` is unaffected by `radix.css` or `lolmath.css`
+existing, and neither of those is pulled in unless you import it yourself.
+
+Two consequences follow from "peer, not bundled":
+
+- **You bring the library's own setup.** `createMuiComponents` renders MUI
+  components but does not render a `ThemeProvider`; `createMantineComponents`
+  renders Mantine components but does not import Mantine's stylesheet or
+  render a `MantineProvider`; `createLolmathComponents` renders `@lolmath/ui`
+  components but does not import its stylesheet or fonts. Set those up the
+  same way you would for any other consumer of that library — see the
+  Storybook stories (*15 UI Libraries*) for a worked example of each. `radix`
+  is the one exception: Radix ships unstyled, so `radix.css` *is* this
+  package's own visual layer (a shadcn-like default look, written against the
+  same `--rtc-*` variables as the table itself) and is meant to be imported.
+- **Version drift is yours to manage**, same as any peer dependency — this
+  package declares a semver range, your lockfile picks the installed version.
+
+#### No shadcn export, on purpose
+
+There is no `@mvd/table/shadcn`, and there will not be one. Every other entry
+in the table above wraps a real npm package: something with a version, a
+`node_modules` install, and a peer-dependency boundary this package can
+declare and stay on the other side of. shadcn/ui has none of that by design —
+its CLI copies component source directly into *your* repository rather than
+installing a package, so there is nothing to depend on and nothing to keep
+optional. Building a `shadcn` adapter the way the other four are built would
+mean vendoring a copy of shadcn's component source into this library instead
+— which is exactly "the whole JS in the codebase" this section exists to
+avoid, and it would defeat `peerDependenciesMeta.optional` for everyone, not
+just shadcn users.
+
+What ships instead is `@mvd/table/radix`: Radix UI, the real package
+shadcn/ui's components are themselves built on, styled by `radix.css` to
+resemble shadcn's own defaults. If your app already uses shadcn/ui, it
+already has Radix installed — use this adapter directly, or copy `radix.css`
+as a starting point for matching your own shadcn theme.
 
 ## Filtering
 
@@ -777,9 +847,14 @@ Two things about the output worth knowing:
 
 - The bundle is **not minified**. That is deliberate for a library — consumers
   minify, and shipping readable code plus a sourcemap makes debugging possible.
-- The stylesheet is emitted as `dist/style.css` (tsdown's name) and exposed on
-  the stable `@mvd/table/styles.css` subpath. Importing the package's
-  JS does **not** inject styles; the CSS import is separate and explicit.
+- The stylesheet is emitted per entry point (tsdown's `css.splitting`) —
+  `dist/index.css` for the root import, `dist/adapters/radix.css` and
+  `dist/adapters/lolmath.css` for the two adapters that ship their own CSS —
+  and exposed on the stable `@mvd/table/styles.css`, `@mvd/table/radix.css`
+  and `@mvd/table/lolmath.css` subpaths respectively. Splitting is what keeps
+  an adapter's CSS out of every other consumer's stylesheet. Importing the
+  package's JS does **not** inject styles; the CSS import is separate and
+  explicit.
 
 ### Deployment
 
@@ -811,8 +886,10 @@ src/
     defaultComponents  the built-in, dependency-free implementation
     FilterPanel.tsx    standalone filter pane
     FilterEditor.tsx   per-variant editor, shared by popover and panel
+  adapters/            MUI, Radix, Mantine and @lolmath/ui registry adapters —
+                        each its own optional `@mvd/table/<name>` export,
+                        see "UI library exports"
 stories/               one file per feature area
-stories/adapters/      MUI, Radix, Mantine and @lolmath/ui registry adapters
 e2e/                   Playwright specs
 tsdown.config.ts       library build (rolldown + lightningcss)
 ```
