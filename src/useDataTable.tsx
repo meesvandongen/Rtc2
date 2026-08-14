@@ -16,7 +16,7 @@ import type {
   DataTableTanStackState,
   DataTableUiState,
 } from './types'
-import { applyUpdater, compact, useStableArray } from './utils'
+import { applyUpdater, compact, isSameStateValue, useStableArray } from './utils'
 
 const DEFAULT_TANSTACK_STATE: DataTableTanStackState = {
   cellSelection: [],
@@ -118,6 +118,14 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
 
   const [ownTanStackState, setOwnTanStackState] = useState<DataTableTanStackState>(initialTanStackState)
 
+  // The mirror as it stands *now*, which is not always what React last
+  // rendered: several slices can be written in one batch — a sort that also
+  // resets the page index — and the second write has to resolve its updater
+  // against the first one's result rather than against the pre-batch value.
+  // Re-seeded from state on every render, so a discarded write cannot linger.
+  const ownStateRef = useRef(ownTanStackState)
+  ownStateRef.current = ownTanStackState
+
   const isMobile = useIsMobile(options.mobileBreakpoint)
   const drawerMode = filterDrawerApplies(options, isMobile)
 
@@ -179,13 +187,34 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
   // controlled values are read through refs rather than closed over.
   const sliceHandlers = useMemo(() => {
     const make = (key: SliceKey) => (updater: unknown) => {
-      let resolved: unknown
-      setOwnTanStackState((prev) => {
-        const controlled = (controlledRef.current as Record<string, unknown> | undefined)?.[key]
-        const current = controlled !== undefined ? controlled : prev[key]
-        resolved = applyUpdater(updater as never, current as never)
-        return Object.is(resolved, prev[key]) ? prev : { ...prev, [key]: resolved }
-      })
+      const controlled = (controlledRef.current as Record<string, unknown> | undefined)?.[key]
+      const current = controlled !== undefined ? controlled : ownStateRef.current[key]
+      // Resolved here rather than inside the state updater, which React is
+      // free to defer until the next render — long after the `on*Change`
+      // callback below has already run, and reported `undefined`.
+      const resolved = applyUpdater(updater as never, current as never) as unknown
+
+      // A slice that resolves to the value it already held has not changed,
+      // however new the object is. That is not a rare case: `reset*` clones
+      // `initialState` unconditionally, and two of those resets — `expanded`
+      // and `cellSelection` — are scheduled by TanStack in a microtask the
+      // *first* row-model computation queues, so they land on a table that
+      // has never moved away from its initial state.
+      //
+      // Forwarding those to React would be wrong three times over: a render
+      // for nothing, an `on*Change` telling the consumer state moved when it
+      // did not, and — because the microtask runs after the mount render but
+      // can arrive before the mount commits, which is exactly what happens
+      // when a table is mounted inside a transition and React time-slices the
+      // render — a state update on a component that has not mounted yet, for
+      // which React logs "Can't perform a React state update on a component
+      // that hasn't mounted yet".
+      if (isSameStateValue(resolved, current)) return
+
+      ownStateRef.current = { ...ownStateRef.current, [key]: resolved } as DataTableTanStackState
+      setOwnTanStackState((prev) =>
+        Object.is(resolved, prev[key]) ? prev : { ...prev, [key]: resolved },
+      )
       const callback = (optionsRef.current as unknown as Record<string, unknown>)[TANSTACK_CALLBACKS[key]]
       if (typeof callback === 'function') (callback as (value: unknown) => void)(resolved)
     }

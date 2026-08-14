@@ -107,6 +107,46 @@ export const ObserveAllState: Story = {
   },
 }
 
+/**
+ * The per-slice `on*Change` callbacks fire when a slice actually changes, and
+ * not otherwise.
+ *
+ * The log below is empty until you interact with the table. That is worth a
+ * story of its own: TanStack schedules a reset of `expanded` and
+ * `cellSelection` off the first row-model computation, and a reset rebuilds
+ * its slice whether or not the value moved. A table that forwarded those
+ * would announce two changes before the user had touched anything.
+ */
+export const ChangeCallbacks: Story = {
+  render: function ChangeCallbacks() {
+    const [log, setLog] = useState<string[]>([])
+    const record = (slice: string) => (value: unknown) =>
+      setLog((entries) => [...entries, `${slice}=${JSON.stringify(value) ?? 'undefined'}`])
+
+    return (
+      <>
+        <p className="rtc-sb-note">
+          Sort a column, select a row or page forward; each committed change appends one line.
+        </p>
+        <DataTable
+          columns={personColumns.slice(0, 4)}
+          data={data}
+          getRowId={(row) => row.id}
+          enableRowSelection
+          onSortingChange={record('sorting')}
+          onRowSelectionChange={record('rowSelection')}
+          onPaginationChange={record('pagination')}
+          onExpandedChange={record('expanded')}
+          onCellSelectionChange={record('cellSelection')}
+        />
+        <pre className="rtc-sb-panel" data-testid="change-log">
+          {log.join('\n') || '(none)'}
+        </pre>
+      </>
+    )
+  },
+}
+
 /** Restore a saved layout through `initialState`. */
 export const RestoredInitialState: Story = {
   args: {

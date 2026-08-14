@@ -1029,6 +1029,26 @@ test.describe('state and composition', () => {
     await expect(page.getByTestId('state-snapshot')).toContainText('"density": "compact"')
   })
 
+  /**
+   * The mount half of this guards a React warning that only appears in a
+   * development build, so it cannot be asserted directly here: TanStack
+   * schedules the `expanded` and `cellSelection` resets in a microtask, and
+   * when the table is mounted inside a transition that microtask can land
+   * between the mount render and the mount commit — a state update on a
+   * component that has not mounted yet. Both symptoms come from forwarding a
+   * reset that changed nothing, and this is the visible one.
+   */
+  test('on*Change fires for real changes only', async ({ page }) => {
+    const root = await openStory(page, 'datatable-14-state-composition--change-callbacks')
+    const log = page.getByTestId('change-log')
+
+    await expect(bodyRows(root).first()).toBeVisible()
+    await expect(log).toHaveText('(none)')
+
+    await header(root, 'firstName').getByRole('button').first().click()
+    await expect(log).toHaveText('sorting=[{"id":"firstName","desc":false}]')
+  })
+
   test('initialState restores a saved layout', async ({ page }) => {
     const root = await openStory(page, 'datatable-14-state-composition--restored-initial-state')
 

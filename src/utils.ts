@@ -31,6 +31,54 @@ export function applyUpdater<T>(updater: T | ((old: T) => T), old: T): T {
   return typeof updater === 'function' ? (updater as (old: T) => T)(old) : updater
 }
 
+/** Values compared structurally by `isSameStateValue`; anything else by identity. */
+function isPlainObject(value: object): boolean {
+  const prototype = Object.getPrototypeOf(value)
+  return prototype === Object.prototype || prototype === null
+}
+
+/**
+ * Structural equality for a table state slice.
+ *
+ * State slices are plain data — arrays of ids, arrays of `{ id, value }`,
+ * records keyed by row or column id — and TanStack rebuilds them rather than
+ * mutating them, so two slices that mean the same thing are routinely
+ * different objects. `reset*`, in particular, hands back a fresh clone of
+ * `initialState` whether or not the slice had moved away from it.
+ *
+ * Identity comparison cannot tell those apart, and treating a clone as a
+ * change is not free: it re-renders the table and tells the consumer through
+ * `on*Change` that state moved when it did not.
+ *
+ * Only arrays and plain objects are walked. A `Date` compares by time; every
+ * other object — a class instance in a filter value, say — keeps identity
+ * semantics, because for those "same fields" and "same value" are the
+ * owner's question to answer, not this function's.
+ */
+export function isSameStateValue(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false
+
+  if (a instanceof Date || b instanceof Date) {
+    return a instanceof Date && b instanceof Date && a.getTime() === b.getTime()
+  }
+
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false
+    return a.every((item, index) => isSameStateValue(item, b[index]))
+  }
+
+  if (!isPlainObject(a) || !isPlainObject(b)) return false
+
+  const keys = Object.keys(a)
+  if (keys.length !== Object.keys(b).length) return false
+  return keys.every(
+    (key) =>
+      Object.hasOwn(b, key) &&
+      isSameStateValue((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]),
+  )
+}
+
 export function cx(...values: Array<string | false | null | undefined>): string | undefined {
   const joined = values.filter(Boolean).join(' ')
   return joined === '' ? undefined : joined

@@ -1,3 +1,4 @@
+import { useLayoutEffect, useState } from 'react'
 import type { RowData } from '@tanstack/react-table'
 import { useVirtualizer } from '@tanstack/react-virtual'
 
@@ -147,6 +148,30 @@ function VirtualBody<TData extends RowData>({
         ? (element) => element?.getBoundingClientRect().height
         : undefined,
   })
+
+  /**
+   * One more render, so the virtualizer can see the scroll container.
+   *
+   * The container is an *ancestor* of this component, and React attaches a
+   * host element's ref only after the layout effects of everything inside it
+   * have run. On the mount render — and in the layout effect where the
+   * virtualizer goes looking for its scroll element — `containerRef.current`
+   * is therefore still null. With no element to measure the virtualizer
+   * reports a window of zero rows, and nothing ever asks it a second time: a
+   * virtualized table renders its full-height spacer and not one row.
+   *
+   * Until now the render that rescued it came from elsewhere by accident —
+   * TanStack's `cellSelection` auto-reset landing just after mount and being
+   * forwarded to React as a state change. That reset changes nothing and is no
+   * longer forwarded, so the render this needs is asked for here.
+   *
+   * A layout effect rather than an effect: it runs before paint, so the empty
+   * body is never a frame anyone sees.
+   */
+  const [, setContainerAttached] = useState(false)
+  useLayoutEffect(() => {
+    setContainerAttached(true)
+  }, [])
 
   const virtualRows = virtualizer.getVirtualItems()
   const totalSize = virtualizer.getTotalSize()

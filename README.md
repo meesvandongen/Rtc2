@@ -746,6 +746,11 @@ Each slice can be left alone, observed, or fully controlled — independently.
 <DataTable state={{ sorting }} onSortingChange={applySortingUpdater} … />
 ```
 
+An `on*Change` callback fires when its slice actually changes. A slice that
+resolves to the value it already holds is not a change, however new the
+object: TanStack rebuilds state rather than mutating it, and its `reset*`
+calls clone `initialState` whether or not the slice had moved away from it.
+
 `initialState` also accepts the presentation-only slices — `density`,
 `isFullScreen`, `showColumnFilters`, `showGlobalFilter`, `rowOrder`,
 `columnFilterFns` — which makes saving and restoring a user's layout a single
