@@ -1,5 +1,60 @@
 # @mvd/table
 
+## 0.3.0
+
+### Minor Changes
+
+- 8c37f10: Add a `Label` slot to the component registry, so the text over a field in the
+  modal editor and the filter panel comes from the host's design system like every
+  control around it. The built-in implementation renders the same span as before,
+  so nothing changes for a table that does not override it.
+
+  The slot is presentational: the table keeps ownership of the association — the
+  modal editor still wraps each field in a `<label>`, and every control still
+  carries its own `aria-label`. An adapter whose library labels with a `<label>`
+  element should render it as a span; React Aria's `Label` takes an `elementType`
+  for exactly that, and nesting one inside the table's own `<label>` is invalid.
+
+- 5bd5c8a: Ship the MUI, Mantine, Radix and `@lolmath/ui` component-registry adapters as
+  optional subpath exports — `@mvd/table/mui`, `@mvd/table/mantine`,
+  `@mvd/table/radix` (+ `@mvd/table/radix.css`) and `@mvd/table/lolmath`
+  (+ `@mvd/table/lolmath.css`). Each UI library is a peer dependency of its own
+  entry point only, marked optional in `peerDependenciesMeta`, so installing
+  `@mvd/table` pulls in none of them and importing the root export is
+  unaffected either way — see "UI library exports" in the README, including
+  why there is no `@mvd/table/shadcn`.
+- d3d8f38: Filters open in a drawer on mobile.
+
+  Below `mobileBreakpoint` (640px by default) the header funnel opens its column's
+  editor in a modal bottom sheet, the docked filter panel becomes a full-width
+  sheet, and the toolbar always offers the funnel that opens it — a popover
+  anchored to a 24px button and a 280px docked pane are both unusable on a phone.
+  Opt out with `enableMobileFilterDrawer={false}`.
+
+  The sheet never opens by itself: `initialState.showFilterPanel` and
+  `filterDisplayMode: 'panel'` mean "the pane starts open beside the table",
+  which is not the same request as "a modal covers the data on arrival". In
+  drawer mode the surface opens on a gesture only — including across a resize,
+  where a pane left open does not become an overlay.
+
+  The sheet is a new `Drawer` registry component, so it can be replaced like every
+  other overlay; adapters for MUI, Radix/shadcn and Mantine ship with the
+  Storybook examples. The built-in one is a native modal `<dialog>` — the top
+  layer, backdrop, focus trap and Escape come from the browser, the slide-in is
+  CSS, and the only script is swipe-down-to-dismiss.
+
+  Also adds `DataTableFilterDrawer`, `useMediaQuery`/`useIsMobile`,
+  `table.isMobile`, and the `close`/`done` localization strings.
+
+### Patch Changes
+
+- 9d8f94c: Restore the minimum width of a filter popover's contents. `.rtc-filter-popover`
+  was listed among the containers that are allowed to shrink inside the docked
+  filter panel, which silently zeroed the 220px floor set on it a few rules
+  earlier. The built-in overlay was unaffected — its surface carries a wider
+  minimum of its own — but an adapter whose popover sizes to its contents
+  collapsed onto its own controls.
+
 ## 0.2.0
 
 ### Minor Changes
