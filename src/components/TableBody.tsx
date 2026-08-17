@@ -1,5 +1,6 @@
 import type { RowData } from '@tanstack/react-table'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { useLayoutEffect, useState } from 'react'
 
 import { BodyRow } from './BodyRow'
 import { useComponents } from './registry'
@@ -136,6 +137,16 @@ function VirtualBody<TData extends RowData>({
 }) {
   const options = table.dataTableOptions
   const estimate = DENSITY_ROW_HEIGHT[table.ui.density]
+
+  // `containerRef` is not yet attached to the DOM on the render that mounts
+  // this component, so the virtualizer's first `getScrollElement()` call
+  // returns null and it never observes the real element. Forcing one extra
+  // render after commit — once refs are assigned — lets it pick up the
+  // container that is actually there.
+  const [, forceRemeasure] = useState(0)
+  useLayoutEffect(() => {
+    forceRemeasure((count) => count + 1)
+  }, [])
 
   const virtualizer = useVirtualizer({
     count: rows.length,
