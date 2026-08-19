@@ -1,21 +1,25 @@
 import type { RowData } from '@tanstack/react-table'
-import { useVirtualizer } from '@tanstack/react-virtual'
-import { useLayoutEffect, useState } from 'react'
 
 import { BodyRow } from './BodyRow'
 import { useComponents } from './registry'
+import type { RowVirtualizer } from './rowVirtualizer'
 import { cx } from '../utils'
 import type { DataTableInstance, DataTableRow } from '../types'
 
 export interface TableBodyProps<TData extends RowData> {
   table: DataTableInstance<TData>
-  containerRef: React.RefObject<HTMLDivElement | null>
+  /** Render order, resolved by the shell so the virtualizer counts the same rows. */
+  rows: Array<DataTableRow<TData>>
+  rowVirtualizer: RowVirtualizer
   columnCount: number
 }
 
-const DENSITY_ROW_HEIGHT = { compact: 32, comfortable: 44, spacious: 60 } as const
-
-export function TableBody<TData extends RowData>({ table, containerRef, columnCount }: TableBodyProps<TData>) {
+export function TableBody<TData extends RowData>({
+  table,
+  rows,
+  rowVirtualizer,
+  columnCount,
+}: TableBodyProps<TData>) {
   const ui = useComponents()
   const options = table.dataTableOptions
   const { localization } = options
@@ -56,7 +60,6 @@ export function TableBody<TData extends RowData>({ table, containerRef, columnCo
     )
   }
 
-  const rows = table.getRenderRows()
   const topRows = (options.enableRowPinning ?? false) ? (table.getTopRows() as Array<DataTableRow<TData>>) : []
   const bottomRows = (options.enableRowPinning ?? false)
     ? (table.getBottomRows() as Array<DataTableRow<TData>>)
@@ -87,7 +90,7 @@ export function TableBody<TData extends RowData>({ table, containerRef, columnCo
       <VirtualBody
         table={table}
         rows={rows}
-        containerRef={containerRef}
+        virtualizer={rowVirtualizer}
         columnCount={columnCount}
       />
     )
@@ -127,37 +130,15 @@ export function TableBody<TData extends RowData>({ table, containerRef, columnCo
 function VirtualBody<TData extends RowData>({
   table,
   rows,
-  containerRef,
+  virtualizer,
   columnCount,
 }: {
   table: DataTableInstance<TData>
   rows: Array<DataTableRow<TData>>
-  containerRef: React.RefObject<HTMLDivElement | null>
+  virtualizer: RowVirtualizer
   columnCount: number
 }) {
   const options = table.dataTableOptions
-  const estimate = DENSITY_ROW_HEIGHT[table.ui.density]
-
-  // `containerRef` is not yet attached to the DOM on the render that mounts
-  // this component, so the virtualizer's first `getScrollElement()` call
-  // returns null and it never observes the real element. Forcing one extra
-  // render after commit — once refs are assigned — lets it pick up the
-  // container that is actually there.
-  const [, forceRemeasure] = useState(0)
-  useLayoutEffect(() => {
-    forceRemeasure((count) => count + 1)
-  }, [])
-
-  const virtualizer = useVirtualizer({
-    count: rows.length,
-    getScrollElement: () => containerRef.current,
-    estimateSize: options.rowVirtualizerOptions?.estimateSize ?? (() => estimate),
-    overscan: options.rowVirtualizerOptions?.overscan ?? 8,
-    measureElement:
-      typeof window !== 'undefined' && !navigator.userAgent.includes('Firefox')
-        ? (element) => element?.getBoundingClientRect().height
-        : undefined,
-  })
 
   const virtualRows = virtualizer.getVirtualItems()
   const totalSize = virtualizer.getTotalSize()

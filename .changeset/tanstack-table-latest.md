@@ -5,12 +5,19 @@
 Upgrade `@tanstack/react-table` from the `9.0.0-beta.58` prerelease to the
 stable `9.1.2`, and `@tanstack/react-virtual` from `3.14.8` to `3.14.9`.
 
-Fix row virtualization never mounting any rows on some renders. `VirtualBody`
-read `containerRef.current` on its very first render, before React assigns
-refs, so `useVirtualizer` observed `null` and never got a second chance to
-find the real scroll container. This used to be masked by an unrelated
-TanStack bug where an internal auto-reset fired an extra render on mount;
-TanStack fixed that bug in `9.0.0-beta.76`, which removed the accidental
-extra render this package was relying on. `VirtualBody` now forces one
-render after mount itself, so the virtualizer always gets a real container
-to measure.
+Fix row virtualization mounting no rows at all. The row virtualizer now lives
+in the component that renders the scroll container instead of in the table
+body below it.
+
+`useVirtualizer` has to resolve `getScrollElement` on its first commit, and
+React attaches refs bottom-up: a descendant's layout effect runs before its
+ancestor's ref is assigned. Creating the virtualizer in `VirtualBody` — below
+the `div` holding the container ref — meant it measured `null` on mount and,
+with nothing else prompting a render, never looked again. Keeping the ref and
+the virtualizer in the same component, as TanStack's own examples do, makes
+the container reachable from the first measurement on.
+
+This was previously masked by an unrelated TanStack Table bug that fired an
+auto-reset on mount, which incidentally produced the extra render the
+virtualizer needed; that bug was fixed upstream in `9.0.0-beta.76`. The
+container is also now picked up correctly if it is ever swapped or remounted.

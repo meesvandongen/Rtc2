@@ -6,6 +6,7 @@ import { EditRowDialog } from './components/EditRowDialog'
 import { DataTableFilterDrawer } from './components/FilterDrawer'
 import { DataTableFilterPanel } from './components/FilterPanel'
 import { DataTableComponentsProvider, useComponents } from './components/registry'
+import { useRowVirtualizer } from './components/rowVirtualizer'
 import { TableBody } from './components/TableBody'
 import { TableFoot } from './components/TableFoot'
 import { TableHead } from './components/TableHead'
@@ -55,6 +56,11 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
   const ui = useComponents()
   const options = table.dataTableOptions
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // The render order is resolved here, beside the scroll container, so the
+  // virtualizer and the body agree on which rows they are counting.
+  const rows = table.getRenderRows()
+  const rowVirtualizer = useRowVirtualizer(table, containerRef, rows.length)
 
   // Virtualization positions rows absolutely, which the browser's native table
   // layout cannot do; fall back to the grid layout automatically.
@@ -205,7 +211,12 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
 
               {(options.enableTableHead ?? true) ? <TableHead table={table} /> : null}
 
-              <TableBody table={table} containerRef={containerRef} columnCount={columnCount} />
+              <TableBody
+                table={table}
+                rows={rows}
+                rowVirtualizer={rowVirtualizer}
+                columnCount={columnCount}
+              />
 
               {(options.enableTableFooter ?? true) ? <TableFoot table={table} /> : null}
             </table>
