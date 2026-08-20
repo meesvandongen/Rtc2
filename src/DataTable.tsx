@@ -6,7 +6,10 @@ import { EditRowDialog } from './components/EditRowDialog'
 import { DataTableFilterDrawer } from './components/FilterDrawer'
 import { DataTableFilterPanel } from './components/FilterPanel'
 import { DataTableComponentsProvider, useComponents } from './components/registry'
-import { DataTableScrollArea } from './components/TableScrollArea'
+import { type RowVirtualizer, WithRowVirtualizer } from './components/rowVirtualizer'
+import { TableBody } from './components/TableBody'
+import { TableFoot } from './components/TableFoot'
+import { TableHead } from './components/TableHead'
 import { BottomToolbar, TopToolbar } from './components/Toolbar'
 import { DragProvider, type DropEdge } from './dragContext'
 import { usesFilterDrawer } from './responsive'
@@ -150,6 +153,41 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
 
   const showProgress = !!options.isLoading || !!options.isSaving
 
+  // Defined once and rendered either inside `WithRowVirtualizer`, which owns
+  // the virtualizer above the container it measures, or on its own when the
+  // table does not virtualize and no virtualizer is built.
+  const renderScrollArea = (rowVirtualizer: RowVirtualizer | null) => (
+    <div
+      ref={containerRef}
+      className={cx('rtc-container', options.classNames?.container)}
+      onKeyDown={onKeyDown}
+      {...options.containerProps}
+    >
+      <table
+        className={cx('rtc-table', options.classNames?.table)}
+        {...options.tableProps}
+        aria-rowcount={table.getRowCount() || undefined}
+        aria-colcount={columnCount || undefined}
+        aria-busy={showProgress || undefined}
+      >
+        {options.caption || options.renderCaption ? (
+          <caption>{options.renderCaption?.({ table }) ?? options.caption}</caption>
+        ) : null}
+
+        {(options.enableTableHead ?? true) ? <TableHead table={table} /> : null}
+
+        <TableBody
+          table={table}
+          rows={rows}
+          rowVirtualizer={rowVirtualizer}
+          columnCount={columnCount}
+        />
+
+        {(options.enableTableFooter ?? true) ? <TableFoot table={table} /> : null}
+      </table>
+    </div>
+  )
+
   return (
     <DragProvider
       onDropColumn={handleDropColumn}
@@ -188,14 +226,13 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
             <DataTableFilterPanel table={table} className="rtc-filter-panel-docked" />
           ) : null}
 
-          <DataTableScrollArea
-            table={table}
-            rows={rows}
-            columnCount={columnCount}
-            containerRef={containerRef}
-            onKeyDown={onKeyDown}
-            showProgress={showProgress}
-          />
+          {options.enableRowVirtualization ? (
+            <WithRowVirtualizer table={table} containerRef={containerRef} count={rows.length}>
+              {renderScrollArea}
+            </WithRowVirtualizer>
+          ) : (
+            renderScrollArea(null)
+          )}
 
           {showPanel && panelPosition === 'end' ? (
             <DataTableFilterPanel table={table} className="rtc-filter-panel-docked" />

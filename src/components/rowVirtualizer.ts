@@ -36,3 +36,26 @@ export function useRowVirtualizer<TData extends RowData>(
         : undefined,
   })
 }
+
+/**
+ * Hosts a row virtualizer one level above the container it measures.
+ *
+ * `children` receives the virtualizer and returns the subtree that renders the
+ * `ref`ed container, so the markup stays in one place while the hook still
+ * sits above it. Rendered only for a virtualized table — a plain one never
+ * builds a virtualizer at all.
+ */
+export function WithRowVirtualizer<TData extends RowData>({
+  table,
+  containerRef,
+  count,
+  children,
+}: {
+  table: DataTableInstance<TData>
+  containerRef: React.RefObject<HTMLDivElement | null>
+  count: number
+  children: (rowVirtualizer: RowVirtualizer) => React.ReactNode
+}): React.ReactNode {
+  const rowVirtualizer = useRowVirtualizer(table, containerRef, count)
+  return children(rowVirtualizer)
+}

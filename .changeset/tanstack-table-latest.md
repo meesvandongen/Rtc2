@@ -22,7 +22,9 @@ auto-reset on mount, which incidentally produced the extra render the
 virtualizer needed; that bug was fixed upstream in `9.0.0-beta.76`. The
 container is also now picked up correctly if it is ever swapped or remounted.
 
-The scroll container is split into virtualized and non-virtualized variants,
-so a table that does not virtualize constructs no virtualizer at all. The
-trade-off is that toggling `enableRowVirtualization` on a live table remounts
-the scroll container, resetting its scroll position.
+A table that does not virtualize now builds no virtualizer at all: the
+virtualized case wraps the container in a small component that owns the hook
+and hands it back, so the container markup stays in one place. The trade-off
+is that toggling `enableRowVirtualization` on a live table remounts the scroll
+container, resetting its scroll position; the option is treated as fixed for
+the lifetime of a table.
