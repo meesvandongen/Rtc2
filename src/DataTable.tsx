@@ -6,10 +6,7 @@ import { EditRowDialog } from './components/EditRowDialog'
 import { DataTableFilterDrawer } from './components/FilterDrawer'
 import { DataTableFilterPanel } from './components/FilterPanel'
 import { DataTableComponentsProvider, useComponents } from './components/registry'
-import { useRowVirtualizer } from './components/rowVirtualizer'
-import { TableBody } from './components/TableBody'
-import { TableFoot } from './components/TableFoot'
-import { TableHead } from './components/TableHead'
+import { DataTableScrollArea } from './components/TableScrollArea'
 import { BottomToolbar, TopToolbar } from './components/Toolbar'
 import { DragProvider, type DropEdge } from './dragContext'
 import { usesFilterDrawer } from './responsive'
@@ -57,10 +54,9 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
   const options = table.dataTableOptions
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // The render order is resolved here, beside the scroll container, so the
-  // virtualizer and the body agree on which rows they are counting.
+  // The render order is resolved here so the virtualizer and the body agree
+  // on which rows they are counting.
   const rows = table.getRenderRows()
-  const rowVirtualizer = useRowVirtualizer(table, containerRef, rows.length)
 
   // Virtualization positions rows absolutely, which the browser's native table
   // layout cannot do; fall back to the grid layout automatically.
@@ -192,35 +188,14 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
             <DataTableFilterPanel table={table} className="rtc-filter-panel-docked" />
           ) : null}
 
-          <div
-            ref={containerRef}
-            className={cx('rtc-container', options.classNames?.container)}
+          <DataTableScrollArea
+            table={table}
+            rows={rows}
+            columnCount={columnCount}
+            containerRef={containerRef}
             onKeyDown={onKeyDown}
-            {...options.containerProps}
-          >
-            <table
-              className={cx('rtc-table', options.classNames?.table)}
-              {...options.tableProps}
-              aria-rowcount={table.getRowCount() || undefined}
-              aria-colcount={columnCount || undefined}
-              aria-busy={showProgress || undefined}
-            >
-              {options.caption || options.renderCaption ? (
-                <caption>{options.renderCaption?.({ table }) ?? options.caption}</caption>
-              ) : null}
-
-              {(options.enableTableHead ?? true) ? <TableHead table={table} /> : null}
-
-              <TableBody
-                table={table}
-                rows={rows}
-                rowVirtualizer={rowVirtualizer}
-                columnCount={columnCount}
-              />
-
-              {(options.enableTableFooter ?? true) ? <TableFoot table={table} /> : null}
-            </table>
-          </div>
+            showProgress={showProgress}
+          />
 
           {showPanel && panelPosition === 'end' ? (
             <DataTableFilterPanel table={table} className="rtc-filter-panel-docked" />

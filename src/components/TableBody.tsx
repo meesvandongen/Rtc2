@@ -10,7 +10,8 @@ export interface TableBodyProps<TData extends RowData> {
   table: DataTableInstance<TData>
   /** Render order, resolved by the shell so the virtualizer counts the same rows. */
   rows: Array<DataTableRow<TData>>
-  rowVirtualizer: RowVirtualizer
+  /** Null when the table is not virtualized, in which case none was created. */
+  rowVirtualizer: RowVirtualizer | null
   columnCount: number
 }
 
@@ -85,7 +86,7 @@ export function TableBody<TData extends RowData>({
     )
   }
 
-  if (options.enableRowVirtualization) {
+  if (rowVirtualizer) {
     return (
       <VirtualBody
         table={table}

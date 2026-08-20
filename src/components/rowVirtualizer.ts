@@ -10,17 +10,12 @@ export type RowVirtualizer = Virtualizer<HTMLDivElement, HTMLTableRowElement>
 /**
  * Row virtualizer for the table body.
  *
- * This deliberately lives in the component that renders the scroll container,
- * not in the body that consumes the virtual rows. `getScrollElement` has to
- * resolve on the very first commit, and React attaches refs bottom-up: a
- * descendant's layout effect runs before its ancestor's ref is assigned. A
- * virtualizer created below the container would therefore see `null` on mount
- * and — with nothing else prompting a re-render — never look again. Keeping
- * the ref and the virtualizer in one component is TanStack's documented
- * pattern, and makes the container reachable from the first measurement on.
- *
- * The hook is always called so the rules of hooks hold; `enabled` turns the
- * work off when the table is not virtualized.
+ * Only called for a table that is actually virtualized, and only from the
+ * component that renders the scroll container: `getScrollElement` has to
+ * resolve on the very first commit, and React attaches refs bottom-up, so a
+ * virtualizer created *below* the container would read the ref before React
+ * had assigned it — and, with nothing else prompting a re-render, never look
+ * again. Owning both together is TanStack's documented pattern.
  */
 export function useRowVirtualizer<TData extends RowData>(
   table: DataTableInstance<TData>,
@@ -32,7 +27,6 @@ export function useRowVirtualizer<TData extends RowData>(
 
   return useVirtualizer<HTMLDivElement, HTMLTableRowElement>({
     count,
-    enabled: options.enableRowVirtualization ?? false,
     getScrollElement: () => containerRef.current,
     estimateSize: options.rowVirtualizerOptions?.estimateSize ?? (() => estimate),
     overscan: options.rowVirtualizerOptions?.overscan ?? 8,
