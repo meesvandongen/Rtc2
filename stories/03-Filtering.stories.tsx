@@ -494,3 +494,39 @@ export const NoBuiltInFilterUi: Story = {
     )
   },
 }
+
+/**
+ * `enableGlobalFilterModes` puts a mode menu in the search field's leading
+ * gutter — the table-wide counterpart of `enableFilterModes`.
+ *
+ * The chosen mode is UI state (`ui.globalFilterFn`), reported through
+ * `onGlobalFilterFnChange`, and `globalFilterFn` becomes the starting mode
+ * rather than the only one. Try "Ada" under *Contains*, then under
+ * *Starts with*, then under *Equals (case sensitive)*.
+ */
+export const GlobalFilterModes: Story = {
+  args: {
+    enableGlobalFilterToggle: false,
+    enableGlobalFilterModes: true,
+    globalFilterFn: 'includesString',
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  argTypes: {
+    enableGlobalFilterModes: { control: 'boolean', table: { category: 'Filtering' } },
+  },
+  render: (args) => (
+    <DataTable
+      columns={personColumns.slice(0, 6)}
+      data={data}
+      getRowId={(row) => row.id}
+      enablePagination={false}
+      height={420}
+      {...args}
+    />
+  ),
+}

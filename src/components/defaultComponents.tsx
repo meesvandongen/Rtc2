@@ -919,10 +919,14 @@ function Drawer({
   )
 }
 
-function Tooltip({ label, children }: RtcTooltipProps) {
+function Tooltip({ label, children, className }: RtcTooltipProps) {
   // The native title attribute keeps the default set dependency-free; adapters
   // that have a real tooltip should override this.
-  return <span title={label}>{children}</span>
+  return (
+    <span className={className} title={label}>
+      {children}
+    </span>
+  )
 }
 
 /** A span, so it nests inside the `<label>` the modal editor wraps a field in. */

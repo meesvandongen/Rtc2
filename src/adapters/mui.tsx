@@ -366,9 +366,9 @@ export function createMuiComponents(defaults: DataTableComponents): DataTableCom
       </MuiDrawer>
     ),
 
-    Tooltip: ({ label, children }) => (
+    Tooltip: ({ label, children, className }) => (
       <MuiTooltip title={label}>
-        <span>{children}</span>
+        <span className={className}>{children}</span>
       </MuiTooltip>
     ),
 

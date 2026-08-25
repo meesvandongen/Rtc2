@@ -39,3 +39,30 @@ export function evaluateConditions(
 
 /** Id under which the structured filter fn is registered with TanStack. */
 export const STRUCTURED_FILTER_FN = 'rtcCondition'
+
+/** Id under which the mode-dispatching global filter fn is registered. */
+export const GLOBAL_MODE_FILTER_FN = 'rtcGlobalMode'
+
+/**
+ * The global filter value while `enableGlobalFilterModes` is on.
+ *
+ * The mode has to travel *inside* the filter value, which is the reason this
+ * shape exists at all. TanStack memoizes the filtered row model on
+ * `[preFilteredRowModel, columnFilters, globalFilter]` — the global filter
+ * **fn** is an option, and options are not memo dependencies — so switching the
+ * mode through `options.globalFilterFn` alone changes how matching *would*
+ * work and never re-runs it. Folding the mode into the state atom is what
+ * makes the switch take effect.
+ *
+ * Purely internal: `state.globalFilter` stays a plain string for callers, and
+ * `onGlobalFilterChange` still reports one. `useDataTable` wraps on the way
+ * into TanStack and nowhere else.
+ */
+export interface GlobalFilterWithMode {
+  query: string
+  mode: string
+}
+
+export function isGlobalFilterWithMode(value: unknown): value is GlobalFilterWithMode {
+  return typeof value === 'object' && value !== null && 'query' in value && 'mode' in value
+}

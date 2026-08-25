@@ -7,6 +7,20 @@ import { groupedHeaderColumns, makePeople, makeWideColumns, personColumns } from
 
 const data = makePeople(25)
 
+/**
+ * Two identifier columns opted into click-to-copy; the rest stay plain text.
+ *
+ * Matched on `accessorKey`, not `id`: the helper leaves `id` undefined for an
+ * accessor column and TanStack derives it from the key at runtime.
+ */
+const COPYABLE_KEYS = new Set(['email', 'city'])
+const copyableColumns = personColumns.map((column) => {
+  const key = (column as { accessorKey?: string }).accessorKey
+  return key && COPYABLE_KEYS.has(key)
+    ? { ...column, meta: { ...column.meta, enableClickToCopy: true } }
+    : column
+})
+
 /** Column-management props shared across most stories in this file. */
 const columnsArgTypes = {
   enableColumnVisibility: { control: 'boolean', table: { category: 'Columns' } },
@@ -272,6 +286,41 @@ export const AlignmentAndDefaults: Story = {
       defaultColumn={{ minSize: 80, maxSize: 400 }}
       enablePagination={false}
       enableBorders="all"
+      {...args}
+    />
+  ),
+}
+
+/**
+ * `meta.enableClickToCopy` turns a column's cells into copy buttons.
+ *
+ * Per column rather than per table by default: it is right for an id or an
+ * email and wrong for a paragraph. The value keeps its own text as the
+ * button's accessible name — "Click to copy" is the tooltip, and the
+ * confirmation is announced through a live region — so a screen reader still
+ * hears the cell rather than the affordance.
+ *
+ * It composes with the rest of the cell behaviours: copying stops the click
+ * from reaching the row, so `enableClickToSelect` stays quiet, while cell
+ * selection (pointer-down) and `editMode: 'cell'` (double-click) are
+ * untouched. Grouped, aggregated and placeholder cells never get the
+ * affordance — there is no single value under them.
+ */
+export const ClickToCopy: Story = {
+  args: {
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: (args) => (
+    <DataTable
+      columns={copyableColumns}
+      data={data.slice(0, 8)}
+      getRowId={(row) => row.id}
+      enablePagination={false}
       {...args}
     />
   ),

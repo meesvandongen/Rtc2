@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTable } from '@tanstack/react-table'
 
 import { buildDisplayColumns, resolveEnableExpanding } from './displayColumns'
-import { STRUCTURED_FILTER_FN } from './filters/filterFn'
+import { GLOBAL_MODE_FILTER_FN, STRUCTURED_FILTER_FN } from './filters/filterFn'
 import type { DataTableTableMeta } from './filters/registry'
 import { dataTableFeatures } from './features'
 import { mergeLocalization, type DataTableLocalization } from './locale'
@@ -43,6 +43,7 @@ const DEFAULT_UI_STATE: DataTableUiState = {
   editingCellId: null,
   rowOrder: [],
   columnFilterOperators: {},
+  globalFilterFn: null,
 }
 
 /** Maps each TanStack slice to the public callback that observes it. */
@@ -175,6 +176,31 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
   const uiRef = useRef(ui)
   uiRef.current = ui
 
+  /**
+   * The state handed to TanStack, with the search mode folded into the global
+   * filter value when the reader is allowed to change it.
+   *
+   * TanStack memoizes the filtered row model on the filter *state* — the
+   * global filter fn is an option, and options are not memo dependencies — so
+   * a mode carried only in `options.globalFilterFn` would change how matching
+   * works without ever re-running it. Folding it into the atom is what makes
+   * the switch take effect. See `GlobalFilterWithMode`.
+   *
+   * Only wrapped while there is something to search for: an empty query has to
+   * stay the empty string, because that is what TanStack reads as "no global
+   * filter". Wrapped, `''` would become a truthy value and every row would be
+   * run through the mode's comparator — under `equalsString`, clearing the box
+   * would empty the table.
+   */
+  const globalFilterMode = ui.globalFilterFn ?? options.globalFilterFn ?? 'includesString'
+  const tanStackStateForTable = useMemo<DataTableTanStackState>(() => {
+    if (!options.enableGlobalFilterModes || !tanStackState.globalFilter) return tanStackState
+    return {
+      ...tanStackState,
+      globalFilter: { query: tanStackState.globalFilter, mode: globalFilterMode } as never,
+    }
+  }, [tanStackState, options.enableGlobalFilterModes, globalFilterMode])
+
   // TanStack slice handlers. Stable identities: the latest options and
   // controlled values are read through refs rather than closed over.
   const sliceHandlers = useMemo(() => {
@@ -301,7 +327,7 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
     features: dataTableFeatures,
     columns,
     data: stableData,
-    state: tanStackState,
+    state: tanStackStateForTable,
     // TanStack's auto-reset hooks restore `table.initialState` rather than the
     // feature default — and one of them, `autoResetExpanded`, fires the first
     // time the grouped row model computes, which is during the mount render.
@@ -332,7 +358,11 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
     enableColumnFilters: options.enableColumnFilters ?? true,
     manualFiltering: options.manualFiltering ?? false,
     enableGlobalFilter: options.enableGlobalFilter ?? true,
-    globalFilterFn: (options.globalFilterFn ?? 'includesString') as never,
+    // With modes on, one registered fn dispatches on the mode carried in the
+    // filter value; without them, the option names the fn directly.
+    globalFilterFn: (options.enableGlobalFilterModes
+      ? GLOBAL_MODE_FILTER_FN
+      : globalFilterMode) as never,
 
     enableGrouping: options.enableGrouping ?? false,
     groupedColumnMode: options.groupedColumnMode ?? 'reorder',
@@ -427,6 +457,10 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
         (old) => ({ ...old, [columnId]: operatorId }),
         'onColumnFilterOperatorsChange',
       ),
+    [setUi],
+  )
+  instance.setGlobalFilterFn = useCallback(
+    (filterFn: string | null) => setUi('globalFilterFn', filterFn, 'onGlobalFilterFnChange'),
     [setUi],
   )
 

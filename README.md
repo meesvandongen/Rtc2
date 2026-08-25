@@ -74,7 +74,7 @@ Each of these has a dedicated Storybook story.
 | --- | --- |
 | Sorting | `enableSorting`¹, `enableMultiSort`¹, `enableSortingRemoval`¹, `sortDescFirst`, `maxMultiSortColCount`, `manualSorting`, per-column `sortFn` |
 | Column filtering | `enableColumnFilters`¹, `filterDisplayMode` (`popover` \| `panel` \| `popover-and-panel` \| `none`), `filterPanelPosition`, `enableFilterModes`, `showActiveFilterChips`¹, `manualFiltering`, `enableMultipleFilterConditions`, `dataTypes`, `filterNow`, 9 built-in [data types](#filter-data-types), `enableMobileFilterDrawer`¹, `mobileBreakpoint` |
-| Global filtering | `enableGlobalFilter`¹, `globalFilterFn`, `enableGlobalFilterToggle`¹ |
+| Global filtering | `enableGlobalFilter`¹, `globalFilterFn`, `enableGlobalFilterModes`, `globalFilterModeOptions`, `enableGlobalFilterToggle`¹ |
 | Faceting | `enableFaceting`¹ — auto-populates select/autocomplete/checkbox filter options |
 | Pagination | `enablePagination`¹, `paginationDisplayMode`, `paginationPosition`, `pageSizeOptions`, `manualPagination`, `rowCount`, `pageCount`, `autoResetPageIndex` |
 | Row selection | `enableRowSelection` (bool or predicate), `enableMultiRowSelection`¹, `enableSubRowSelection`¹, `enableSelectAll`¹, `selectDisplayMode` (`checkbox` \| `radio` \| `switch`), `enableClickToSelect` |
@@ -82,7 +82,7 @@ Each of these has a dedicated Storybook story.
 | Column visibility | `enableColumnVisibility`¹, `enableHiding`¹ |
 | Column ordering | `enableColumnOrdering`, `enableColumnDragging` |
 | Column pinning | `enableColumnPinning` — start/end, sticky with an edge shadow |
-| Row pinning | `enableRowPinning`, `rowPinningDisplayMode` (`sticky` \| `top` \| `bottom` \| `top-and-bottom`) |
+| Row pinning | `enableRowPinning` — pin/unpin from each row's overflow menu, `rowPinningDisplayMode` (`sticky` \| `top` \| `bottom` \| `top-and-bottom`) |
 | Column resizing | `enableColumnResizing`, `columnResizeMode`, `columnResizeDirection`, keyboard-operable grips |
 | Grouping | `enableGrouping`, `enableGroupingChips` (drag-to-group), `groupedColumnMode` |
 | Aggregation | `enableAggregation`¹, per-column `aggregationFn` + `aggregatedCell` |
@@ -95,6 +95,7 @@ Each of these has a dedicated Storybook story.
 | Chrome | `enableTopToolbar`¹, `enableBottomToolbar`¹, `enableToolbarInternalActions`¹, `enableDensityToggle`¹, `enableFullScreenToggle`¹, `enableColumnActions`, `enableStickyHeader`, `enableStickyFooter`, `enableStripes`, `enableRowHover`¹, `enableBorders` |
 | States | `isLoading`, `showProgressBars`, `isSaving`, `isLoadingError`, `errorMessage`, `skeletonRowCount`, `renderEmptyState` |
 | i18n | [`localization`](#localization) — every string, including filter operator names, per data type where they differ |
+| Clipboard | `enableClickToCopy`, or `meta.enableClickToCopy` per column |
 | Escape hatches | `components`, `classNames`, `cssVars`, `tableProps`, `containerProps`, `rowProps`, `cellProps`, `headCellProps`, `renderTopToolbarActions`, `renderBottomToolbarActions`, `renderToolbarInternalActions`, `renderCaption` |
 
 ¹ on by default; everything else is opt-in.

@@ -107,6 +107,13 @@ export interface DataTableColumnMeta {
   className?: string
   /** Short help text rendered in the column actions menu. */
   description?: string
+  /**
+   * Make this column's cells copy their value when clicked.
+   *
+   * Overrides the table-level `enableClickToCopy`, so one identifier column
+   * can opt in without turning the whole table into buttons.
+   */
+  enableClickToCopy?: boolean
 }
 
 export type DataTableColumn<TData extends RowData, TValue = unknown> = ColumnDef<DataTableFeatures, TData, TValue>
@@ -143,6 +150,15 @@ export interface DataTableUiState {
    * draft the editor shows while the column is still unfiltered.
    */
   columnFilterOperators: Record<string, string>
+  /**
+   * Filter fn the global search is using, when `enableGlobalFilterModes` lets
+   * the reader choose one. `null` means "whatever `globalFilterFn` says".
+   *
+   * UI state rather than a TanStack slice: TanStack takes the global filter fn
+   * as an *option*, not as state, so the chosen mode has to be owned here and
+   * handed back down through `setOptions`.
+   */
+  globalFilterFn: string | null
 }
 
 export interface DataTableTanStackState {
@@ -263,6 +279,7 @@ export interface DataTableOptions<TData extends RowData> {
   onShowGlobalFilterChange?: (show: boolean) => void
   onRowOrderChange?: (rowOrder: string[]) => void
   onColumnFilterOperatorsChange?: (operators: Record<string, string>) => void
+  onGlobalFilterFnChange?: (filterFn: string | null) => void
 
   // ------------------------------------------------------------ behaviour ----
   enableSorting?: boolean
@@ -323,7 +340,15 @@ export interface DataTableOptions<TData extends RowData> {
    */
   filterNow?: Date
   enableGlobalFilter?: boolean
+  /** The filter fn the global search starts with. */
   globalFilterFn?: keyof typeof import('./features').dataTableFilterFns
+  /**
+   * Let the reader change how the global search matches, from a menu on the
+   * search field — the table-wide counterpart of `enableFilterModes`.
+   */
+  enableGlobalFilterModes?: boolean
+  /** Which fns that menu offers. Defaults to the text-oriented ones. */
+  globalFilterModeOptions?: Array<keyof typeof import('./features').dataTableFilterFns>
   enableFaceting?: boolean
 
   enablePagination?: boolean
@@ -359,6 +384,21 @@ export interface DataTableOptions<TData extends RowData> {
   enableCellSelection?: boolean
   enableCellRangeSelection?: boolean
   enableMultiCellRangeSelection?: boolean
+
+  /**
+   * Clicking a cell copies its value to the clipboard.
+   *
+   * Off by default, and usually better set per column via
+   * `meta.enableClickToCopy`: it turns every cell into a button, which is
+   * right for an id or an email and wrong for a paragraph of prose. Grouped,
+   * aggregated and placeholder cells never get the affordance — there is no
+   * single value under them to copy.
+   *
+   * Composes with the rest: the copy button stops the click from reaching the
+   * row, so `enableClickToSelect` does not fire, while cell selection
+   * (pointer-down) and `editMode: 'cell'` (double-click) are untouched.
+   */
+  enableClickToCopy?: boolean
 
   enableColumnVisibility?: boolean
   enableHiding?: boolean
@@ -533,6 +573,7 @@ export type DataTableInstance<TData extends RowData> = import('@tanstack/react-t
   setEditingCellId: (cellId: string | null) => void
   setRowOrder: (order: string[] | ((old: string[]) => string[])) => void
   setColumnFilterOperator: (columnId: string, operatorId: string) => void
+  setGlobalFilterFn: (filterFn: string | null) => void
   /** Pending edit values, keyed `rowId` → `columnId` → value. */
   editValues: Record<string, Record<string, unknown>>
   setEditValue: (rowId: string, columnId: string, value: unknown) => void

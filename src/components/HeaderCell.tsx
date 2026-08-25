@@ -100,6 +100,17 @@ export function HeaderCell<TData extends RowData>({
         ? 'descending'
         : 'none'
 
+  // Sorted state first, since that is what a reader most needs confirmed;
+  // otherwise the tooltip promises what the next click will do.
+  const sortTooltip = formatMessage(
+    sorted === 'asc'
+      ? localization.sortedByColumnAsc
+      : sorted === 'desc'
+        ? localization.sortedByColumnDesc
+        : localization.sortByColumnAsc,
+    { column: label },
+  )
+
   const userProps = options.headCellProps?.({ table, header, column })
 
   return (
@@ -131,25 +142,32 @@ export function HeaderCell<TData extends RowData>({
           ) : null}
 
           {canSort ? (
-            // Through the registry, not a raw `<button>`: it sits beside the
-            // filter and column-menu buttons, and a header whose controls come
-            // half from the host's design system and half from ours reads as a
-            // rendering bug.
-            <ui.Button
-              variant="quiet"
-              className="rtc-th-sort"
-              onClick={column.getToggleSortingHandler() as (event: React.MouseEvent) => void}
-            >
-              <span className="rtc-th-label">
-                <table.FlexRender header={header} />
-              </span>
-              <span className="rtc-sort-indicator" data-rtc-active={sorted ? 'true' : undefined}>
-                <ui.Icon
-                  name={sorted === 'asc' ? 'sortAsc' : sorted === 'desc' ? 'sortDesc' : 'sortNone'}
-                />
-                {sortIndex > 0 ? <span className="rtc-sort-index">{sortIndex + 1}</span> : null}
-              </span>
-            </ui.Button>
+            // The tooltip states the current sort and, when unsorted, what a
+            // click will do — the indicator glyph alone cannot say "descending,
+            // third key". It went missing when this control moved from a raw
+            // `<button title=…>` to the registry, which carries tooltips in a
+            // slot of their own rather than as a prop on every control.
+            <ui.Tooltip label={sortTooltip} className="rtc-th-sort-tip">
+              {/* Through the registry, not a raw `<button>`: it sits beside the
+                  filter and column-menu buttons, and a header whose controls
+                  come half from the host's design system and half from ours
+                  reads as a rendering bug. */}
+              <ui.Button
+                variant="quiet"
+                className="rtc-th-sort"
+                onClick={column.getToggleSortingHandler() as (event: React.MouseEvent) => void}
+              >
+                <span className="rtc-th-label">
+                  <table.FlexRender header={header} />
+                </span>
+                <span className="rtc-sort-indicator" data-rtc-active={sorted ? 'true' : undefined}>
+                  <ui.Icon
+                    name={sorted === 'asc' ? 'sortAsc' : sorted === 'desc' ? 'sortDesc' : 'sortNone'}
+                  />
+                  {sortIndex > 0 ? <span className="rtc-sort-index">{sortIndex + 1}</span> : null}
+                </span>
+              </ui.Button>
+            </ui.Tooltip>
           ) : (
             <span className="rtc-th-label">
               <table.FlexRender header={header} />

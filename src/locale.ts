@@ -15,13 +15,16 @@ export interface DataTableLocalization {
   unit: string
   cancel: string
   changeFilterMode: string
+  changeSearchMode: string
   clearFilter: string
   clearSearch: string
   clearSort: string
+  clickToCopy: string
   close: string
   collapse: string
   collapseAll: string
   columnActions: string
+  copiedToClipboard: string
   done: string
   edit: string
   expand: string
@@ -66,7 +69,10 @@ export interface DataTableLocalization {
   or: string
   pinToEnd: string
   pinToStart: string
+  pinToTop: string
+  pinToBottom: string
   resetColumnSize: string
+  resetOrder: string
   rowActions: string
   rowNumber: string
   rowNumbers: string
@@ -82,6 +88,8 @@ export interface DataTableLocalization {
   showHideSearch: string
   sortByColumnAsc: string
   sortByColumnDesc: string
+  sortedByColumnAsc: string
+  sortedByColumnDesc: string
   thenBy: string
   toggleDensity: string
   toggleFullScreen: string
@@ -89,6 +97,7 @@ export interface DataTableLocalization {
   toggleSelectRow: string
   ungroupByColumn: string
   unpin: string
+  unpinAll: string
   errorLoadingData: string
   /**
    * Operator names, keyed by operator id — and optionally by
@@ -110,13 +119,16 @@ export const defaultLocalization: DataTableLocalization = {
   unit: 'unit',
   cancel: 'Cancel',
   changeFilterMode: 'Change filter mode',
+  changeSearchMode: 'Change search mode',
   clearFilter: 'Clear filter',
   clearSearch: 'Clear search',
   clearSort: 'Clear sort',
+  clickToCopy: 'Click to copy',
   close: 'Close',
   collapse: 'Collapse',
   collapseAll: 'Collapse all',
   columnActions: 'Column actions',
+  copiedToClipboard: 'Copied to clipboard',
   done: 'Done',
   edit: 'Edit',
   expand: 'Expand',
@@ -182,7 +194,10 @@ export const defaultLocalization: DataTableLocalization = {
   or: 'or',
   pinToEnd: 'Pin to end',
   pinToStart: 'Pin to start',
+  pinToTop: 'Pin to top',
+  pinToBottom: 'Pin to bottom',
   resetColumnSize: 'Reset column size',
+  resetOrder: 'Reset order',
   rowActions: 'Row actions',
   rowNumber: '#',
   rowNumbers: 'Row numbers',
@@ -198,6 +213,8 @@ export const defaultLocalization: DataTableLocalization = {
   showHideSearch: 'Show/hide search',
   sortByColumnAsc: 'Sort by {column} ascending',
   sortByColumnDesc: 'Sort by {column} descending',
+  sortedByColumnAsc: 'Sorted by {column} ascending',
+  sortedByColumnDesc: 'Sorted by {column} descending',
   thenBy: ', then by ',
   toggleDensity: 'Toggle density',
   toggleFullScreen: 'Toggle full screen',
@@ -205,6 +222,7 @@ export const defaultLocalization: DataTableLocalization = {
   toggleSelectRow: 'Toggle select row',
   ungroupByColumn: 'Ungroup by {column}',
   unpin: 'Unpin',
+  unpinAll: 'Unpin all',
   errorLoadingData: 'Error loading data',
   filterOperators: {
     // Structured data-type operators.

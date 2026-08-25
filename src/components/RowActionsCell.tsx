@@ -1,6 +1,6 @@
 import type { RowData } from '@tanstack/react-table'
 
-import { useComponents } from './registry'
+import { useComponents, type DataTableComponents, type RtcMenuItem } from './registry'
 import { commitRowEdit, isRowEditable } from '../editing'
 import type { DataTableInstance, DataTableRow } from '../types'
 
@@ -23,6 +23,11 @@ export function RowActionsCell<TData extends RowData>({
     !!options.enableEditing &&
     (options.editMode === 'row' || options.editMode === 'modal') &&
     isRowEditable(table, row)
+
+  const items = [
+    ...rowPinItems(table, row, ui),
+    ...(options.rowActionMenuItems?.({ table, row }) ?? []),
+  ]
 
   if (isEditing && options.editMode === 'row') {
     return (
@@ -62,11 +67,11 @@ export function RowActionsCell<TData extends RowData>({
 
       {options.renderRowActions?.({ table, row })}
 
-      {options.rowActionMenuItems ? (
+      {items.length > 0 ? (
         <ui.Menu
           align="end"
           label={localization.rowActions}
-          items={options.rowActionMenuItems({ table, row })}
+          items={items}
           trigger={
             <ui.IconButton size="sm" label={localization.rowActions}>
               <ui.Icon name="more" />
@@ -76,4 +81,49 @@ export function RowActionsCell<TData extends RowData>({
       ) : null}
     </div>
   )
+}
+
+/**
+ * Pin/unpin entries for the row's overflow menu.
+ *
+ * `enableRowPinning` used to buy the sticky rendering and nothing else — the
+ * only way to pin was to call `row.pin()` from your own `renderRowActions`,
+ * which every consumer then had to build and name in English. The rendering
+ * was already ours; the control belongs with it.
+ */
+function rowPinItems<TData extends RowData>(
+  table: DataTableInstance<TData>,
+  row: DataTableRow<TData>,
+  ui: DataTableComponents,
+): RtcMenuItem[] {
+  const { localization } = table.dataTableOptions
+  if (!table.dataTableOptions.enableRowPinning || !row.getCanPin()) return []
+
+  const pinned = row.getIsPinned()
+  const mode = table.dataTableOptions.rowPinningDisplayMode ?? 'sticky'
+  // `top`/`bottom` lift pinned rows into a section of their own, so offering
+  // the direction the table has no section for would pin a row out of sight.
+  const canTop = mode !== 'bottom'
+  const canBottom = mode !== 'top'
+
+  const items: RtcMenuItem[] = []
+  if (canTop) {
+    items.push({
+      id: 'rtc-pin-top',
+      label: pinned === 'top' ? localization.unpin : localization.pinToTop,
+      icon: <ui.Icon name={pinned === 'top' ? 'pinOff' : 'pin'} />,
+      active: pinned === 'top',
+      onSelect: () => row.pin(pinned === 'top' ? false : 'top'),
+    })
+  }
+  if (canBottom) {
+    items.push({
+      id: 'rtc-pin-bottom',
+      label: pinned === 'bottom' ? localization.unpin : localization.pinToBottom,
+      icon: <ui.Icon name={pinned === 'bottom' ? 'pinOff' : 'pin'} />,
+      active: pinned === 'bottom',
+      onSelect: () => row.pin(pinned === 'bottom' ? false : 'bottom'),
+    })
+  }
+  return items
 }

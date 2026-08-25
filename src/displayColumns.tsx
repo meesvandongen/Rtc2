@@ -217,6 +217,9 @@ export function buildDisplayColumns<TData extends RowData>({
 
   const showActions = options.enableRowActions || !!options.renderRowActions ||
     !!options.rowActionMenuItems ||
+    // Row pinning puts pin/unpin in the overflow menu, which needs a cell to
+    // live in; without this the feature is again reachable only from code.
+    !!options.enableRowPinning ||
     (!!options.enableEditing && (options.editMode === 'row' || options.editMode === 'modal'))
 
   if (showActions) {

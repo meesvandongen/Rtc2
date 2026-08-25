@@ -247,6 +247,16 @@ export interface RtcDrawerProps {
 export interface RtcTooltipProps {
   label: string
   children: ReactNode
+  /**
+   * A structural hook; see the class-name rules in the README.
+   *
+   * Libraries that clone their child (MUI, Mantine) introduce no element to
+   * put it on and may drop it. It exists for the implementations that *do*
+   * wrap — the built-in, and any adapter reusing it — because a wrapper
+   * appearing inside a flex row silently becomes the flex item in place of the
+   * control it wraps, and inherits none of its sizing.
+   */
+  className?: string
 }
 
 /**

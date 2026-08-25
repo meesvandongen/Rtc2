@@ -415,9 +415,9 @@ export function createMantineComponents(defaults: DataTableComponents): DataTabl
       </MantineDrawer>
     ),
 
-    Tooltip: ({ label, children }) => (
+    Tooltip: ({ label, children, className }) => (
       <Tooltip label={label} withinPortal>
-        <span>{children}</span>
+        <span className={className}>{children}</span>
       </Tooltip>
     ),
 

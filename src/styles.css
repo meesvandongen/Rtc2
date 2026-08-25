@@ -719,29 +719,65 @@
  * stylesheet, so a single class ties and loses on order — and our own
  * `.rtc-button[data-rtc-variant="quiet"]`, which paints its label with the
  * accent colour. */
+/* A sortable header's text must sit on the same vertical line as the column's
+ * cells. The control is a button, and a button's own horizontal padding is
+ * what breaks that: the header reads as indented against every row below it,
+ * and a `right`-aligned column is pushed off the opposite edge as well.
+ *
+ * Zeroing it here rather than on `.rtc-button.rtc-th-sort` is the point.
+ * Padding is geometry, which the bare class is allowed to carry, so this
+ * reaches MUI's, Mantine's, Radix's and lolmath's buttons too — each of which
+ * brings a padding of its own that no rule of ours was cancelling. The
+ * previous `padding: 2px 4px` plus `margin-inline-start: -4px` on the built-in
+ * only ever corrected our own primitive, and only on the leading edge.
+ *
+ * The vertical inset stays: it costs no alignment, and the hover surface is
+ * widened with a spread-only `box-shadow` below. */
 .rtc-th .rtc-th-content .rtc-th-sort {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   min-width: 0;
   max-width: 100%;
+  padding-block: 2px;
+  padding-inline: 0;
+  margin-inline: 0;
+  /* Same argument as the padding: a 1px side border is 1px of indent. The
+     top/bottom borders are left to the design system — they cost no
+     alignment. */
+  border-inline-width: 0;
   color: inherit;
   font: inherit;
   text-transform: inherit;
   letter-spacing: inherit;
 }
 
+/* The tooltip wrapper around the sort control.
+ *
+ * Every Tooltip implementation wraps rather than clones — MUI's and Mantine's
+ * both need a ref-holding child — so a span lands between the flex row and the
+ * button and becomes the flex item in its place. Without this it brings its own
+ * sizing: the label loses `min-width: 0`, and a header too narrow for its own
+ * text overflows the cell instead of shrinking. */
+.rtc-th .rtc-th-content .rtc-th-sort-tip {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+}
+
 .rtc-button.rtc-th-sort {
   height: auto;
-  padding: 2px 4px;
-  margin-inline-start: -4px;
   background: none;
   border: 0;
   border-radius: var(--rtc-radius-sm);
 }
 
+/* Painted with a spread-only shadow rather than padding, so the hover surface
+   is bigger than the text without the text moving. See the alignment note on
+   `.rtc-th-sort` above. */
 .rtc-button.rtc-th-sort:hover {
   background: var(--rtc-row-bg-hover);
+  box-shadow: 0 0 0 4px var(--rtc-row-bg-hover);
 }
 
 /* Reserves the icon's box whether or not the glyph is showing, so revealing
@@ -1088,6 +1124,15 @@
   display: flex;
   color: var(--rtc-color-text-muted);
   pointer-events: none;
+}
+
+/* The search-mode trigger sits in the leading gutter that
+   `.rtc-search .rtc-input` already reserves, so turning
+   `enableGlobalFilterModes` on does not change the field's geometry. */
+.rtc-search-mode {
+  position: absolute;
+  inset-inline-start: 2px;
+  z-index: 1;
 }
 
 .rtc-search-clear {
@@ -1826,6 +1871,24 @@
   min-width: 0;
 }
 
+/* `meta.align` has to reach the flex container that actually lays the cell out.
+ *
+ * The `justify-content` beside `text-align` up in the alignment block lands on
+ * `.rtc-td`, which is a `table-cell` in the default `semantic` layout mode and
+ * therefore ignores it — and `text-align` had nothing to distribute either,
+ * because the value box is sized to its content rather than to the cell. The
+ * result was that `align: 'right'` and `align: 'center'` did nothing at all to
+ * body cells unless the table was in one of the `grid` layout modes, where the
+ * cell is a real flex container. Measured against the header, a "right-aligned"
+ * numeric column was flush left with ~100px of slack after it. */
+.rtc-td[data-rtc-align='center'] .rtc-cell-inner {
+  justify-content: center;
+}
+
+.rtc-td[data-rtc-align='right'] .rtc-cell-inner {
+  justify-content: flex-end;
+}
+
 .rtc-cell-value {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1834,6 +1897,46 @@
 
 .rtc-cell-indent {
   flex: 0 0 auto;
+}
+
+/* Click-to-copy.
+ *
+ * The value has to keep reading as data, not as a control: a cell that looks
+ * like a button in every row turns the table into a wall of chrome. So the
+ * affordance is underline-on-hover and nothing else, and — as with the header
+ * sort control — the padding is zero so the text stays on the same vertical
+ * line as the cells that did not opt in. */
+.rtc-copy-cell-tip {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.rtc-copy-cell {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.rtc-copy-cell:hover {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.rtc-copy-cell[data-rtc-copied='true'] {
+  text-decoration: underline solid;
+  text-underline-offset: 3px;
 }
 
 .rtc-aggregate {
