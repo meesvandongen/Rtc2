@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { RowData } from '@tanstack/react-table'
 
 import { describeFilter } from './FilterEditor'
@@ -137,11 +137,24 @@ function GlobalFilterField<TData extends RowData>({ table }: { table: DataTableI
     setDraft(globalFilter)
   }, [globalFilter])
 
+  /**
+   * The instance is read through a ref rather than depended on.
+   *
+   * `useTable` returns a fresh object on every render, so `table` in the
+   * dependency array re-ran this effect — and the cleanup cleared the pending
+   * timer — on every render of the table. A table whose data is replaced faster
+   * than the delay therefore never committed the search at all: each render
+   * cancelled the debounce before it could fire, and the box kept a term the
+   * rows never saw.
+   */
+  const tableRef = useRef(table)
+  tableRef.current = table
+
   useEffect(() => {
     if (draft === globalFilter) return
-    const timer = setTimeout(() => table.setGlobalFilter(draft), 200)
+    const timer = setTimeout(() => tableRef.current.setGlobalFilter(draft), 200)
     return () => clearTimeout(timer)
-  }, [draft, globalFilter, table])
+  }, [draft, globalFilter])
 
   if (!enabled || !visible) return null
 

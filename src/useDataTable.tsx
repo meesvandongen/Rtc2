@@ -193,13 +193,24 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
    * empty box does nothing, which is correct: there is nothing to match yet.
    */
   const globalFilterMode = ui.globalFilterFn ?? options.globalFilterFn ?? 'includesString'
+  /**
+   * Memoized on the query and the mode alone, not on the whole state.
+   *
+   * The wrapper is an object, so a fresh one reads to TanStack as a *changed*
+   * global filter — and its auto-resets fire on that, wiping `expanded` (and
+   * the page index) whenever the value is rebuilt. Rebuilt with the rest of
+   * the state, that happened on every unrelated state change: with a search
+   * term in the box, expanding a group row reset the expansion in the same
+   * commit, so grouped rows simply refused to open.
+   */
+  const wrappedGlobalFilter = useMemo(
+    () => ({ query: tanStackState.globalFilter, mode: globalFilterMode }),
+    [tanStackState.globalFilter, globalFilterMode],
+  )
   const tanStackStateForTable = useMemo<DataTableTanStackState>(() => {
     if (!options.enableGlobalFilterModes || !tanStackState.globalFilter) return tanStackState
-    return {
-      ...tanStackState,
-      globalFilter: { query: tanStackState.globalFilter, mode: globalFilterMode } as never,
-    }
-  }, [tanStackState, options.enableGlobalFilterModes, globalFilterMode])
+    return { ...tanStackState, globalFilter: wrappedGlobalFilter as never }
+  }, [tanStackState, options.enableGlobalFilterModes, wrappedGlobalFilter])
 
   // TanStack slice handlers. Stable identities: the latest options and
   // controlled values are read through refs rather than closed over.
