@@ -189,7 +189,7 @@ export function createRadixComponents(defaults: DataTableComponents): DataTableC
       </Switch.Root>
     ),
 
-    RangeSlider: ({ value, onChange, min, max, step, label }) => (
+    RangeSlider: ({ value, onChange, min, max, step, label, minLabel, maxLabel }) => (
       <Slider.Root
         className="rx-slider"
         value={value}
@@ -202,8 +202,8 @@ export function createRadixComponents(defaults: DataTableComponents): DataTableC
         <Slider.Track className="rx-slider-track">
           <Slider.Range className="rx-slider-range" />
         </Slider.Track>
-        <Slider.Thumb className="rx-slider-thumb" aria-label={`${label} minimum`} />
-        <Slider.Thumb className="rx-slider-thumb" aria-label={`${label} maximum`} />
+        <Slider.Thumb className="rx-slider-thumb" aria-label={minLabel ?? label} />
+        <Slider.Thumb className="rx-slider-thumb" aria-label={maxLabel ?? label} />
       </Slider.Root>
     ),
 

@@ -44,6 +44,7 @@ export function People({ data }: { data: Person[] }) {
 - [Server-side data](#server-side-data)
 - [Editing](#editing)
 - [Controlling state](#controlling-state)
+- [Localization](#localization)
 - [Accessibility](#accessibility)
 - [Development](#development)
 
@@ -73,7 +74,7 @@ Each of these has a dedicated Storybook story.
 | --- | --- |
 | Sorting | `enableSorting`¹, `enableMultiSort`¹, `enableSortingRemoval`¹, `sortDescFirst`, `maxMultiSortColCount`, `manualSorting`, per-column `sortFn` |
 | Column filtering | `enableColumnFilters`¹, `filterDisplayMode` (`popover` \| `panel` \| `popover-and-panel` \| `none`), `filterPanelPosition`, `enableFilterModes`, `showActiveFilterChips`¹, `manualFiltering`, `enableMultipleFilterConditions`, `dataTypes`, `filterNow`, 9 built-in [data types](#filter-data-types), `enableMobileFilterDrawer`¹, `mobileBreakpoint` |
-| Global filtering | `enableGlobalFilter`¹, `globalFilterFn`, `enableGlobalFilterToggle`¹ |
+| Global filtering | `enableGlobalFilter`¹, `globalFilterFn`, `enableGlobalFilterModes`, `globalFilterModeOptions`, `enableGlobalFilterToggle`¹ |
 | Faceting | `enableFaceting`¹ — auto-populates select/autocomplete/checkbox filter options |
 | Pagination | `enablePagination`¹, `paginationDisplayMode`, `paginationPosition`, `pageSizeOptions`, `manualPagination`, `rowCount`, `pageCount`, `autoResetPageIndex` |
 | Row selection | `enableRowSelection` (bool or predicate), `enableMultiRowSelection`¹, `enableSubRowSelection`¹, `enableSelectAll`¹, `selectDisplayMode` (`checkbox` \| `radio` \| `switch`), `enableClickToSelect` |
@@ -81,7 +82,7 @@ Each of these has a dedicated Storybook story.
 | Column visibility | `enableColumnVisibility`¹, `enableHiding`¹ |
 | Column ordering | `enableColumnOrdering`, `enableColumnDragging` |
 | Column pinning | `enableColumnPinning` — start/end, sticky with an edge shadow |
-| Row pinning | `enableRowPinning`, `rowPinningDisplayMode` (`sticky` \| `top` \| `bottom` \| `top-and-bottom`) |
+| Row pinning | `enableRowPinning` — pin/unpin from each row's overflow menu, `rowPinningDisplayMode` (`sticky` \| `top` \| `bottom` \| `top-and-bottom`) |
 | Column resizing | `enableColumnResizing`, `columnResizeMode`, `columnResizeDirection`, keyboard-operable grips |
 | Grouping | `enableGrouping`, `enableGroupingChips` (drag-to-group), `groupedColumnMode` |
 | Aggregation | `enableAggregation`¹, per-column `aggregationFn` + `aggregatedCell` |
@@ -93,7 +94,8 @@ Each of these has a dedicated Storybook story.
 | Header sizing | `enableHeaderContentFit`¹ — a column is never narrower than its own header |
 | Chrome | `enableTopToolbar`¹, `enableBottomToolbar`¹, `enableToolbarInternalActions`¹, `enableDensityToggle`¹, `enableFullScreenToggle`¹, `enableColumnActions`, `enableStickyHeader`, `enableStickyFooter`, `enableStripes`, `enableRowHover`¹, `enableBorders` |
 | States | `isLoading`, `showProgressBars`, `isSaving`, `isLoadingError`, `errorMessage`, `skeletonRowCount`, `renderEmptyState` |
-| i18n | `localization` — every string, including filter operator names |
+| i18n | [`localization`](#localization) — every string, including filter operator names, per data type where they differ |
+| Clipboard | `enableClickToCopy`, or `meta.enableClickToCopy` per column |
 | Escape hatches | `components`, `classNames`, `cssVars`, `tableProps`, `containerProps`, `rowProps`, `cellProps`, `headCellProps`, `renderTopToolbarActions`, `renderBottomToolbarActions`, `renderToolbarInternalActions`, `renderCaption` |
 
 ¹ on by default; everything else is opt-in.
@@ -544,6 +546,13 @@ condition does not hide every row while the user types. Operand editors render
 through the [component registry](#bring-your-own-components), so they pick up
 the host design system like everything else.
 
+An operator's `label` is a *fallback*: the displayed name comes from
+[`localization.filterOperators`](#filter-operator-names), by
+`dataTypeId.operatorId` then by the bare id. `describe` and the operand editors
+are both handed the table's `localization` for the same reason — a summary chip
+or an operand label that hard-codes English is the one part of a translated
+table that gives the game away.
+
 Types that are deliberately *not* built in, but are a few lines each on this
 model: IP address / CIDR, semantic version, colour (ΔE distance), JSON path,
 relation or reference with async options, file size and MIME type, rating,
@@ -771,6 +780,59 @@ const table = useDataTable({ columns, data, enableRowSelection: true })
 const selected = Object.keys(table.state.rowSelection).length
 return <DataTable table={table} />
 ```
+
+## Localization
+
+`localization` takes a partial `DataTableLocalization`; anything omitted keeps
+the English default. There is no separate "translated build" — the defaults are
+just the fallback layer.
+
+```tsx
+<DataTable
+  localization={{
+    search: 'Zoeken',
+    filterByColumn: 'Filter op {column}',
+    datePresets: { today: 'Vandaag' },   // the other 13 stay English
+  }}
+  …
+/>
+```
+
+Nested records — `filterOperators`, `datePresets`, `dateUnits`, `bounds` — are
+merged key by key, so naming one entry does not un-translate its neighbours.
+`weekdays` is the exception: it is positional (Sunday first), so an override
+replaces it whole and is ignored unless it has seven entries.
+
+Values may carry `{placeholders}`, interpolated with the exported
+`formatMessage`. Every word the component renders comes from here — icon-only
+control names, the generated columns, group-row values, filter summary chips.
+What is *not* here is number and date **formatting**: a cell renders whatever
+your `cell` function returns, and a filter chip shows dates in ISO form, which
+is unambiguous in every locale. Format cell values yourself with `Intl` if you
+want them localized.
+
+### Filter operator names
+
+`filterOperators` is keyed by operator id, and optionally by
+`dataTypeId.operatorId` — the scoped key wins:
+
+```tsx
+localization={{
+  filterOperators: {
+    equals: 'Is gelijk aan',      // every type that offers `equals`
+    'enum.equals': 'Is',          // …except the faceted picker
+    'datetime.dateIs': 'Is op',   // `date` keeps its own `dateIs`
+  },
+}}
+```
+
+The scoped form exists because one id genuinely reads two ways: picking a known
+value from a list is "is", not "equals", and a timestamp happens *at* a moment
+rather than *on* a day. A [custom data type](#adding-a-type) inherits all of
+this — its operators' `label` is only the fallback for ids the localization does
+not mention, and composing (`{ ...numberDataType, id: 'salary' }`) keeps the
+numeric operators' existing translations because they are still looked up by
+their bare ids.
 
 ## Accessibility
 

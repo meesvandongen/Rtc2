@@ -274,7 +274,16 @@ function Switch({ checked, onChange, label, disabled, onClick }: RtcSwitchProps)
   )
 }
 
-function RangeSlider({ value, onChange, min, max, step, label }: RtcRangeSliderProps) {
+function RangeSlider({
+  value,
+  onChange,
+  min,
+  max,
+  step,
+  label,
+  minLabel,
+  maxLabel,
+}: RtcRangeSliderProps) {
   const [low, high] = value
   return (
     <div className="rtc-filter-range">
@@ -285,7 +294,7 @@ function RangeSlider({ value, onChange, min, max, step, label }: RtcRangeSliderP
         max={max}
         step={step}
         value={low}
-        aria-label={`${label} minimum`}
+        aria-label={minLabel ?? label}
         onChange={(event) => onChange([Math.min(Number(event.target.value), high), high])}
       />
       <input
@@ -295,7 +304,7 @@ function RangeSlider({ value, onChange, min, max, step, label }: RtcRangeSliderP
         max={max}
         step={step}
         value={high}
-        aria-label={`${label} maximum`}
+        aria-label={maxLabel ?? label}
         onChange={(event) => onChange([low, Math.max(Number(event.target.value), low)])}
       />
     </div>

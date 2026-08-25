@@ -64,10 +64,40 @@ import {
   tableFeatures,
 } from '@tanstack/react-table'
 
-import { STRUCTURED_FILTER_FN } from './filters/filterFn'
+import {
+  GLOBAL_MODE_FILTER_FN,
+  STRUCTURED_FILTER_FN,
+  isGlobalFilterWithMode,
+} from './filters/filterFn'
 import type { DataTableTableMeta } from './filters/registry'
 import { structuredFilterFn } from './filters/tanstack'
 import type { DataTableColumnMeta } from './types'
+
+/**
+ * Global filter fn that reads its mode out of the filter value.
+ *
+ * See `GlobalFilterWithMode` for why the mode travels in the value rather than
+ * in `options.globalFilterFn`. It dispatches to one of the fns registered
+ * below, applying that fn's own `resolveFilterValue` first — the table
+ * normally does that once per filter before calling, and skipping it would
+ * make a case-insensitive search silently case-sensitive.
+ */
+function globalModeFilterFn(
+  row: any,
+  columnId: string,
+  filterValue: unknown,
+  addMeta?: (meta: any) => void,
+): boolean {
+  const registry = dataTableFilterFns as unknown as Record<string, any>
+  if (!isGlobalFilterWithMode(filterValue)) {
+    return registry.includesString(row, columnId, filterValue, addMeta)
+  }
+  const target = registry[filterValue.mode] ?? registry.includesString
+  const resolved = target.resolveFilterValue
+    ? target.resolveFilterValue(filterValue.query)
+    : filterValue.query
+  return target(row, columnId, resolved, addMeta)
+}
 
 /**
  * Every filter function the component exposes through the column-filter
@@ -99,6 +129,8 @@ export const dataTableFilterFns = {
    * registered so a caller can still opt a column into a raw TanStack filter.
    */
   [STRUCTURED_FILTER_FN]: structuredFilterFn,
+  /** Global search whose mode the reader can change; see `globalModeFilterFn`. */
+  [GLOBAL_MODE_FILTER_FN]: globalModeFilterFn,
 } as const
 
 export const dataTableSortFns = {

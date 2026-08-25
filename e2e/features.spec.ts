@@ -1126,3 +1126,120 @@ test.describe('accessibility wiring', () => {
     await expect(trigger).toBeFocused()
   })
 })
+
+/**
+ * The controls that reach features which previously had state and rendering
+ * but no way in.
+ */
+test.describe('column and row controls', () => {
+  test('the sort control says what it did and what it will do', async ({ page }) => {
+    const root = await openStory(page, 'datatable-02-sorting--basic')
+    const sort = header(root, 'firstName').locator('.rtc-th-sort')
+    // The built-in Tooltip is the native `title` on the element wrapping the
+    // control, so the text is assertable without hovering. Selected by
+    // structure rather than by a class of ours: the wrapper belongs to whatever
+    // implements the `Tooltip` slot, and the table does not name it.
+    const tip = header(root, 'firstName').locator('[title]:has(> .rtc-th-sort)')
+
+    await expect(tip).toHaveAttribute('title', /Sort by First name ascending/)
+    await sort.click()
+    await expect(tip).toHaveAttribute('title', /Sorted by First name ascending/)
+    await sort.click()
+    await expect(tip).toHaveAttribute('title', /Sorted by First name descending/)
+  })
+
+  test('a row is pinned from its own overflow menu', async ({ page }) => {
+    const root = await openStory(page, 'datatable-09-rows--row-pinning-sticky')
+    const first = bodyRows(root).first()
+    const target = await first.getAttribute('data-rtc-row-id')
+
+    await first.getByRole('button', { name: 'Row actions' }).click()
+    await openMenu(page).getByRole('menuitem', { name: 'Pin to top' }).click()
+
+    await expect
+      .poll(() => root.locator(`tbody tr[data-rtc-row-id="${target}"][data-rtc-row-pinned]`).count())
+      .toBe(1)
+
+    // The same entry unpins, and reads as "Unpin" while the row is pinned.
+    await root
+      .locator(`tbody tr[data-rtc-row-id="${target}"]`)
+      .getByRole('button', { name: 'Row actions' })
+      .click()
+    await openMenu(page).getByRole('menuitem', { name: 'Unpin' }).click()
+    await expect
+      .poll(() => root.locator(`tbody tr[data-rtc-row-id="${target}"][data-rtc-row-pinned]`).count())
+      .toBe(0)
+  })
+
+  test('column order and pinning can be reset from the columns menu', async ({ page }) => {
+    const root = await openStory(page, 'datatable-06-columns--column-actions-menu')
+
+    // "Unpin all" appears only once something is pinned.
+    await toolbarAction(root, 'toggle-columns').click()
+    await expect(openMenu(page).getByRole('menuitem', { name: 'Unpin all' })).toHaveCount(0)
+    await page.keyboard.press('Escape')
+
+    await header(root, 'firstName').locator('.rtc-column-actions-trigger').click()
+    await openMenu(page).getByRole('menuitem', { name: 'Pin to start' }).click()
+    await expect(header(root, 'firstName')).toHaveAttribute('data-rtc-pinned', 'start')
+
+    await toolbarAction(root, 'toggle-columns').click()
+    await openMenu(page).getByRole('menuitem', { name: 'Unpin all' }).click()
+    await expect(header(root, 'firstName')).not.toHaveAttribute('data-rtc-pinned', 'start')
+  })
+
+  test('the global search mode can be changed', async ({ page }) => {
+    const root = await openStory(page, 'datatable-03-filtering--global-filter-modes')
+    const trigger = root.locator('button:has([data-rtc-action="search-mode"])')
+
+    // The mode is named on the trigger, so the active one is legible without
+    // opening the menu.
+    await expect(trigger).toHaveAccessibleName(/Contains$/)
+
+    await root.locator('[data-rtc-global-filter]').fill('ma')
+    await expect.poll(async () => (await rowIds(root)).length).toBeGreaterThan(0)
+    const contains = await rowIds(root)
+
+    await trigger.click()
+    await openMenu(page).getByRole('menuitemcheckbox', { name: 'Starts with', exact: true }).click()
+    await expect(trigger).toHaveAccessibleName(/Starts with$/)
+
+    // Re-filtering on the mode change alone — the text is untouched between the
+    // two reads — is the whole point: TanStack memoizes the filtered row model
+    // on the filter state and not on the filter fn, so a mode carried in
+    // `options.globalFilterFn` left the rows exactly as they were until the
+    // next keystroke.
+    //
+    // The global filter spans every searchable column, so the assertion is
+    // about the mode rather than any one column's text: a leading match is
+    // strictly rarer than a match anywhere.
+    await expect
+      .poll(async () => {
+        const startsWith = await rowIds(root)
+        return (
+          startsWith.length > 0 &&
+          startsWith.length < contains.length &&
+          startsWith.every((id) => contains.includes(id))
+        )
+      })
+      .toBe(true)
+  })
+
+  test('a cell copies its value on click', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    const root = await openStory(page, 'datatable-06-columns--click-to-copy')
+
+    const cell = root.locator('tbody tr td[data-rtc-column-id="email"]').first()
+    const expected = (await cell.innerText()).trim()
+    await cell.locator('[data-rtc-copy-cell]').click()
+
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(expected)
+    // The confirmation replaces the tooltip's text while it stands.
+    await expect(cell.locator('[data-rtc-copy-cell]')).toHaveAttribute('data-rtc-copied', 'true')
+
+    // A column that did not opt in stays plain text.
+    await expect(
+      root.locator('tbody tr td[data-rtc-column-id="firstName"] [data-rtc-copy-cell]'),
+    ).toHaveCount(0)
+  })
+})

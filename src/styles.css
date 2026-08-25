@@ -727,6 +727,24 @@
   justify-content: var(--rtc-header-align);
 }
 
+/* The header row has to size whatever it is handed.
+ *
+ * A flex item defaults to `min-width: auto` and so refuses to shrink below its
+ * own content. That is fine for the controls this row renders itself, but an
+ * adapter is free to put an element of its own between the row and a control —
+ * every `Tooltip` implementation wraps rather than clones, because MUI's and
+ * Mantine's both need a ref-holding child — and that wrapper becomes the flex
+ * item in the control's place, bringing the default with it. In a grid layout
+ * mode, where the cell's width is fixed rather than content-driven, the header
+ * then overflows into the next column and steals its clicks.
+ *
+ * Sizing by structure rather than by class is the point: the row owns its own
+ * layout and must not need the adapter's cooperation — or knowledge of what the
+ * adapter rendered — to get it right. */
+.rtc-th-content > * {
+  min-width: 0;
+}
+
 .rtc-th[data-rtc-align="center"] .rtc-th-content {
   justify-content: center;
 }
@@ -1130,6 +1148,15 @@
   display: flex;
   color: var(--rtc-color-text-muted);
   pointer-events: none;
+}
+
+/* The search-mode trigger sits in the leading gutter that
+   `.rtc-search .rtc-input` already reserves, so turning
+   `enableGlobalFilterModes` on does not change the field's geometry. */
+.rtc-search-mode {
+  position: absolute;
+  inset-inline-start: 2px;
+  z-index: 1;
 }
 
 .rtc-search-clear {
@@ -1876,6 +1903,40 @@
 
 .rtc-cell-indent {
   flex: 0 0 auto;
+}
+
+/* Click-to-copy.
+ *
+ * The value has to keep reading as data, not as a control: a cell that looks
+ * like a button in every row turns the table into a wall of chrome. So the
+ * affordance is underline-on-hover and nothing else, and the button carries no
+ * padding of its own — an opted-in column has to line up with the columns
+ * beside it, which are plain text. */
+.rtc-copy-cell {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.rtc-copy-cell:hover {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.rtc-copy-cell[data-rtc-copied='true'] {
+  text-decoration: underline solid;
+  text-underline-offset: 3px;
 }
 
 .rtc-aggregate {

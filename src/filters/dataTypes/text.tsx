@@ -130,7 +130,9 @@ export const enumDataType: ColumnDataType = {
   defaultOperator: 'equals',
   operators: [
     // `equals` against a faceted value, so the default operand becomes a
-    // picker rather than a free-text box.
+    // picker rather than a free-text box. Picking a known value reads as "is"
+    // rather than "equals"; the label here is the fallback, and the displayed
+    // string comes from `localization.filterOperators['enum.equals']`.
     { ...textOperators.find((operator) => operator.id === 'equals')!, label: 'Is', usesFacets: true },
     ...textOperators.filter((operator) =>
       ['isAnyOf', 'isOneOfChecklist', 'isEmpty', 'isNotEmpty'].includes(operator.id),

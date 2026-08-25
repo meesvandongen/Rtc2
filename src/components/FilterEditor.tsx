@@ -10,8 +10,8 @@ import {
   resolveTypeMeta,
   toConditions,
 } from '../filters/registry'
-import type { FilterCondition, FilterOperator } from '../filters/types'
-import { formatMessage } from '../locale'
+import type { ColumnDataType, FilterCondition, FilterOperator } from '../filters/types'
+import { filterOperatorLabel, formatMessage } from '../locale'
 import { getColumnLabel, normalizeOptions, stringifyValue } from '../utils'
 import type { DataTableColumnInstance, DataTableInstance } from '../types'
 
@@ -99,11 +99,26 @@ export function currentOperatorId<TData extends RowData>(
     : (operators[0]?.id ?? dataType.defaultOperator)
 }
 
+/**
+ * The operator's name, scoped to the data type showing it.
+ *
+ * The data type has to reach the lookup: `equals` on an `enum` column reads
+ * "Is", and the same id on a text column reads "Equals". Keying only by the
+ * operator id — as this did — meant whichever reading the table happened to
+ * carry won on every type, and a data type's own `label` for a shared operator
+ * was never seen at all.
+ */
 function localizedOperatorLabel<TData extends RowData>(
   table: DataTableInstance<TData>,
+  dataType: ColumnDataType,
   operator: FilterOperator,
 ): string {
-  return table.dataTableOptions.localization.filterOperators[operator.id] ?? operator.label
+  return filterOperatorLabel(
+    table.dataTableOptions.localization,
+    dataType.id,
+    operator.id,
+    operator.label,
+  )
 }
 
 export interface FilterEditorProps<TData extends RowData> {
@@ -188,7 +203,7 @@ export function filterOperatorItems<TData extends RowData>(
     type: 'checkbox' as const,
     id: operator.id,
     checked: current === operator.id,
-    label: localizedOperatorLabel(table, operator),
+    label: localizedOperatorLabel(table, dataType, operator),
     onSelect: () => {
       if (conditionIndex === 0) table.setColumnFilterOperator(column.id, operator.id)
       // Operand shapes differ per operator (scalar, tuple, object), so the
@@ -226,7 +241,7 @@ export function currentOperatorLabel<TData extends RowData>(
   const dataType = resolveDataType(table, column)
   const id = currentOperatorId(table, column, conditionIndex)
   const operator = findOperator(dataType, id)
-  return operator ? localizedOperatorLabel(table, operator) : id
+  return operator ? localizedOperatorLabel(table, dataType, operator) : id
 }
 
 /** Human summary of a column's active filter, used by the toolbar chips. */
@@ -234,27 +249,29 @@ export function describeFilter<TData extends RowData>(
   table: DataTableInstance<TData>,
   column: DataTableColumnInstance<TData, any>,
 ): string {
+  const { localization } = table.dataTableOptions
   const dataType = resolveDataType(table, column)
   const typeMeta = resolveTypeMeta(column, dataType)
-  const columnLabel = getColumnLabel(column, table.dataTableOptions.localization)
+  const columnLabel = getColumnLabel(column, localization)
   const conditions = toConditions(column.getFilterValue(), dataType)
   if (conditions.length === 0) return columnLabel
 
   const describeOne = (condition: FilterCondition) => {
     const operator = findOperator(dataType, condition.op)
-    const operatorLabel = operator ? localizedOperatorLabel(table, operator) : condition.op
+    const operatorLabel = operator
+      ? localizedOperatorLabel(table, dataType, operator)
+      : condition.op
     const described = dataType.describe?.(condition, {
       operatorLabel,
       columnLabel,
       meta: typeMeta,
-      // Presets are localised, so the summary needs the table's strings.
-      presetLabels: table.dataTableOptions.localization.datePresets,
-    } as never)
+      localization,
+    })
     return typeof described === 'string'
       ? described
       : `${columnLabel} ${operatorLabel.toLowerCase()}`
   }
 
-  const joiner = joinOf(column.getFilterValue()) === 'or' ? ' or ' : ' and '
-  return conditions.map(describeOne).join(joiner)
+  const joiner = joinOf(column.getFilterValue()) === 'or' ? localization.or : localization.and
+  return conditions.map(describeOne).join(` ${joiner} `)
 }

@@ -14,7 +14,12 @@ const meta: Meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-/** Every string is overridable; unspecified keys keep the English default. */
+/**
+ * Every string is overridable; unspecified keys keep the English default.
+ *
+ * The nested records are merged key by key, so `datePresets` below names three
+ * of the fourteen periods and the rest stay English rather than disappearing.
+ */
 const dutch: Partial<DataTableLocalization> = {
   actions: 'Acties',
   cancel: 'Annuleren',
@@ -33,6 +38,7 @@ const dutch: Partial<DataTableLocalization> = {
   noRecordsToDisplay: 'Geen gegevens om weer te geven',
   noResultsFound: 'Geen resultaten gevonden',
   of: 'van',
+  pagination: 'Paginering',
   pinToStart: 'Vastzetten aan begin',
   pinToEnd: 'Vastzetten aan eind',
   rowsPerPage: 'Rijen per pagina',
@@ -51,6 +57,78 @@ const dutch: Partial<DataTableLocalization> = {
   toggleSelectAll: 'Alles selecteren',
   toggleSelectRow: 'Rij selecteren',
   unpin: 'Losmaken',
+  // Everything the filter surfaces render, including the pieces the data types
+  // contribute: the yes/no of a boolean, the units of a rolling window, the
+  // words that join two conditions on one column.
+  filters: 'Filters',
+  clearAllFilters: 'Alles wissen',
+  changeFilterMode: 'Filtermodus wijzigen',
+  addCondition: 'Voorwaarde toevoegen',
+  removeCondition: 'Voorwaarde verwijderen',
+  matchAll: 'Alles moet kloppen',
+  matchAny: 'Eén mag kloppen',
+  and: 'en',
+  or: 'of',
+  from: 'Van',
+  to: 'Tot',
+  min: 'Minimaal',
+  max: 'Maximaal',
+  amount: 'aantal',
+  unit: 'eenheid',
+  booleanTrue: 'Ja',
+  booleanFalse: 'Nee',
+  selectPeriod: 'Kies een periode',
+  showAll: 'Alles tonen',
+  groupedBy: 'Gegroepeerd op',
+  thenBy: ', daarna op ',
+  weekdays: ['zo', 'ma', 'di', 'wo', 'do', 'vr', 'za'],
+  dateUnits: { day: 'dagen', week: 'weken', month: 'maanden' },
+  datePresets: { today: 'Vandaag', yesterday: 'Gisteren', thisMonth: 'Deze maand' },
+  // Operator names belong here with the rest, not in a story of their own.
+  // They are rendered by the same filter popover as `clearFilter` and
+  // `addCondition` above, so leaving them out translated the chrome around a
+  // menu and left the menu itself reading "Contains / Equals / Starts with".
+  //
+  // A key may be a bare operator id, which every data type offering that
+  // operator picks up, or `dataTypeId.operatorId`, which wins for that one
+  // type. See `OperatorNamesPerDataType` below for what that buys.
+  filterOperators: {
+    contains: 'Bevat',
+    equals: 'Is gelijk aan',
+    notEquals: 'Is niet gelijk aan',
+    startsWith: 'Begint met',
+    endsWith: 'Eindigt op',
+    matchesRegex: 'Komt overeen met regex',
+    isAnyOf: 'Is een van',
+    isOneOfChecklist: 'Is een van (lijst)',
+    isEmpty: 'Is leeg',
+    isNotEmpty: 'Is niet leeg',
+    greaterThan: 'Groter dan',
+    greaterThanOrEqual: 'Groter dan of gelijk aan',
+    lessThan: 'Kleiner dan',
+    lessThanOrEqual: 'Kleiner dan of gelijk aan',
+    between: 'Tussen',
+    betweenExclusive: 'Tussen (exclusief)',
+    inRangeSlider: 'In bereik',
+    booleanIs: 'Is',
+    dateIs: 'Is op',
+    dateBefore: 'Is voor',
+    dateOnOrBefore: 'Is op of voor',
+    dateAfter: 'Is na',
+    dateOnOrAfter: 'Is op of na',
+    dateBetween: 'Ligt tussen',
+    dateInPeriod: 'Valt in periode',
+    dateInLast: 'Valt in de laatste',
+    dateInNext: 'Valt in de komende',
+    dateWeekdayIs: 'Weekdag is',
+    dateTimeOfDayBetween: 'Tijdstip tussen',
+    // Scoped to one data type: "is" reads better than "is gelijk aan" when the
+    // operand is picked from a list, and a timestamp happens *at* a moment
+    // rather than *on* a day — so `date` keeps `dateIs` above and only
+    // `datetime` is redirected here.
+    'enum.equals': 'Is',
+    'datetime.dateIs': 'Is op het moment',
+  },
 }
 
 const arabic: Partial<DataTableLocalization> = {
@@ -135,8 +213,23 @@ export const ArabicRTL: Story = {
   ),
 }
 
-/** Filter operator names are localizable too. */
-export const LocalizedFilterOperators: Story = {
+/**
+ * The same `dutch` object as above — every column at once, in the panel, so the
+ * *type-scoped* operator keys are visible side by side.
+ *
+ * That is the only reason this is a separate story: `Dutch` already shows
+ * translated operators in its header popovers, one column at a time. What it
+ * cannot show is one operator id reading two ways. Open the operator menu on
+ * **First name** and on **Department** — both offer `equals`, and it reads "Is
+ * gelijk aan" on the text column and "Is" on the faceted one, from
+ * `'enum.equals'`. **Start date** and **Last seen** are the same pair for
+ * `dateIs`: "Is op" for a `date`, "Is op het moment" for a `datetime`.
+ *
+ * The chips under the toolbar are worth a look too: they are assembled from
+ * these strings rather than around them, down to the "en" joining two
+ * conditions on one column and the "Ja"/"Nee" of the boolean.
+ */
+export const OperatorNamesPerDataType: Story = {
   args: {
     isLoading: false,
     showProgressBars: false,
@@ -147,24 +240,15 @@ export const LocalizedFilterOperators: Story = {
   },
   render: (args) => (
     <DataTable
-      columns={personColumns.slice(0, 6)}
+      columns={personColumns}
       data={data}
       getRowId={(row) => row.id}
+      localization={dutch}
       enableFilterModes
+      enableMultipleFilterConditions
       filterDisplayMode="panel"
       height={520}
       initialState={{ showFilterPanel: true }}
-      localization={{
-        ...dutch,
-        filterOperators: {
-          includesString: 'Bevat',
-          equalsString: 'Is gelijk aan',
-          startsWith: 'Begint met',
-          endsWith: 'Eindigt op',
-          empty: 'Is leeg',
-          notEmpty: 'Is niet leeg',
-        },
-      }}
       {...args}
     />
   ),

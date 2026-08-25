@@ -2,12 +2,17 @@
  * Every user-visible string the component can render.
  *
  * Pass a partial override through the `localization` option; anything omitted
- * falls back to the English default below. Values containing `{placeholders}`
- * are interpolated with `formatMessage`.
+ * falls back to the English default below, one key at a time — the nested
+ * records (`filterOperators`, `datePresets`, `dateUnits`, `bounds`) are merged
+ * rather than replaced, so naming one date preset does not un-translate the
+ * other thirteen. Values containing `{placeholders}` are interpolated with
+ * `formatMessage`.
  */
 export interface DataTableLocalization {
   actions: string
   and: string
+  amount: string
+  unit: string
   cancel: string
   changeFilterMode: string
   changeSearchMode: string
@@ -25,7 +30,6 @@ export interface DataTableLocalization {
   expand: string
   expandAll: string
   filterByColumn: string
-  filterMode: string
   filters: string
   from: string
   to: string
@@ -91,19 +95,28 @@ export interface DataTableLocalization {
   toggleFullScreen: string
   toggleSelectAll: string
   toggleSelectRow: string
-  toggleVisibility: string
   ungroupByColumn: string
   unpin: string
   unpinAll: string
   errorLoadingData: string
-  filterVariantEmpty: string
-  filterVariantNotEmpty: string
+  /**
+   * Operator names, keyed by operator id — and optionally by
+   * `dataTypeId.operatorId`, which wins over the bare id.
+   *
+   * The scoped form exists because one operator id is shared by data types
+   * that want to name it differently: `equals` is "Equals" on a text column
+   * but "Is" on an `enum`, and `dateIs` is "Is on" for a `date` and "Is at"
+   * for a `datetime`. Without it a translator could only pick one reading for
+   * all of them. See `filterOperatorLabel`.
+   */
   filterOperators: Record<string, string>
 }
 
 export const defaultLocalization: DataTableLocalization = {
   actions: 'Actions',
   and: 'and',
+  amount: 'amount',
+  unit: 'unit',
   cancel: 'Cancel',
   changeFilterMode: 'Change filter mode',
   changeSearchMode: 'Change search mode',
@@ -121,7 +134,6 @@ export const defaultLocalization: DataTableLocalization = {
   expand: 'Expand',
   expandAll: 'Expand all',
   filterByColumn: 'Filter by {column}',
-  filterMode: 'Filter mode: {filterType}',
   filters: 'Filters',
   from: 'From',
   to: 'To',
@@ -208,13 +220,10 @@ export const defaultLocalization: DataTableLocalization = {
   toggleFullScreen: 'Toggle full screen',
   toggleSelectAll: 'Toggle select all',
   toggleSelectRow: 'Toggle select row',
-  toggleVisibility: 'Toggle visibility',
   ungroupByColumn: 'Ungroup by {column}',
   unpin: 'Unpin',
   unpinAll: 'Unpin all',
   errorLoadingData: 'Error loading data',
-  filterVariantEmpty: 'Is empty',
-  filterVariantNotEmpty: 'Is not empty',
   filterOperators: {
     // Structured data-type operators.
     contains: 'Contains',
@@ -253,6 +262,11 @@ export const defaultLocalization: DataTableLocalization = {
     countAtLeast: 'Item count at least',
     geoWithinRadius: 'Within radius of',
     geoWithinBounds: 'Within bounding box',
+    // Type-scoped readings, which win over the bare ids above. Picking a known
+    // value from a list is "is", not "equals"; a timestamp happens "at" a
+    // moment rather than "on" a day.
+    'enum.equals': 'Is',
+    'datetime.dateIs': 'Is at',
     // Raw TanStack filter fns, still selectable per column via `filterFn`.
     // Ids shared with the structured operators above are not repeated.
     arrIncludes: 'Includes',
@@ -279,5 +293,58 @@ export function formatMessage(
 ): string {
   return template.replace(/\{(\w+)\}/g, (match, key: string) =>
     key in values ? String(values[key]) : match,
+  )
+}
+
+/**
+ * Resolves a caller's partial overrides against the English defaults.
+ *
+ * The nested records are merged key by key rather than replaced wholesale: a
+ * caller who renames one date preset, or one operator, means only that one.
+ * Spreading the top level alone silently reverted the other thirteen presets
+ * to English — the failure was invisible until someone opened the period
+ * picker in a translated table.
+ *
+ * `weekdays` is the exception: it is a positional array, Sunday first, so a
+ * partial one would leave a translated table with English tail days. An
+ * override replaces it whole and is validated to be seven long.
+ */
+export function mergeLocalization(
+  overrides: Partial<DataTableLocalization> | undefined,
+): DataTableLocalization {
+  if (!overrides) return defaultLocalization
+  return {
+    ...defaultLocalization,
+    ...overrides,
+    bounds: { ...defaultLocalization.bounds, ...overrides.bounds },
+    dateUnits: { ...defaultLocalization.dateUnits, ...overrides.dateUnits },
+    datePresets: { ...defaultLocalization.datePresets, ...overrides.datePresets },
+    filterOperators: {
+      ...defaultLocalization.filterOperators,
+      ...overrides.filterOperators,
+    },
+    weekdays:
+      overrides.weekdays?.length === 7 ? overrides.weekdays : defaultLocalization.weekdays,
+  }
+}
+
+/**
+ * The displayed name of one filter operator.
+ *
+ * Tried most specific first: `dataTypeId.operatorId`, so a data type can name
+ * a shared operator its own way; then the bare `operatorId`; and only then the
+ * operator's own `label`, which is a fallback for operators a caller added
+ * without touching `localization`.
+ */
+export function filterOperatorLabel(
+  localization: DataTableLocalization,
+  dataTypeId: string,
+  operatorId: string,
+  fallback: string,
+): string {
+  return (
+    localization.filterOperators[`${dataTypeId}.${operatorId}`] ??
+    localization.filterOperators[operatorId] ??
+    fallback
   )
 }

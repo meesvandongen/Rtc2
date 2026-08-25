@@ -147,6 +147,7 @@ function GlobalFilterField<TData extends RowData>({ table }: { table: DataTableI
 
   return (
     <div className="rtc-search">
+      {options.enableGlobalFilterModes ? <SearchModeMenu table={table} /> : null}
       <ui.TextInput
         type="search"
         value={draft}
@@ -170,6 +171,63 @@ function GlobalFilterField<TData extends RowData>({ table }: { table: DataTableI
         </span>
       ) : null}
     </div>
+  )
+}
+
+/**
+ * The text-oriented filter fns, which is what a single search box over mixed
+ * columns can sensibly offer. Numeric and array fns are still selectable by
+ * naming them in `globalFilterModeOptions`.
+ */
+const DEFAULT_SEARCH_MODES = [
+  'includesString',
+  'includesStringSensitive',
+  'startsWith',
+  'endsWith',
+  'equalsString',
+  'equalsStringSensitive',
+] as const
+
+/**
+ * How the global search matches — the table-wide counterpart of a column's
+ * operator menu.
+ *
+ * The mode lives in `ui` state rather than a TanStack slice because TanStack
+ * takes `globalFilterFn` as an option; `useDataTable` reads it back out of
+ * here and hands it down.
+ */
+function SearchModeMenu<TData extends RowData>({ table }: { table: DataTableInstance<TData> }) {
+  const ui = useComponents()
+  const options = table.dataTableOptions
+  const { localization } = options
+  const current = table.ui.globalFilterFn ?? options.globalFilterFn ?? 'includesString'
+  const modes = options.globalFilterModeOptions ?? DEFAULT_SEARCH_MODES
+
+  const label = (mode: string) => localization.filterOperators[mode] ?? mode
+
+  return (
+    <ui.Menu
+      align="start"
+      label={localization.changeSearchMode}
+      items={modes.map((mode) => ({
+        type: 'checkbox' as const,
+        id: mode,
+        label: label(mode),
+        checked: current === mode,
+        onSelect: () => table.setGlobalFilterFn(mode),
+      }))}
+      trigger={
+        <ui.IconButton
+          size="sm"
+          className="rtc-search-mode"
+          label={`${localization.changeSearchMode}: ${label(current)}`}
+        >
+          <span data-rtc-action="search-mode">
+            <ui.Icon name="search" />
+          </span>
+        </ui.IconButton>
+      }
+    />
   )
 }
 
@@ -242,8 +300,13 @@ function InternalActions<TData extends RowData>({ table }: { table: DataTableIns
       ) : null}
 
       {options.isLoadingError ? (
+        // The icon alone announced nothing: an alert with no text content is
+        // silent to a screen reader and untranslatable to everyone else.
         <span className="rtc-toolbar-alert" role="alert">
           <ui.Icon name="alert" />
+          <span className="rtc-visually-hidden">
+            {options.errorMessage ?? localization.errorLoadingData}
+          </span>
         </span>
       ) : null}
     </div>
@@ -256,7 +319,8 @@ function ColumnVisibilityMenu<TData extends RowData>({
   table: DataTableInstance<TData>
 }) {
   const ui = useComponents()
-  const { localization } = table.dataTableOptions
+  const options = table.dataTableOptions
+  const { localization } = options
 
   const items: RtcMenuItem[] = [
     { type: 'label', id: 'label', label: localization.showHideColumns },
@@ -283,6 +347,27 @@ function ColumnVisibilityMenu<TData extends RowData>({
       onSelect: () => table.toggleAllColumnsVisible(false),
     },
   ]
+
+  // The two table-wide undos for the other things this menu's columns carry.
+  // Both were reachable only by calling the instance: dragging a header or
+  // pinning from the column menu had no way back short of reloading.
+  if (options.enableColumnPinning && table.getIsSomeColumnsPinned()) {
+    items.push({
+      id: 'unpin-all',
+      label: localization.unpinAll,
+      icon: <ui.Icon name="pinOff" />,
+      onSelect: () => table.resetColumnPinning(),
+    })
+  }
+
+  if (options.enableColumnDragging ?? options.enableColumnOrdering) {
+    items.push({
+      id: 'reset-order',
+      label: localization.resetOrder,
+      icon: <ui.Icon name="reset" />,
+      onSelect: () => table.resetColumnOrder(),
+    })
+  }
 
   return (
     <ui.Menu

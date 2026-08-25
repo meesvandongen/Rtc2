@@ -156,6 +156,15 @@ export interface DescribeContext {
   operatorLabel: string
   columnLabel: string
   meta: FilterTypeMeta
+  /**
+   * The table's strings.
+   *
+   * A summary is prose, so it needs more than the operator's name: the boolean
+   * type spells out its own yes/no, the date type names its presets and
+   * rolling units. Handing over the whole object keeps a `describe` from
+   * having to reach for the table it was never given.
+   */
+  localization: DataTableLocalization
 }
 
 /** The registry: data type id → definition. */

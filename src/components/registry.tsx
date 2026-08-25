@@ -154,6 +154,17 @@ export interface RtcRangeSliderProps {
   max: number
   step?: number
   label: string
+  /**
+   * Accessible names for the two thumbs.
+   *
+   * Two thumbs need two names, and an adapter cannot build them: deriving
+   * `${label} minimum` in the adapter is how the built-in and Radix sliders
+   * ended up announcing English inside an otherwise translated table. Both are
+   * localized upstream and passed in; an adapter whose slider has a single
+   * label may ignore them and use `label`.
+   */
+  minLabel?: string
+  maxLabel?: string
 }
 
 export interface RtcPopoverProps {

@@ -1,10 +1,11 @@
 import type { RowData } from '@tanstack/react-table'
 import { CellEditor } from './CellEditor'
+import { CopyCell, clickToCopyEnabled } from './CopyCell'
 import { getCellLayoutProps } from './HeaderCell'
 import { DISPLAY_COLUMN_IDS, rendersOnGroupedRow } from '../displayColumnIds'
 import { resolveEnableExpanding, resolveGroupingLayout } from '../displayColumns'
 import { cellEditId, isCellEditing } from '../editing'
-import { cx } from '../utils'
+import { cx, stringifyValue } from '../utils'
 import type { DataTableCell, DataTableInstance, DataTableRow } from '../types'
 
 export interface BodyCellProps<TData extends RowData> {
@@ -58,6 +59,17 @@ export function BodyCell<TData extends RowData>({ table, row, cell, columnIndex 
   const canActivateEditor =
     !!options.enableEditing && options.editMode === 'cell' && !editing && !isGrouped && !isAggregated
 
+  // Only a plain cell has one value to copy: a group cell shows the key its
+  // rows share, an aggregate shows a computed summary, and a placeholder shows
+  // nothing at all.
+  const canCopy =
+    clickToCopyEnabled(column.columnDef.meta, options.enableClickToCopy) &&
+    !isGrouped &&
+    !isAggregated &&
+    !isPlaceholder &&
+    !editing &&
+    !isInertOnGroupRow
+
   return (
     <td
       {...layout}
@@ -107,6 +119,15 @@ export function BodyCell<TData extends RowData>({ table, row, cell, columnIndex 
             autoFocus={options.editMode === 'cell'}
             onFinish={() => table.setEditingCellId(null)}
           />
+        ) : canCopy ? (
+          <span className="rtc-cell-value">
+            <CopyCell
+              value={stringifyValue(cell.getValue())}
+              localization={options.localization}
+            >
+              <table.FlexRender cell={cell} />
+            </CopyCell>
+          </span>
         ) : (
           <span className={cx('rtc-cell-value', isAggregated && 'rtc-aggregate')}>
             <table.FlexRender cell={cell} />

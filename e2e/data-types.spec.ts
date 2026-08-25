@@ -206,3 +206,86 @@ test.describe('data type registry', () => {
     )
   })
 })
+
+/**
+ * Localization of the filter layer.
+ *
+ * A data type contributes strings of its own — operator names it reads
+ * differently from its neighbours, the yes/no of a boolean, the units of a
+ * rolling window — and each of them used to be able to leak English into an
+ * otherwise translated table.
+ */
+test.describe('filter data types are localized', () => {
+  const STORY = 'datatable-13-localization--operator-names-per-data-type'
+
+  test('a type-scoped operator name beats the shared one', async ({ page }) => {
+    const root = await openStory(page, STORY)
+
+    // `equals` is one id read two ways: free text compares, a faceted picker
+    // simply *is*.
+    expect(await operatorLabels(root, page, 'firstName')).toEqual(
+      expect.arrayContaining(['Bevat', 'Is gelijk aan']),
+    )
+    const enumLabels = await operatorLabels(root, page, 'department')
+    expect(enumLabels).toEqual(expect.arrayContaining(['Is', 'Is een van']))
+    expect(enumLabels).not.toContain('Is gelijk aan')
+
+    // Only `datetime` is scoped away from `dateIs`; `date` keeps the shared one.
+    expect(await operatorLabels(root, page, 'startDate')).toEqual(
+      expect.arrayContaining(['Is op']),
+    )
+    const dateTimeLabels = await operatorLabels(root, page, 'lastSeen')
+    expect(dateTimeLabels).toEqual(expect.arrayContaining(['Is op het moment']))
+    expect(dateTimeLabels).not.toContain('Is op')
+  })
+
+  test('a partial nested override keeps the rest of the record', async ({ page }) => {
+    const root = await openStory(page, STORY)
+
+    await chooseOperator(root, page, 'startDate', 'Valt in periode')
+    const presets = await panelField(root, 'startDate')
+      .locator('[data-rtc-operand="preset"] option')
+      .allInnerTexts()
+
+    // Three presets are translated in the story; the other eleven have to
+    // survive rather than being replaced along with them.
+    expect(presets).toEqual(expect.arrayContaining(['Vandaag', 'Gisteren', 'Tomorrow']))
+  })
+
+  test('the operands a type supplies are named from the strings', async ({ page }) => {
+    const root = await openStory(page, STORY)
+
+    // Two slider thumbs need two names, and both come from `localization`.
+    await expect(panelField(root, 'salary').getByLabel('Filter op Salary Minimaal')).toBeVisible()
+    await expect(panelField(root, 'salary').getByLabel('Filter op Salary Maximaal')).toBeVisible()
+
+    await chooseOperator(root, page, 'startDate', 'Valt in de laatste')
+    const field = panelField(root, 'startDate')
+    await expect(field.getByLabel('Filter op Start date aantal')).toBeVisible()
+    await expect(field.getByLabel('Filter op Start date eenheid')).toBeVisible()
+    // The rolling unit list is a translated record, not the raw ids.
+    expect(await field.locator('[data-rtc-operand="rolling-n"] ~ select option').allInnerTexts())
+      .toEqual(expect.arrayContaining(['dagen', 'weken']))
+  })
+
+  test('a summary chip is assembled from the localized strings', async ({ page }) => {
+    const root = await openStory(page, STORY)
+
+    await panelField(root, 'active')
+      .locator('[data-rtc-operand="boolean"]')
+      .selectOption({ label: 'Ja' })
+    // The chip has to agree with the picker it was chosen from, not print the
+    // underlying boolean.
+    await expect(root.locator('[data-rtc-filter-chip="active"]')).toContainText('Ja')
+
+    const age = panelField(root, 'age')
+    await chooseOperator(root, page, 'age', 'Groter dan')
+    await age.locator('[data-rtc-operand="number"]').fill('30')
+    await age.getByRole('button', { name: 'Voorwaarde toevoegen' }).click()
+    await chooseOperator(root, page, 'age', 'Kleiner dan', 1)
+    await age.locator('[data-rtc-filter-condition="1"] [data-rtc-operand="number"]').fill('50')
+
+    // Two conditions on one column are joined by the localized conjunction.
+    await expect(root.locator('[data-rtc-filter-chip="age"]')).toContainText(' en ')
+  })
+})

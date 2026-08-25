@@ -166,23 +166,14 @@ export const RowPinningSticky: Story = {
   render: (args) => (
     <>
       <p className="rtc-sb-note">
-        Pinned rows are sticky within the scroll container. Pin from your own UI by calling
-        <code> row.pin(&apos;top&apos;)</code>.
+        Pinned rows are sticky within the scroll container. `enableRowPinning` puts pin/unpin in
+        each row&apos;s overflow menu; <code>row.pin(&apos;top&apos;)</code> is still there if you
+        would rather drive it from your own control.
       </p>
       <DataTable
         columns={personColumns.slice(0, 5)}
         data={makePeople(40)}
         getRowId={(row) => row.id}
-        renderRowActions={({ row }) => (
-          <button
-            type="button"
-            className="rtc-button"
-            style={{ height: 24, padding: '0 8px' }}
-            onClick={() => row.pin(row.getIsPinned() ? false : 'top')}
-          >
-            {row.getIsPinned() ? 'Unpin' : 'Pin'}
-          </button>
-        )}
         enablePagination={false}
         height={420}
         enableStickyHeader
