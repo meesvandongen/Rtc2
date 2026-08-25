@@ -75,26 +75,6 @@ the operator name already rendered on the filter-mode button; and
 with the column. Passing any of them was already a no-op; it is now a type
 error.
 
-### Header and cell alignment
-
-Two layout bugs found while verifying the sort tooltip, both measured across
-every adapter:
-
-- **A sortable header's text no longer sits indented from its own column.** The
-  header control is a button, and its horizontal padding pushed the label off
-  the line its cells sit on — 2px with the built-in primitives, 7px through
-  Radix, 8px through MUI, 19px through Mantine. Padding is geometry, so it is
-  now zeroed on the bare `.rtc-th-sort` class, which reaches every adapter's
-  button rather than only ours; the hover surface is restored with a
-  spread-only `box-shadow`, which costs no layout. Every left-aligned column is
-  now pixel-exact in all five adapters.
-- **`meta.align` reaches body cells again.** `justify-content` was set on
-  `.rtc-td`, which is a `table-cell` in the default `semantic` layout mode and
-  ignores it, and `text-align` had nothing to distribute because the value box
-  is sized to its content. `align: 'right'` and `align: 'center'` therefore did
-  nothing at all outside the `grid` layout modes — a "right-aligned" numeric
-  column sat flush left with ~100px of slack after it.
-
 ### Also
 
 - Exports `mergeLocalization` and `filterOperatorLabel`, the two functions that

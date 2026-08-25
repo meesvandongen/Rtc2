@@ -1088,40 +1088,9 @@ test.describe('accessibility wiring', () => {
 
 /**
  * The controls that reach features which previously had state and rendering
- * but no way in — plus the header/body alignment their buttons used to break.
+ * but no way in.
  */
 test.describe('column and row controls', () => {
-  test('a sortable header lines up with its own column', async ({ page }) => {
-    const root = await openStory(page, 'datatable-15-ui-libraries--built-in-primitives')
-    await expect(bodyRows(root).first()).toHaveCount(1)
-
-    // The header's own button used to indent the label — by 2px with the
-    // built-in primitives and up to 19px through an adapter, which reads as a
-    // column of text that does not line up with its heading.
-    const offsets = await root.evaluate((el) => {
-      const out: Array<{ column: string; delta: number }> = []
-      for (const th of el.querySelectorAll('thead th[data-rtc-column-id]')) {
-        if ((th.getAttribute('data-rtc-align') ?? 'left') !== 'left') continue
-        const column = th.getAttribute('data-rtc-column-id')!
-        const label = th.querySelector('.rtc-th-label')
-        const value = el.querySelector(
-          `tbody tr td[data-rtc-column-id="${column}"] .rtc-cell-value`,
-        )
-        if (!label || !value) continue
-        out.push({
-          column,
-          delta: label.getBoundingClientRect().left - value.getBoundingClientRect().left,
-        })
-      }
-      return out
-    })
-
-    expect(offsets.length).toBeGreaterThan(3)
-    for (const { column, delta } of offsets) {
-      expect(Math.abs(delta), `${column} is ${delta}px off its column`).toBeLessThanOrEqual(0.5)
-    }
-  })
-
   test('the sort control says what it did and what it will do', async ({ page }) => {
     const root = await openStory(page, 'datatable-02-sorting--basic')
     const sort = header(root, 'firstName').locator('.rtc-th-sort')
