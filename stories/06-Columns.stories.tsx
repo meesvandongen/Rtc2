@@ -3,9 +3,16 @@ import type { Meta, StoryObj } from '@storybook/react-vite'
 
 import { DataTable, type ColumnPinningState } from '../src'
 import { loadingArgTypes } from './controls'
-import { groupedHeaderColumns, makePeople, makeWideColumns, personColumns } from './fixtures'
+import {
+  groupedHeaderColumns,
+  makePeople,
+  makeTree,
+  makeWideColumns,
+  personColumns,
+} from './fixtures'
 
 const data = makePeople(25)
+const tree = makeTree()
 
 /** Column-management props shared across most stories in this file. */
 const columnsArgTypes = {
@@ -252,6 +259,45 @@ export const ColumnFooters: Story = {
       />
     )
   },
+}
+
+/**
+ * Who gets the space left over once every column has its width.
+ *
+ * A table is nearly always wider than the sum of its columns, and the surplus
+ * goes to the data columns. The utility columns — selection, expand, row
+ * numbers, actions — are sized for the control they hold and keep that width
+ * in every layout mode: a checkbox is no easier to hit at 160px.
+ */
+export const SurplusWidth: Story = {
+  render: () => (
+    <>
+      {(['semantic', 'grid', 'grid-no-grow'] as const).map((layoutMode) => (
+        <div key={layoutMode} style={{ marginBottom: 16 }}>
+          <DataTable
+            columns={personColumns.slice(0, 3)}
+            data={tree}
+            getRowId={(row) => row.id}
+            layoutMode={layoutMode}
+            getSubRows={(row) => row.subRows}
+            enableRowSelection
+            enableRowNumbers
+            enableExpanding
+            enableRowActions
+            renderRowActions={() => (
+              <button type="button" className="rtc-button" style={{ height: 24, padding: '0 8px' }}>
+                View
+              </button>
+            )}
+            enableToolbar={false}
+            enablePagination={false}
+            enableBorders="all"
+            caption={`layoutMode="${layoutMode}"`}
+          />
+        </div>
+      ))}
+    </>
+  ),
 }
 
 /** Per-column alignment and a shared `defaultColumn`. */

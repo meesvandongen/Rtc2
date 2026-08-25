@@ -9,6 +9,26 @@ import { formatMessage } from '../locale'
 import { cx, getColumnLabel } from '../utils'
 import type { DataTableHeader, DataTableInstance } from '../types'
 
+/**
+ * Which columns absorb the space left over once every column has its width.
+ *
+ * A table is nearly always wider than the sum of its columns, and that surplus
+ * has to land somewhere. It must not land on the utility columns: a checkbox,
+ * a chevron or a row-actions button is sized for the control it holds, and
+ * stretching it to 150px only pushes the data away from the reader. Pinned
+ * columns keep their declared width too — their sticky offsets are computed
+ * from `getSize()`, so a column that renders wider than it measures would sit
+ * at the wrong offset.
+ *
+ * What is left — the ordinary data columns — shares the surplus.
+ */
+function columnCanGrow<TData extends RowData>(
+  column: DataTableHeader<TData, any>['column'],
+  pinned: false | 'start' | 'end',
+): boolean {
+  return !pinned && !isDisplayColumnId(column.id)
+}
+
 /** Sticky-offset and layout attributes shared by header, body and footer cells. */
 export function getCellLayoutProps<TData extends RowData>(
   table: DataTableInstance<TData>,
@@ -35,19 +55,24 @@ export function getCellLayoutProps<TData extends RowData>(
   // header would slide the columns out of alignment in the grid layouts,
   // where each row is its own flex container.
   const minSize = Math.max(column.columnDef.minSize ?? 0, table.headerMinSizes?.[column.id] ?? 0)
+  const canGrow = layoutMode !== 'grid-no-grow' && columnCanGrow(column, pinned)
 
   return {
     'data-rtc-column-id': column.id,
     'data-rtc-pinned': pinned || undefined,
     'data-rtc-pin-edge': isPinEdge ? 'true' : undefined,
     'data-rtc-align': column.columnDef.meta?.align,
-    'data-rtc-grow': isGrid && layoutMode === 'grid' && !pinned ? 'true' : undefined,
+    'data-rtc-grow': canGrow ? 'true' : undefined,
     className: cx(kind === 'body' ? 'rtc-td' : 'rtc-th', column.columnDef.meta?.className),
     style: {
       '--rtc-col-size': `${size}px`,
       ...(minSize ? { '--rtc-col-min-size': `${minSize}px` } : {}),
       ...(pinOffset ? { '--rtc-pin-offset': pinOffset } : {}),
-      ...(isGrid ? {} : { width: size, minWidth: minSize || undefined }),
+      // A semantic table is laid out by the browser, and the browser hands the
+      // surplus to the columns that did *not* ask for a width — so the growing
+      // columns deliberately declare none. Their `size` reaches the stylesheet
+      // as `--rtc-col-size` and is applied there as a floor instead.
+      ...(isGrid || canGrow ? {} : { width: size, minWidth: minSize || undefined }),
     } as React.CSSProperties,
   }
 }

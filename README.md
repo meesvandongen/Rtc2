@@ -675,6 +675,18 @@ the column as a custom property.
 Set `enableHeaderContentFit={false}` to restore clipping and let columns shrink
 to whatever the container allows.
 
+The other half of the question is where the *surplus* goes, since a table is
+nearly always wider than the sum of its columns. It goes to the data columns.
+The generated utility columns — selection, expand, row numbers, row actions —
+are sized for the control they hold, and a checkbox is no easier to hit at
+160px; pinned columns are left out too, because their sticky offsets are
+computed from the size they declare. In the `grid` modes that is a `flex-grow`
+the utility columns do not get. In `semantic` it is the browser's own auto
+layout, which hands the surplus to the columns that declared no width — so the
+growing columns declare none, and carry their `size` as a floor instead. Use
+`layoutMode="grid-no-grow"` for a table where no column grows and the surplus
+stays empty to the right.
+
 ## Server-side data
 
 Set the `manual*` flags, feed the table the current page, and tell it the total

@@ -308,6 +308,48 @@
   caption-side: top;
 }
 
+/* Where the surplus goes.
+ *
+ * A `width: 100%` table is nearly always wider than the sum of its columns,
+ * and the browser's auto layout hands that surplus to the columns that
+ * declared no width — spreading it over every column in proportion to their
+ * widths only as a fallback, when they all did. That fallback is what used to
+ * stretch a 44px checkbox column to 82px and double the row-actions column on
+ * a wide table: a checkbox does not become more legible at 160px, and the
+ * width came out of the data columns that could have used it.
+ *
+ * So the columns that should absorb the surplus declare no width at all
+ * (`data-rtc-grow`, from `getCellLayoutProps`), leaving the utility and pinned
+ * columns as the only fixed ones — and fixed is exactly what they want to be.
+ * What a growing column still needs is its declared `size`, which becomes a
+ * floor rather than a width. Both cell kinds carry it, for the same reason
+ * every cell used to carry the width: a table can be all header (no rows yet)
+ * or all body (`enableTableHead: false`), and the column keeps its size
+ * either way. */
+.rtc-root[data-rtc-layout="semantic"] .rtc-td[data-rtc-grow="true"] {
+  min-width: var(--rtc-col-size);
+}
+
+/* The header's floor goes *inside* the cell, on the content box, for two
+   reasons. A `min-width` on the `th` itself would override the `min-content`
+   below and take the "never narrower than its header" guarantee with it,
+   whereas a floor on the content leaves the header free to ask for more. And
+   the padding is outside the content box, so it has to come off the size for
+   the column to land on `size` and not `size` plus a gutter. */
+.rtc-root[data-rtc-layout="semantic"] .rtc-th[data-rtc-grow="true"] .rtc-th-content {
+  min-width: calc(var(--rtc-col-size) - 2 * var(--rtc-cell-padding-x));
+}
+
+/* The other half of dropping the width: nothing stops a long email from
+   sizing its column through the cell's own max-content, and column widths
+   would then shift from page to page as the data changed. Size containment
+   makes the stylesheet's promise below — that body content never sizes a
+   column — true on its own terms, where before it rested on every cell
+   carrying an explicit width. */
+.rtc-root[data-rtc-layout="semantic"] .rtc-td[data-rtc-grow="true"] .rtc-cell-inner {
+  contain: inline-size;
+}
+
 /* `grid` layout modes hand column sizing to the component instead of the
    browser's auto table algorithm, which is what makes virtualization and
    pixel-accurate resizing possible. */

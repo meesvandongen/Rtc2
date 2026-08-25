@@ -467,6 +467,47 @@ test.describe('columns', () => {
     await expect.poll(async () => (await cell.boundingBox())!.width).toBeGreaterThan(before)
   })
 
+  /**
+   * The surplus width of a table wider than its columns belongs to the data
+   * columns. Before, the browser spread it over every column in proportion to
+   * their widths, which stretched a 44px checkbox column to 82px and doubled
+   * the row-actions column — space taken from the columns holding the data.
+   *
+   * Asserted per layout mode, because each mode distributes the surplus its
+   * own way: the auto table algorithm in `semantic`, `flex-grow` in `grid`,
+   * and not at all in `grid-no-grow`.
+   */
+  test('utility columns do not absorb the surplus width', async ({ page }) => {
+    await openStory(page, 'datatable-06-columns--surplus-width')
+
+    const modes = ['semantic', 'grid', 'grid-no-grow'] as const
+    for (const [index, mode] of modes.entries()) {
+      const root = page.locator('.rtc-root').nth(index)
+      await expect(root).toHaveAttribute('data-rtc-layout', mode)
+
+      const widthOf = async (columnId: string) =>
+        (await header(root, columnId).boundingBox())!.width
+
+      // Their declared sizes are 44, 40, 56 and 72; the expand and actions
+      // columns are also held open by their own headers. None of them is
+      // anywhere near a data column's share.
+      expect(await widthOf('rtc-select')).toBeLessThan(64)
+      expect(await widthOf('rtc-expand')).toBeLessThan(72)
+      expect(await widthOf('rtc-row-number')).toBeLessThan(76)
+      expect(await widthOf('rtc-row-actions')).toBeLessThan(100)
+
+      // And the surplus really was there to be taken: every mode but
+      // `grid-no-grow` fills the container, and the email column — declared at
+      // 260 — is what grew.
+      const email = await widthOf('email')
+      if (mode === 'grid-no-grow') {
+        expect(email).toBeLessThan(280)
+      } else {
+        expect(email).toBeGreaterThan(300)
+      }
+    }
+  })
+
   test('header groups span their children', async ({ page }) => {
     const root = await openStory(page, 'datatable-06-columns--header-groups')
 
