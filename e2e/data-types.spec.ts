@@ -216,7 +216,7 @@ test.describe('data type registry', () => {
  * otherwise translated table.
  */
 test.describe('filter data types are localized', () => {
-  const STORY = 'datatable-13-localization--localized-filter-operators'
+  const STORY = 'datatable-13-localization--operator-names-per-data-type'
 
   test('a type-scoped operator name beats the shared one', async ({ page }) => {
     const root = await openStory(page, STORY)
