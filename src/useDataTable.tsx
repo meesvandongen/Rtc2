@@ -180,17 +180,17 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
    * The state handed to TanStack, with the search mode folded into the global
    * filter value when the reader is allowed to change it.
    *
-   * TanStack memoizes the filtered row model on the filter *state* — the
-   * global filter fn is an option, and options are not memo dependencies — so
-   * a mode carried only in `options.globalFilterFn` would change how matching
-   * works without ever re-running it. Folding it into the atom is what makes
-   * the switch take effect. See `GlobalFilterWithMode`.
+   * This is what makes picking a mode re-filter immediately rather than on the
+   * next keystroke: the filtered row model memoizes on the filter *state*, and
+   * a mode carried only in `options.globalFilterFn` is not part of it. See
+   * `GlobalFilterWithMode`.
    *
-   * Only wrapped while there is something to search for: an empty query has to
+   * Only wrapped while there is something to search for. An empty query has to
    * stay the empty string, because that is what TanStack reads as "no global
-   * filter". Wrapped, `''` would become a truthy value and every row would be
-   * run through the mode's comparator — under `equalsString`, clearing the box
-   * would empty the table.
+   * filter" — wrapped, `''` becomes a truthy value and every row goes through
+   * the mode's comparator, so under `equalsString` clearing the box would empty
+   * the table. The visible consequence is only that switching modes over an
+   * empty box does nothing, which is correct: there is nothing to match yet.
    */
   const globalFilterMode = ui.globalFilterFn ?? options.globalFilterFn ?? 'includesString'
   const tanStackStateForTable = useMemo<DataTableTanStackState>(() => {

@@ -79,8 +79,12 @@ error.
 
 - Exports `mergeLocalization` and `filterOperatorLabel`, the two functions that
   resolve a partial `localization` and an operator's displayed name.
-- `enableGlobalFilterModes` carries the chosen mode inside the global filter
-  value on the way into TanStack, because `createFilteredRowModel` memoizes on
-  the filter *state* and the global filter fn is an option — switching it alone
-  changed how matching would work without ever re-running it. `state.globalFilter`
-  stays a plain string for callers.
+- `enableGlobalFilterModes` re-filters the moment the mode changes, applying to
+  whatever is already in the search box — no retyping. Getting that meant going
+  around `options.globalFilterFn`: `createFilteredRowModel` memoizes on
+  `[preFilteredRowModel, columnFilters, globalFilter]`, all of which is state,
+  so a mode held in an option changes how matching *would* work and never
+  re-runs it. The mode travels inside the global filter value instead, where the
+  row model can see it change. `state.globalFilter` stays a plain string for
+  callers, and an empty box is passed through unwrapped so it still reads as
+  "no filter".

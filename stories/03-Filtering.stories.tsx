@@ -499,10 +499,14 @@ export const NoBuiltInFilterUi: Story = {
  * `enableGlobalFilterModes` puts a mode menu in the search field's leading
  * gutter — the table-wide counterpart of `enableFilterModes`.
  *
+ * Type `ma`, then switch the mode without touching the text: the rows re-filter
+ * on the spot, and a leading match is strictly rarer than a match anywhere —
+ * *Equals (case sensitive)* leaves none at all. (Switching over an empty box
+ * does nothing, there being nothing to match yet.)
+ *
  * The chosen mode is UI state (`ui.globalFilterFn`), reported through
  * `onGlobalFilterFnChange`, and `globalFilterFn` becomes the starting mode
- * rather than the only one. Try "Ada" under *Contains*, then under
- * *Starts with*, then under *Equals (case sensitive)*.
+ * rather than the only one.
  */
 export const GlobalFilterModes: Story = {
   args: {
@@ -520,9 +524,11 @@ export const GlobalFilterModes: Story = {
     enableGlobalFilterModes: { control: 'boolean', table: { category: 'Filtering' } },
   },
   render: (args) => (
+    // Unpaginated so every match is on screen at once, and only 30 rows
+    // because this file's docs page mounts every story in it.
     <DataTable
       columns={personColumns.slice(0, 6)}
-      data={data}
+      data={data.slice(0, 30)}
       getRowId={(row) => row.id}
       enablePagination={false}
       height={420}

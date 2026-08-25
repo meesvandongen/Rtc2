@@ -46,13 +46,14 @@ export const GLOBAL_MODE_FILTER_FN = 'rtcGlobalMode'
 /**
  * The global filter value while `enableGlobalFilterModes` is on.
  *
- * The mode has to travel *inside* the filter value, which is the reason this
- * shape exists at all. TanStack memoizes the filtered row model on
- * `[preFilteredRowModel, columnFilters, globalFilter]` — the global filter
- * **fn** is an option, and options are not memo dependencies — so switching the
- * mode through `options.globalFilterFn` alone changes how matching *would*
- * work and never re-runs it. Folding the mode into the state atom is what
- * makes the switch take effect.
+ * This shape exists so that choosing a mode re-filters straight away, against
+ * whatever is already in the search box. TanStack memoizes the filtered row
+ * model on `[preFilteredRowModel, columnFilters, globalFilter]` — all state.
+ * The global filter **fn** is an *option*, and options are not memo
+ * dependencies, so a mode passed through `options.globalFilterFn` changes how
+ * matching *would* work and never re-runs it: the menu moves and the rows sit
+ * still until the next keystroke. Carrying the mode in the value puts it
+ * somewhere the row model is already watching.
  *
  * Purely internal: `state.globalFilter` stays a plain string for callers, and
  * `onGlobalFilterChange` still reports one. `useDataTable` wraps on the way

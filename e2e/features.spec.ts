@@ -1163,13 +1163,15 @@ test.describe('column and row controls', () => {
     await openMenu(page).getByRole('menuitemcheckbox', { name: 'Starts with', exact: true }).click()
     await expect(trigger).toHaveAccessibleName(/Starts with$/)
 
-    // The global filter spans every searchable column, so the assertion is
-    // about the mode rather than about any one column's text: a leading match
-    // is strictly rarer than a match anywhere.
+    // Re-filtering on the mode change alone — the text is untouched between the
+    // two reads — is the whole point: TanStack memoizes the filtered row model
+    // on the filter state and not on the filter fn, so a mode carried in
+    // `options.globalFilterFn` left the rows exactly as they were until the
+    // next keystroke.
     //
-    // That this changes at all is the point. TanStack memoizes the filtered row
-    // model on the filter state and not on the filter fn, so a mode carried in
-    // `options.globalFilterFn` alone left the rows exactly as they were.
+    // The global filter spans every searchable column, so the assertion is
+    // about the mode rather than any one column's text: a leading match is
+    // strictly rarer than a match anywhere.
     await expect
       .poll(async () => {
         const startsWith = await rowIds(root)
