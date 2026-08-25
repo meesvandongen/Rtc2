@@ -17,6 +17,8 @@ import {
 } from '../temporal'
 import type {
   ColumnDataType,
+  DescribeContext,
+  FilterCondition,
   FilterOperandProps,
   FilterOperator,
   FilterTestContext,
@@ -153,7 +155,7 @@ function RollingOperand({ value, onChange, size, label, localization }: FilterOp
     <div className="rtc-filter-range">
       <ui.NumberInput
         size={size}
-        label={`${label} amount`}
+        label={`${label} ${localization.amount}`}
         value={current.n}
         min={1}
         onChange={(n) => onChange({ ...current, n })}
@@ -161,7 +163,7 @@ function RollingOperand({ value, onChange, size, label, localization }: FilterOp
       />
       <ui.Select
         size={size}
-        label={`${label} unit`}
+        label={`${label} ${localization.unit}`}
         value={current.unit ?? 'day'}
         options={RELATIVE_UNITS.map((unit) => ({
           value: unit,
@@ -382,13 +384,15 @@ const dateOperators: FilterOperator[] = [
   },
 ]
 
-function describeDate(condition: any, ctx: any) {
+function describeDate(condition: FilterCondition, ctx: DescribeContext) {
   const { op, value } = condition
   if (op === 'dateInPeriod' && typeof value === 'string') {
-    return `${ctx.columnLabel}: ${ctx.presetLabels?.[value] ?? value}`
+    return `${ctx.columnLabel}: ${ctx.localization.datePresets[value] ?? value}`
   }
   if ((op === 'dateInLast' || op === 'dateInNext') && value) {
-    return `${ctx.columnLabel} ${ctx.operatorLabel.toLowerCase()} ${value.n} ${value.unit}`
+    const { n, unit } = value as { n?: number; unit?: DateUnit }
+    const unitLabel = unit ? (ctx.localization.dateUnits[unit] ?? unit) : ''
+    return `${ctx.columnLabel} ${ctx.operatorLabel.toLowerCase()} ${n} ${unitLabel}`.trimEnd()
   }
   if (Array.isArray(value)) {
     const format = (entry: unknown) =>
@@ -414,6 +418,11 @@ export const dateDataType: ColumnDataType = {
  * Date-times differ from dates only in default granularity — minute rather
  * than day — which is exactly the distinction the flat variant list could not
  * express.
+ *
+ * "Is on" becomes "Is at", because a timestamp happens at a moment rather than
+ * on a day. The label here is only the fallback: the displayed string comes
+ * from `localization.filterOperators['datetime.dateIs']`, which is how a
+ * translated table keeps the distinction.
  */
 export const dateTimeDataType: ColumnDataType = {
   ...dateDataType,

@@ -300,10 +300,11 @@ export const geoPointDataType: ColumnDataType = {
   Operand: RadiusOperand,
   describe: (condition, ctx) => {
     const value = (condition.value ?? {}) as Record<string, number | undefined>
+    // Symbols and coordinates rather than prose: `≤` and the SI `km` read the
+    // same in every language, and the operator's own label carries the rest.
     if (condition.op === 'geoWithinRadius') {
-      return `${ctx.columnLabel} ≤ ${value.km ?? '…'}km of ${value.lat ?? '…'}, ${value.lng ?? '…'}`
+      return `${ctx.columnLabel} ≤ ${value.km ?? '…'} km (${value.lat ?? '…'}, ${value.lng ?? '…'})`
     }
-    if (condition.op === 'geoWithinBounds') return `${ctx.columnLabel} in box`
     return `${ctx.columnLabel} ${ctx.operatorLabel.toLowerCase()}`
   },
 }

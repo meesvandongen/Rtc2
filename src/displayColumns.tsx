@@ -7,6 +7,7 @@ import { RowExpandToggle } from './components/RowExpandToggle'
 import { SelectAllCheckbox, SelectRowCheckbox } from './components/SelectionCells'
 import { DISPLAY_COLUMN_IDS } from './displayColumnIds'
 import type { DataTableFeatures } from './features'
+import type { DataTableLocalization } from './locale'
 import { getColumnLabel } from './utils'
 import type { DataTableColumn, DataTableInstance, DataTableOptions, DataTableRow } from './types'
 
@@ -55,9 +56,21 @@ export function resolveEnableExpanding<TData extends RowData>(
 /** Width of the expand column while it stands in for a removed grouped column. */
 const GROUP_LABEL_COLUMN_SIZE = 180
 
-/** The value a `remove`-mode group row shows in place of its grouped column. */
-function groupingValueLabel(value: unknown): string | number {
+/**
+ * The value a `remove`-mode group row shows in place of its grouped column.
+ *
+ * Booleans go through the localization rather than `String(value)`: grouping a
+ * yes/no column produced group rows reading "true" and "false" while the
+ * column's own filter offered "Ja" and "Nee".
+ */
+function groupingValueLabel(
+  value: unknown,
+  localization: DataTableLocalization,
+): string | number {
   if (typeof value === 'string' || typeof value === 'number') return value
+  if (typeof value === 'boolean') {
+    return value ? localization.booleanTrue : localization.booleanFalse
+  }
   return value == null ? '' : String(value)
 }
 
@@ -145,14 +158,16 @@ export function buildDisplayColumns<TData extends RowData>({
           const table = getTable()
           const expandAll = showExpandAll ? <RowExpandToggle table={table} /> : null
           if (!carriesGroupLabel) return expandAll
-          // Stands in for the removed columns' headers.
+          // Stands in for the removed columns' headers. Nested grouping reads
+          // as a sequence — "Department, then by Role" — so the separator is a
+          // localized string rather than a comma.
           const { localization } = table.dataTableOptions
           const label = table.state.grouping
             .map((columnId) => {
               const column = table.getColumn(columnId)
               return column ? getColumnLabel(column, localization) : columnId
             })
-            .join(', ')
+            .join(localization.thenBy)
           return (
             <>
               {expandAll}
@@ -166,15 +181,14 @@ export function buildDisplayColumns<TData extends RowData>({
           const toggle = <RowExpandToggle table={table} row={groupRow} />
           const groupingColumnId = groupRow.groupingColumnId
           if (!carriesGroupLabel || !groupingColumnId) return toggle
+          const { localization } = table.dataTableOptions
           const column = table.getColumn(groupingColumnId)
-          const label = column
-            ? getColumnLabel(column, table.dataTableOptions.localization)
-            : undefined
+          const label = column ? getColumnLabel(column, localization) : undefined
           return (
             <span className="rtc-group-label-cell">
               {toggle}
               <span className="rtc-group-label" title={label}>
-                {groupingValueLabel(groupRow.groupingValue)}
+                {groupingValueLabel(groupRow.groupingValue, localization)}
               </span>
               <span className="rtc-group-count">({groupRow.subRows.length})</span>
             </span>

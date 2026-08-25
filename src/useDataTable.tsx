@@ -6,7 +6,7 @@ import { buildDisplayColumns, resolveEnableExpanding } from './displayColumns'
 import { STRUCTURED_FILTER_FN } from './filters/filterFn'
 import type { DataTableTableMeta } from './filters/registry'
 import { dataTableFeatures } from './features'
-import { defaultLocalization, type DataTableLocalization } from './locale'
+import { mergeLocalization, type DataTableLocalization } from './locale'
 import { filterDrawerApplies, useIsMobile } from './responsive'
 import type {
   DataTableDensity,
@@ -212,14 +212,7 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
   )
 
   const localization = useMemo<DataTableLocalization>(
-    () => ({
-      ...defaultLocalization,
-      ...options.localization,
-      filterOperators: {
-        ...defaultLocalization.filterOperators,
-        ...options.localization?.filterOperators,
-      },
-    }),
+    () => mergeLocalization(options.localization),
     [options.localization],
   )
 

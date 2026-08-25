@@ -78,7 +78,13 @@ export function NumberRangeOperand({
 }
 
 /** Dual-thumb slider bounded by the column's faceted min/max. */
-export function SliderOperand({ value, onChange, bounds, label }: FilterOperandProps) {
+export function SliderOperand({
+  value,
+  onChange,
+  bounds,
+  label,
+  localization,
+}: FilterOperandProps) {
   const ui = useComponents()
   const min = bounds?.[0] ?? 0
   const max = bounds?.[1] ?? 100
@@ -86,6 +92,8 @@ export function SliderOperand({ value, onChange, bounds, label }: FilterOperandP
   return (
     <ui.RangeSlider
       label={label}
+      minLabel={`${label} ${localization.min}`}
+      maxLabel={`${label} ${localization.max}`}
       min={min}
       max={max}
       value={[range[0] ?? min, range[1] ?? max]}

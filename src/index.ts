@@ -23,7 +23,9 @@ export {
 
 export {
   defaultLocalization,
+  filterOperatorLabel,
   formatMessage,
+  mergeLocalization,
   type DataTableLocalization,
 } from './locale'
 

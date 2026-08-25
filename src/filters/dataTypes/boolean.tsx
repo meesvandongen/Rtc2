@@ -69,6 +69,10 @@ export const booleanDataType: ColumnDataType = {
   resolveDataValue: (value) => toBool(value),
   describe: (condition, ctx) =>
     typeof condition.value === 'boolean'
-      ? `${ctx.columnLabel}: ${condition.value}`
+      ? // The chip has to read like the picker the user chose from, so this
+        // spells out the localized yes/no rather than stringifying the boolean.
+        `${ctx.columnLabel}: ${
+          condition.value ? ctx.localization.booleanTrue : ctx.localization.booleanFalse
+        }`
       : `${ctx.columnLabel} ${ctx.operatorLabel.toLowerCase()}`,
 }

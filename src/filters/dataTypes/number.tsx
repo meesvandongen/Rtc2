@@ -77,7 +77,7 @@ const numberOperators: FilterOperator[] = [
   },
   {
     id: 'inRangeSlider',
-    label: 'In range (slider)',
+    label: 'In range',
     arity: 2,
     Operand: SliderOperand,
     initialValue: () => [undefined, undefined],

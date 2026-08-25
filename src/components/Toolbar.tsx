@@ -242,8 +242,13 @@ function InternalActions<TData extends RowData>({ table }: { table: DataTableIns
       ) : null}
 
       {options.isLoadingError ? (
+        // The icon alone announced nothing: an alert with no text content is
+        // silent to a screen reader and untranslatable to everyone else.
         <span className="rtc-toolbar-alert" role="alert">
           <ui.Icon name="alert" />
+          <span className="rtc-visually-hidden">
+            {options.errorMessage ?? localization.errorLoadingData}
+          </span>
         </span>
       ) : null}
     </div>
