@@ -1094,23 +1094,17 @@ test.describe('column and row controls', () => {
   test('the sort control says what it did and what it will do', async ({ page }) => {
     const root = await openStory(page, 'datatable-02-sorting--basic')
     const sort = header(root, 'firstName').locator('.rtc-th-sort')
+    // The built-in Tooltip is the native `title` on the element wrapping the
+    // control, so the text is assertable without hovering. Selected by
+    // structure rather than by a class of ours: the wrapper belongs to whatever
+    // implements the `Tooltip` slot, and the table does not name it.
+    const tip = header(root, 'firstName').locator('[title]:has(> .rtc-th-sort)')
 
-    // The built-in Tooltip is the native `title`, so the text is assertable
-    // without hovering.
-    await expect(root.locator('.rtc-th-sort-tip').first()).toHaveAttribute(
-      'title',
-      /Sort by First name ascending/,
-    )
+    await expect(tip).toHaveAttribute('title', /Sort by First name ascending/)
     await sort.click()
-    await expect(header(root, 'firstName').locator('.rtc-th-sort-tip')).toHaveAttribute(
-      'title',
-      /Sorted by First name ascending/,
-    )
+    await expect(tip).toHaveAttribute('title', /Sorted by First name ascending/)
     await sort.click()
-    await expect(header(root, 'firstName').locator('.rtc-th-sort-tip')).toHaveAttribute(
-      'title',
-      /Sorted by First name descending/,
-    )
+    await expect(tip).toHaveAttribute('title', /Sorted by First name descending/)
   })
 
   test('a row is pinned from its own overflow menu', async ({ page }) => {

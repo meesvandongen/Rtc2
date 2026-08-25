@@ -79,8 +79,6 @@ error.
 
 - Exports `mergeLocalization` and `filterOperatorLabel`, the two functions that
   resolve a partial `localization` and an operator's displayed name.
-- `RtcTooltipProps` takes a `className`, so a wrapping tooltip can be kept from
-  becoming the flex item in place of the control it wraps.
 - `enableGlobalFilterModes` carries the chosen mode inside the global filter
   value on the way into TanStack, because `createFilteredRowModel` memoizes on
   the filter *state* and the global filter fn is an option — switching it alone

@@ -63,10 +63,7 @@ export function CopyCell({
   )
 
   return (
-    <ui.Tooltip
-      label={copied ? localization.copiedToClipboard : localization.clickToCopy}
-      className="rtc-copy-cell-tip"
-    >
+    <ui.Tooltip label={copied ? localization.copiedToClipboard : localization.clickToCopy}>
       <button
         type="button"
         className="rtc-copy-cell"

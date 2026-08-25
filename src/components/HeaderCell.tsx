@@ -147,7 +147,7 @@ export function HeaderCell<TData extends RowData>({
             // third key". It went missing when this control moved from a raw
             // `<button title=…>` to the registry, which carries tooltips in a
             // slot of their own rather than as a prop on every control.
-            <ui.Tooltip label={sortTooltip} className="rtc-th-sort-tip">
+            <ui.Tooltip label={sortTooltip}>
               {/* Through the registry, not a raw `<button>`: it sits beside the
                   filter and column-menu buttons, and a header whose controls
                   come half from the host's design system and half from ours
