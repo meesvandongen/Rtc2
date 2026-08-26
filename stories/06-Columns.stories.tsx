@@ -28,6 +28,9 @@ const copyableColumns = personColumns.map((column) => {
     : column
 })
 
+/** Declared narrower than any of their headers, for the header-sizing story. */
+const crampedColumns = personColumns.slice(0, 6).map((column) => ({ ...column, size: 140 }))
+
 /** Column-management props shared across most stories in this file. */
 const columnsArgTypes = {
   enableColumnVisibility: { control: 'boolean', table: { category: 'Columns' } },
@@ -307,6 +310,39 @@ export const SurplusWidth: Story = {
             enablePagination={false}
             enableBorders="all"
             caption={`layoutMode="${layoutMode}"`}
+          />
+        </div>
+      ))}
+    </>
+  ),
+}
+
+/**
+ * Columns declared narrower than their own headers.
+ *
+ * A header is a label plus up to three controls, so 140px was never going to
+ * hold one. By default the column is widened to fit it and the table scrolls
+ * sideways instead; with `enableHeaderContentFit={false}` the declared width
+ * wins and the label truncates. Either way the label and the buttons keep out
+ * of each other's way — a funnel sitting on top of a half-drawn word tells the
+ * reader nothing about either.
+ */
+export const HeaderContentFit: Story = {
+  render: () => (
+    <>
+      {[true, false].map((fit) => (
+        <div key={String(fit)} style={{ marginBottom: 16 }}>
+          <DataTable
+            columns={crampedColumns}
+            data={data.slice(0, 5)}
+            getRowId={(row) => row.id}
+            layoutMode="grid-no-grow"
+            enableHeaderContentFit={fit}
+            enableColumnActions
+            enableToolbar={false}
+            enablePagination={false}
+            enableBorders="all"
+            caption={`enableHeaderContentFit={${fit}}`}
           />
         </div>
       ))}

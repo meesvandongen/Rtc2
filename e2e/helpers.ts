@@ -23,6 +23,49 @@ export function header(root: Locator, columnId: string): Locator {
   return root.locator(`thead th[data-rtc-column-id="${columnId}"]`).first()
 }
 
+/**
+ * Every place a header label overlaps one of the header's own buttons.
+ *
+ * A header cell lays out a label and up to three controls in one flex row, and
+ * the label is the item that yields when they do not all fit — by truncating,
+ * never by painting across them. Buttons related to the label by containment
+ * are excluded: the sort button wraps the label, and the header standing in for
+ * removed grouped columns puts the expand-all button inside it, so in both
+ * cases the two boxes legitimately intersect.
+ *
+ * Returns a description per overlap, so a failure names the column.
+ */
+export async function headerLabelOverlaps(root: Locator): Promise<string[]> {
+  return root.evaluate((element) => {
+    const found: string[] = []
+    for (const cell of Array.from(element.querySelectorAll('thead .rtc-th'))) {
+      const label = cell.querySelector('.rtc-th-label')
+      if (!label || !label.textContent?.trim()) continue
+      const labelBox = label.getBoundingClientRect()
+      if (labelBox.width === 0) continue
+      for (const button of Array.from(cell.querySelectorAll('button'))) {
+        if (button.contains(label) || label.contains(button)) continue
+        const box = button.getBoundingClientRect()
+        if (box.width === 0) continue
+        const x = Math.min(labelBox.right, box.right) - Math.max(labelBox.left, box.left)
+        const y = Math.min(labelBox.bottom, box.bottom) - Math.max(labelBox.top, box.top)
+        if (x > 0.5 && y > 0.5) {
+          const id = (cell as HTMLElement).dataset.rtcColumnId
+          found.push(`${id}: "${label.textContent}" overlaps .${button.className} by ${x}px`)
+        }
+      }
+    }
+    return found
+  })
+}
+
+/** Whether a column's header label is drawn truncated. */
+export function headerLabelIsTruncated(root: Locator, columnId: string): Promise<boolean> {
+  return header(root, columnId)
+    .locator('.rtc-th-label')
+    .evaluate((label) => label.scrollWidth > label.clientWidth + 1)
+}
+
 /** Ids of the leaf header cells, left to right. */
 export async function headerColumnIds(root: Locator): Promise<string[]> {
   return root

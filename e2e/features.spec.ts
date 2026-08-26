@@ -7,6 +7,8 @@ import {
   filterPopover,
   header,
   headerColumnIds,
+  headerLabelIsTruncated,
+  headerLabelOverlaps,
   openColumnFilter,
   openMenu,
   openStory,
@@ -508,6 +510,54 @@ test.describe('columns', () => {
     }
   })
 
+  /**
+   * A column declared narrower than its own header is widened to fit it, and
+   * the label is drawn in full.
+   */
+  test('a column is never narrower than its header', async ({ page }) => {
+    await openStory(page, 'datatable-06-columns--header-content-fit')
+    const root = page.locator('.rtc-root').first()
+
+    // Declared at 140px, against headers that need half again as much.
+    for (const columnId of ['firstName', 'department', 'email']) {
+      expect((await header(root, columnId).boundingBox())!.width).toBeGreaterThan(130)
+      expect(await headerLabelIsTruncated(root, columnId)).toBe(false)
+    }
+
+    // The floor reaches the body too, or the header would be the only row that
+    // grew — each row is its own flex container in the grid layout modes.
+    for (const columnId of ['firstName', 'department', 'email']) {
+      const head = (await header(root, columnId).boundingBox())!.width
+      const body = (await root
+        .locator(`tbody td[data-rtc-column-id="${columnId}"]`)
+        .first()
+        .boundingBox())!.width
+      expect(Math.abs(head - body)).toBeLessThan(2)
+    }
+
+    expect(await headerLabelOverlaps(root)).toEqual([])
+  })
+
+  /**
+   * `enableHeaderContentFit={false}` gives the declared width back, and the
+   * label has to give way — by truncating. What it must never do is keep its
+   * full width and paint across the filter and column-actions buttons beside
+   * it, which is what a label with `overflow: visible` would do.
+   */
+  test('a header label truncates rather than running under the header buttons', async ({
+    page,
+  }) => {
+    await openStory(page, 'datatable-06-columns--header-content-fit')
+    const root = page.locator('.rtc-root').nth(1)
+
+    for (const columnId of ['firstName', 'department', 'email']) {
+      expect((await header(root, columnId).boundingBox())!.width).toBeLessThan(150)
+      expect(await headerLabelIsTruncated(root, columnId)).toBe(true)
+    }
+
+    expect(await headerLabelOverlaps(root)).toEqual([])
+  })
+
   test('header groups span their children', async ({ page }) => {
     const root = await openStory(page, 'datatable-06-columns--header-groups')
 
@@ -935,6 +985,32 @@ test.describe('virtualization', () => {
     await expect
       .poll(async () => bodyRows(root).first().getAttribute('data-rtc-row-id'))
       .not.toBe(firstBefore)
+  })
+
+  /**
+   * Virtualization switches the layout to `grid` without the caller naming it,
+   * and the header has to be sized for the mode the table actually renders in.
+   * It was not: the header cells were laid out as if this were a semantic
+   * table, whose columns the browser widens to fit their headers, while the
+   * table rendered as a grid, whose columns take the floor that is measured for
+   * them — and no floor was ever measured. Every column stayed at its declared
+   * `size` and the labels ran under the filter and column-actions buttons.
+   */
+  test('a virtualized table sizes its headers like the grid it renders as', async ({ page }) => {
+    const root = await openStory(page, 'datatable-11-virtualization--virtualized-with-features')
+    await expect(root).toHaveAttribute('data-rtc-layout', 'grid')
+
+    // Declared at 140 and 100, against headers carrying a label, a funnel and
+    // a column menu.
+    await expect
+      .poll(async () => (await header(root, 'firstName').boundingBox())!.width)
+      .toBeGreaterThan(140)
+    await expect
+      .poll(async () => (await header(root, 'active').boundingBox())!.width)
+      .toBeGreaterThan(100)
+
+    expect(await headerLabelOverlaps(root)).toEqual([])
+    expect(await headerLabelIsTruncated(root, 'firstName')).toBe(false)
   })
 
   test('mounts only a window of columns and updates on horizontal scroll', async ({ page }) => {

@@ -14,6 +14,7 @@ import { TableFoot } from './components/TableFoot'
 import { TableHead } from './components/TableHead'
 import { BottomToolbar, TopToolbar } from './components/Toolbar'
 import { DragProvider, type DropEdge } from './dragContext'
+import { resolveLayoutMode } from './layoutMode'
 import { usesFilterDrawer } from './responsive'
 import { cx, moveItem, toCssSize } from './utils'
 import { useDataTable } from './useDataTable'
@@ -66,10 +67,10 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
 
   // Virtualization positions rows absolutely and offsets columns by an exact
   // number of pixels, neither of which the browser's native table layout can
-  // do; fall back to the grid layout automatically.
-  const layoutMode =
-    options.layoutMode ??
-    (options.enableRowVirtualization || options.enableColumnVirtualization ? 'grid' : 'semantic')
+  // do; `resolveLayoutMode` falls back to the grid layout automatically. It is
+  // shared with the header cells and the header-fit measurement, which have to
+  // size themselves for the mode the table actually renders in.
+  const layoutMode = resolveLayoutMode(options)
 
   /**
    * Column virtualization needs two things the option alone cannot promise.

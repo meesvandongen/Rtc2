@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import type { RowData } from '@tanstack/react-table'
 
+import { resolveLayoutMode } from './layoutMode'
 import type { DataTableInstance } from './types'
 
 /**
@@ -45,9 +46,12 @@ export function useHeaderContentFit<TData extends RowData>(
   columnWindowKey?: string,
 ) {
   const options = table.dataTableOptions
-  // Semantic tables need no help; the browser already did this.
+  // Semantic tables need no help; the browser already did this. Asked of the
+  // resolved mode, because a virtualized table is a grid whether or not the
+  // caller said so — and skipping the measurement there left its columns with
+  // no header floor, so a label ran under the header's own buttons.
   const enabled =
-    (options.enableHeaderContentFit ?? true) && (options.layoutMode ?? 'semantic') !== 'semantic'
+    (options.enableHeaderContentFit ?? true) && resolveLayoutMode(options) !== 'semantic'
   const setMinSizes = table.setHeaderMinSizes
   const appliedRef = useRef<HeaderMinSizes>({})
 

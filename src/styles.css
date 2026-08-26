@@ -440,11 +440,6 @@
   text-overflow: ellipsis;
 }
 
-.rtc-root[data-rtc-header-fit="clip"] .rtc-th-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .rtc-th[data-rtc-align="center"],
 .rtc-td[data-rtc-align="center"] {
   text-align: center;
@@ -753,10 +748,25 @@
   justify-content: flex-end;
 }
 
-/* `nowrap` without clipping: the label stays on one line and that line's
-   width is what the column has to accommodate. */
+/* The label stays on one line, and that line's width is what the column has to
+ * accommodate: `min-width: min-content` on the cell and the measured floor in
+ * the grid modes are both derived from it, and neither is weakened by the
+ * clipping here — an element's min-content size does not depend on its
+ * `overflow`.
+ *
+ * What the clipping changes is what happens when the cell is narrower anyway:
+ * with `enableHeaderContentFit={false}`, in a grid layout on the frame before
+ * the floor has been measured, or under a `size` an adapter's own chrome
+ * overruns. A flex item whose overflow is not `visible` has an automatic
+ * minimum size of zero, so the label yields — and truncates with an ellipsis —
+ * rather than keeping its full width and painting across the filter and
+ * column-actions buttons beside it. Overlapping controls are never the right
+ * answer: a truncated label can still be read from the tooltip and the column
+ * menu, a label with a funnel button sitting on top of it cannot. */
 .rtc-th-label {
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Geometry and typography only.
@@ -794,7 +804,6 @@
 .rtc-button.rtc-th-sort {
   height: auto;
   padding: 2px 4px;
-  margin-inline-start: -4px;
   background: none;
   border: 0;
   border-radius: var(--rtc-radius-sm);
@@ -802,6 +811,20 @@
 
 .rtc-button.rtc-th-sort:hover {
   background: var(--rtc-row-bg-hover);
+}
+
+/* The label is pulled back across the button's own padding, so a sortable
+ * header's text starts where an unsortable one's does — and where the data
+ * under it does.
+ *
+ * On the label rather than on the button, which is where the nudge used to sit.
+ * A negative margin also comes off what the header row reports as its minimum
+ * width, so the cell asked for 4px less than its contents needed; the label is
+ * the one item in the row that clips, so the label is what paid, losing its
+ * last letters to an ellipsis in a column sized to exactly its header. Spent
+ * inside the button's padding the nudge costs nobody anything. */
+.rtc-button.rtc-th-sort .rtc-th-label {
+  margin-inline-start: -4px;
 }
 
 /* Reserves the icon's box whether or not the glyph is showing, so revealing
