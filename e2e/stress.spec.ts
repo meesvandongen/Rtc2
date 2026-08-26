@@ -309,10 +309,18 @@ test.describe('width: 252 columns, virtualized', () => {
   test('headers, cells and the pinned edges stay in one column', async ({ page }) => {
     const root = await openStory(page, story)
 
+    const settled = Object.keys((await geometry(root)).head).at(-2)
     await container(root).evaluate((element) => {
       element.scrollLeft = 9_000
     })
-    await expect.poll(async () => Object.keys((await geometry(root)).head).length).toBeGreaterThan(3)
+    // Wait for the window itself to move, not merely for one to exist. The
+    // gap the skipped columns leave is padding on the row, so a row's content
+    // box is the window's span — and `position: sticky` clamps a pinned column
+    // to its containing block. Between the scroll and the commit that follows
+    // it the window still describes the old offset, and the pins ride along
+    // with it. That is a frame no one can see, but it is a snapshot a test can
+    // take.
+    await expect.poll(async () => Object.keys((await geometry(root)).head).at(-2)).not.toBe(settled)
 
     const { head, body, viewport } = await geometry(root)
     const ids = Object.keys(head)

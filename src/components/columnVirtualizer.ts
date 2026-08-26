@@ -30,6 +30,16 @@ export interface ColumnWindow {
    * Stands in for the columns left out, so the rendered ones land at the
    * offset they would have had with the whole table in the DOM. Applied to
    * every row that renders the window — header, body and footer alike.
+   *
+   * Padding on the row rather than the spacer cells other implementations
+   * use, so nothing enters the DOM that keyboard navigation, `colSpan` or the
+   * stylesheet has to know about. The one thing that buys with it: a row's
+   * content box is the window's span, and `position: sticky` clamps a pinned
+   * column to its containing block, so a window that described a different
+   * scroll offset would let the pins ride along with it. Every window is
+   * committed in the same frame as the scroll that asked for it, so this is
+   * never a frame that gets painted — but it is why the window has to be
+   * derived from the scroll offset rather than chased after it.
    */
   rowStyle: React.CSSProperties
   /** Changes only when the window does; see `WithColumnVirtualizer`. */

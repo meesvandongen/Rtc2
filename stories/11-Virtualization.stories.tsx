@@ -112,6 +112,8 @@ export const ColumnVirtualization: Story = {
     <>
       <p className="rtc-sb-note">
         200 columns over 50 rows — only the columns in view are mounted, on every row at once.
+        Expand a row: a detail panel spans the whole table, so it is the one row the window does
+        not apply to.
       </p>
       <DataTable
         columns={makeWideColumns(200)}
@@ -123,6 +125,11 @@ export const ColumnVirtualization: Story = {
         enableColumnResizing
         enableColumnActions
         enableColumnDragging
+        renderDetailPanel={({ row }) => (
+          <span>
+            {row.original.firstName} {row.original.lastName} — {row.original.email}
+          </span>
+        )}
         height={520}
         density="compact"
         enableStripes
