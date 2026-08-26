@@ -214,6 +214,132 @@ test.describe('width: 252 columns', () => {
   })
 })
 
+test.describe('width: 252 columns, virtualized', () => {
+  const story = 'datatable-17-stress--many-columns-virtualized'
+
+  interface ColumnGeometry {
+    /** Left edge of each mounted header, relative to the scroll container. */
+    head: Record<string, number>
+    /** The same for the first mounted body row. */
+    body: Record<string, number>
+    viewport: number
+  }
+
+  /**
+   * The whole window's geometry in one round trip.
+   *
+   * It has to be read at one instant. The header and the body always render
+   * the same window — they are handed the same object — but a column arriving
+   * from off-screen has its header floor measured as it lands, and that can
+   * move the window between two separate reads.
+   */
+  function geometry(root: Locator): Promise<ColumnGeometry> {
+    return root.evaluate((element) => {
+      const scroller = element.querySelector('.rtc-container')!
+      const origin = scroller.getBoundingClientRect().x
+      const offsets = (scope: Element | null, selector: string) => {
+        const result: Record<string, number> = {}
+        for (const cell of scope?.querySelectorAll(selector) ?? []) {
+          const id = cell.getAttribute('data-rtc-column-id')
+          if (id) result[id] = Math.round(cell.getBoundingClientRect().x - origin)
+        }
+        return result
+      }
+      return {
+        head: offsets(element.querySelector('thead tr:last-child'), 'th[data-rtc-column-id]'),
+        body: offsets(element.querySelector('tbody tr[data-rtc-row-id]'), 'td'),
+        viewport: Math.round(scroller.getBoundingClientRect().width),
+      }
+    })
+  }
+
+  test('mounts a window of columns instead of all 252', async ({ page }) => {
+    const errors = trackErrors(page)
+    const root = await openStory(page, story)
+    await expect(root).toHaveAttribute('data-rtc-column-virtual', 'true')
+
+    const cells = await bodyRows(root).first().locator('td').count()
+    expect(cells).toBeGreaterThan(2)
+    // The whole point: the row costs what fits on screen, not what exists.
+    expect(cells).toBeLessThan(40)
+
+    // Both axes windowed, so the mounted DOM is bounded by the viewport in
+    // both directions rather than by the size of the data.
+    expect(cells * (await bodyRows(root).count())).toBeLessThan(2_000)
+
+    expect(errors).toEqual([])
+  })
+
+  test('the window scrolls without moving the columns it already showed', async ({ page }) => {
+    const root = await openStory(page, story)
+
+    // Visit the whole width first: a column's measured header floor can only
+    // be taken while it is mounted, and it is part of the width every offset
+    // after it is built from.
+    const width = await container(root).evaluate((element) => element.scrollWidth)
+    for (let left = 0; left < width; left += 1_000) {
+      await container(root).evaluate((element, offset) => {
+        element.scrollLeft = offset
+      }, left)
+    }
+
+    await container(root).evaluate((element) => {
+      element.scrollLeft = 12_000
+    })
+    await expect.poll(async () => Object.keys((await geometry(root)).head).length).toBeGreaterThan(3)
+    const before = (await geometry(root)).head
+
+    await container(root).evaluate((element) => {
+      element.scrollLeft = 12_400
+    })
+    await expect.poll(async () => (await geometry(root)).head['firstName']).toBe(0)
+    const after = (await geometry(root)).head
+
+    // Every column mounted on both sides of the scroll moved by exactly the
+    // scroll distance. A window whose padding is off by a column drifts here,
+    // and it is the failure that looks like nothing until a cell lands under
+    // the wrong header.
+    const shared = Object.keys(before).filter(
+      (id) => id in after && id !== 'firstName' && id !== `metric-${COLUMN_COUNT}`,
+    )
+    expect(shared.length).toBeGreaterThan(3)
+    for (const id of shared) expect(Math.abs(before[id]! - after[id]! - 400)).toBeLessThanOrEqual(1)
+  })
+
+  test('headers, cells and the pinned edges stay in one column', async ({ page }) => {
+    const root = await openStory(page, story)
+
+    const settled = Object.keys((await geometry(root)).head).at(-2)
+    await container(root).evaluate((element) => {
+      element.scrollLeft = 9_000
+    })
+    // Wait for the window itself to move, not merely for one to exist. The
+    // gap the skipped columns leave is padding on the row, so a row's content
+    // box is the window's span — and `position: sticky` clamps a pinned column
+    // to its containing block. Between the scroll and the commit that follows
+    // it the window still describes the old offset, and the pins ride along
+    // with it. That is a frame no one can see, but it is a snapshot a test can
+    // take.
+    await expect.poll(async () => Object.keys((await geometry(root)).head).at(-2)).not.toBe(settled)
+
+    const { head, body, viewport } = await geometry(root)
+    const ids = Object.keys(head)
+    expect(ids[0]).toBe('firstName')
+    expect(ids.at(-1)).toBe(`metric-${COLUMN_COUNT}`)
+
+    // One window, two sections of the table: every mounted header has its
+    // cell, at its offset.
+    expect(Object.keys(body)).toEqual(ids)
+    for (const id of ids) expect(Math.abs(head[id]! - body[id]!)).toBeLessThanOrEqual(1)
+
+    // Both pins are force-mounted at any offset, and both sit on their edge.
+    expect(head['firstName']).toBe(0)
+    const endBox = (await header(root, `metric-${COLUMN_COUNT}`).boundingBox())!
+    const scroller = (await container(root).boundingBox())!
+    expect(Math.abs(endBox.x + endBox.width - (scroller.x + viewport))).toBeLessThan(2)
+  })
+})
+
 test.describe('every feature at once, on 5,000 rows', () => {
   const story = 'datatable-17-stress--everything-at-once'
 

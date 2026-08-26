@@ -193,9 +193,11 @@ export const ManyRows: Story = {
  * break at this width, since they are positioned against a scroll offset that
  * is now thousands of pixels wide.
  *
- * Rows are virtualized here; columns are not — `enableColumnVirtualization`
- * exists as an option but nothing implements it yet, so every column of every
- * mounted row is a real cell. That is exactly what makes this a stress story.
+ * Rows are virtualized here; columns are not, so every column of every mounted
+ * row is a real cell — 252 of them per row, which is what makes this a stress
+ * story rather than a demo. `ManyColumnsVirtualized` is the same table with
+ * `enableColumnVirtualization` on, and the pair is the comparison: same data,
+ * same pins, two orders of magnitude apart in mounted cells.
  */
 export const ManyColumns: Story = {
   args: { ...loadingArgs },
@@ -211,6 +213,47 @@ export const ManyColumns: Story = {
         getRowId={(row) => row.id}
         layoutMode="grid-no-grow"
         enableRowVirtualization
+        enablePagination={false}
+        enableStickyHeader
+        enableColumnPinning
+        enableColumnResizing
+        enableColumnActions
+        density="compact"
+        height={520}
+        initialState={{
+          columnPinning: { start: ['firstName'], end: [`metric-${COLUMN_COUNT}`] },
+        }}
+        {...args}
+      />
+    </>
+  ),
+}
+
+/**
+ * The same 252 columns, windowed on both axes.
+ *
+ * Everything that has to survive the window is here at once: a pin at each
+ * edge, which must stay mounted at any scroll offset or the table goes blank
+ * where it is stickiest; resizing, which changes the very widths the offsets
+ * are computed from; and headers whose measured minimum width can only be
+ * taken while they are mounted, so columns arriving from off-screen are
+ * measured as they land.
+ */
+export const ManyColumnsVirtualized: Story = {
+  args: { ...loadingArgs },
+  render: (args) => (
+    <>
+      <p className="rtc-sb-note">
+        {COLUMN_COUNT + 2} columns over 2,000 rows, virtualized both ways. Scroll sideways: the
+        pinned columns hold their position, and the cells between them are mounted as they arrive.
+      </p>
+      <DataTable
+        columns={makeWideColumns(COLUMN_COUNT)}
+        data={people(2_000, 3)}
+        getRowId={(row) => row.id}
+        layoutMode="grid-no-grow"
+        enableRowVirtualization
+        enableColumnVirtualization
         enablePagination={false}
         enableStickyHeader
         enableColumnPinning

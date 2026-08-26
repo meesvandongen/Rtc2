@@ -12,7 +12,11 @@ export interface BodyCellProps<TData extends RowData> {
   table: DataTableInstance<TData>
   row: DataTableRow<TData>
   cell: DataTableCell<TData, any>
-  /** Index among visible cells, used for cell-range selection geometry. */
+  /**
+   * Position in the full column order — not the position among the cells this
+   * row happens to render, which under column virtualization is a window.
+   * Drives the tree indentation and the cell's reported column position.
+   */
   columnIndex: number
 }
 
@@ -76,6 +80,9 @@ export function BodyCell<TData extends RowData>({ table, row, cell, columnIndex 
       {...userProps}
       className={cx(layout.className, userProps?.className)}
       style={{ ...layout.style, ...userProps?.style }}
+      // Stated rather than counted: with the columns virtualized, the cells
+      // either side of this one may not be in the DOM at all.
+      aria-colindex={columnIndex + 1}
       data-rtc-grouped={isGrouped || carriesGroupLabel ? 'true' : undefined}
       data-rtc-cell-selected={isSelected ? 'true' : undefined}
       data-rtc-cell-focused={isFocused ? 'true' : undefined}

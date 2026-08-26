@@ -80,9 +80,16 @@ export function getCellLayoutProps<TData extends RowData>(
 export function HeaderCell<TData extends RowData>({
   table,
   header,
+  colIndex,
 }: {
   table: DataTableInstance<TData>
   header: DataTableHeader<TData, any>
+  /**
+   * Position in the full column order, set only while columns are virtualized.
+   * The cells around it may be missing from the DOM, so the position a reader
+   * is given has to be stated rather than counted.
+   */
+  colIndex?: number
 }) {
   const ui = useComponents()
   const options = table.dataTableOptions
@@ -147,6 +154,7 @@ export function HeaderCell<TData extends RowData>({
       colSpan={header.colSpan > 1 ? header.colSpan : undefined}
       rowSpan={header.rowSpan > 1 ? header.rowSpan : undefined}
       scope={header.colSpan > 1 ? 'colgroup' : 'col'}
+      aria-colindex={colIndex === undefined ? undefined : colIndex + 1}
       aria-sort={ariaSort}
       data-rtc-filtered={column.getIsFiltered() ? 'true' : undefined}
       data-rtc-dragging={drag.kind === 'column' && drag.activeId === column.id ? 'true' : undefined}

@@ -2,6 +2,7 @@ import type { RowData } from '@tanstack/react-table'
 
 import { BodyRow } from './BodyRow'
 import { type BodyItem, getBodyItems } from './bodyItems'
+import type { ColumnWindow } from './columnVirtualizer'
 import { DetailRow } from './DetailRow'
 import { useComponents } from './registry'
 import type { RowVirtualizer } from './rowVirtualizer'
@@ -14,6 +15,8 @@ export interface TableBodyProps<TData extends RowData> {
   items: Array<BodyItem<TData>>
   /** Null when the table is not virtualized, in which case none was created. */
   rowVirtualizer: RowVirtualizer | null
+  /** Null when the columns are not virtualized, for the same reason. */
+  columnWindow: ColumnWindow | null
   columnCount: number
 }
 
@@ -21,6 +24,7 @@ export function TableBody<TData extends RowData>({
   table,
   items,
   rowVirtualizer,
+  columnWindow,
   columnCount,
 }: TableBodyProps<TData>) {
   const ui = useComponents()
@@ -45,11 +49,15 @@ export function TableBody<TData extends RowData>({
   // already on screen shows the progress bar instead so rows do not flash.
   if (options.isLoading && !options.showProgressBars && options.data.length === 0) {
     const rowCount = options.skeletonRowCount ?? 5
+    // A placeholder is worth no more than the data it stands in for: the
+    // window applies here too, or a 500-column table would mount every
+    // skeleton cell of every skeleton row before it had any data at all.
+    const skeletonColumns = columnWindow?.indexes ?? Array.from({ length: columnCount }, (_, i) => i)
     return (
       <tbody className={cx('rtc-tbody', options.classNames?.body)} aria-busy="true">
         {Array.from({ length: rowCount }, (_, rowIndex) => (
-          <tr className="rtc-tr" key={rowIndex}>
-            {Array.from({ length: columnCount }, (_, cellIndex) => (
+          <tr className="rtc-tr" key={rowIndex} style={columnWindow?.rowStyle}>
+            {skeletonColumns.map((cellIndex) => (
               <td className="rtc-td" key={cellIndex}>
                 <ui.Skeleton width={`${50 + ((rowIndex * 7 + cellIndex * 13) % 45)}%`} />
               </td>
@@ -94,6 +102,7 @@ export function TableBody<TData extends RowData>({
         table={table}
         items={items}
         virtualizer={rowVirtualizer}
+        columnWindow={columnWindow}
         columnCount={columnCount}
       />
     )
@@ -118,6 +127,7 @@ export function TableBody<TData extends RowData>({
         table={table}
         row={item.row}
         renderIndex={item.rowIndex}
+        columnWindow={columnWindow}
       />
     )
 
@@ -147,11 +157,13 @@ function VirtualBody<TData extends RowData>({
   table,
   items,
   virtualizer,
+  columnWindow,
   columnCount,
 }: {
   table: DataTableInstance<TData>
   items: Array<BodyItem<TData>>
   virtualizer: RowVirtualizer
+  columnWindow: ColumnWindow | null
   columnCount: number
 }) {
   const options = table.dataTableOptions
@@ -192,6 +204,7 @@ function VirtualBody<TData extends RowData>({
             table={table}
             row={item.row}
             renderIndex={item.rowIndex}
+            columnWindow={columnWindow}
             virtualRef={measureElement}
             virtualStart={virtualRow.start}
             virtualIndex={virtualRow.index}

@@ -41,6 +41,7 @@ export function People({ data }: { data: Person[] }) {
 - [Filter data types](#filter-data-types)
 - [Grouping](#grouping)
 - [Theming](#theming)
+- [Virtualization](#virtualization)
 - [Server-side data](#server-side-data)
 - [Editing](#editing)
 - [Controlling state](#controlling-state)
@@ -89,7 +90,7 @@ Each of these has a dedicated Storybook story.
 | Expanding | `enableExpanding`, `enableExpandAll`¹, `getRowCanExpand`, `paginateExpandedRows`¹, `renderDetailPanel` |
 | Row utilities | `enableRowNumbers`, `rowNumberDisplayMode`, `enableRowActions`, `renderRowActions`, `rowActionMenuItems`, `positionActionsColumn`, `enableRowOrdering` |
 | Editing | `enableEditing` (bool or predicate), `editMode` (`cell` \| `row` \| `table` \| `modal`), 5 editor variants, `onEditingRowSave`, `onCellEditComplete`, `onDataChange` |
-| Virtualization | `enableRowVirtualization`, `rowVirtualizerOptions` |
+| Virtualization | `enableRowVirtualization`, `enableColumnVirtualization`, `rowVirtualizerOptions`, `columnVirtualizerOptions` — see [Virtualization](#virtualization) |
 | Layout | `layoutMode` (`semantic` \| `grid` \| `grid-no-grow`), `density`, `height`, `maxHeight`, `direction` (LTR/RTL) |
 | Header sizing | `enableHeaderContentFit`¹ — a column is never narrower than its own header |
 | Chrome | `enableTopToolbar`¹, `enableBottomToolbar`¹, `enableToolbarInternalActions`¹, `enableDensityToggle`¹, `enableFullScreenToggle`¹, `enableColumnActions`, `enableStickyHeader`, `enableStickyFooter`, `enableStripes`, `enableRowHover`¹, `enableBorders` |
@@ -695,6 +696,52 @@ layout, which hands the surplus to the columns that declared no width — so the
 growing columns declare none, and carry their `size` as a floor instead. Use
 `layoutMode="grid-no-grow"` for a table where no column grows and the surplus
 stays empty to the right.
+
+## Virtualization
+
+Two independent axes. Rows are the usual one; columns are worth turning on from
+a few dozen up, because every mounted row pays for every column — at 250
+columns a 30-row window is already 7,500 cells.
+
+```tsx
+<DataTable
+  columns={columns}
+  data={data}
+  enableRowVirtualization
+  enableColumnVirtualization
+  enablePagination={false}
+  height={520}
+  rowVirtualizerOptions={{ overscan: 8 }}
+  columnVirtualizerOptions={{ overscan: 3 }}
+/>
+```
+
+`height` (or `maxHeight`) is required either way: a window is measured against
+a scroll container, and a container that grows with its content has none.
+Both axes also need one of the `grid` layout modes, and both switch `layoutMode`
+to `grid` on their own — rows because absolute positioning is impossible under
+the browser's table algorithm, columns because their offsets have to be exact
+and that algorithm resolves widths itself.
+
+What survives the column window:
+
+- **Pinned columns**, which are force-mounted at every scroll offset. A sticky
+  column that unmounted would leave the edge of the table blank, and the gap
+  left by the dropped columns is measured from just past it, so the pins hold
+  their position while the rest slides underneath.
+- **The column being dragged**, whose pointer handlers live on a header that
+  would otherwise unmount under the pointer.
+- **Header content fit**, though a header can only be measured while it is
+  mounted. Columns arriving from off-screen are measured as they land, so on a
+  table whose headers are wider than their declared `size` the total scroll
+  width settles as columns are visited for the first time. Set
+  `enableHeaderContentFit={false}` for a width that is exact from the start.
+
+Column virtualization is declined — silently, since the alternative is a
+misaligned table — for an explicit `layoutMode="semantic"` and for grouped
+headers, where a window over the *leaf* columns says nothing about the header
+spanning several of them. `data-rtc-column-virtual` on the root reports whether
+the option was honoured.
 
 ## Server-side data
 

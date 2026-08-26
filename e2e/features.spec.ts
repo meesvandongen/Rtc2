@@ -937,6 +937,194 @@ test.describe('virtualization', () => {
       .not.toBe(firstBefore)
   })
 
+  test('mounts only a window of columns and updates on horizontal scroll', async ({ page }) => {
+    const root = await openStory(page, 'datatable-11-virtualization--column-virtualization')
+    await expect(root).toHaveAttribute('data-rtc-column-virtual', 'true')
+
+    /**
+     * Header and body ids in one round trip.
+     *
+     * They have to be read together: the header and the body always render the
+     * same window, but a column arriving from off-screen is measured as it
+     * lands, and that can move the window between two separate reads.
+     */
+    const columnsInView = () =>
+      root.evaluate((element) => {
+        const ids = (scope: Element | null, selector: string) =>
+          [...(scope?.querySelectorAll(selector) ?? [])].map((cell) =>
+            cell.getAttribute('data-rtc-column-id'),
+          )
+        return {
+          head: ids(element.querySelector('thead tr:last-child'), 'th[data-rtc-column-id]'),
+          body: ids(element.querySelector('tbody tr[data-rtc-row-id]'), 'td'),
+        }
+      })
+
+    // 202 columns in the story, and the rows are deliberately not virtualized:
+    // the two axes are independent options.
+    const mounted = await columnsInView()
+    expect(mounted.head.length).toBeGreaterThan(2)
+    expect(mounted.head.length).toBeLessThan(40)
+    expect(mounted.body).toEqual(mounted.head)
+    expect(await bodyRows(root).count()).toBe(50)
+
+    await root.locator('.rtc-container').evaluate((element) => {
+      element.scrollLeft = 8000
+    })
+
+    await expect.poll(async () => (await columnsInView()).head[0]).not.toBe(mounted.head[0])
+    // The body follows the header, cell for cell.
+    const scrolled = await columnsInView()
+    expect(scrolled.body).toEqual(scrolled.head)
+  })
+
+  test('column virtualization is declined for a grouped header', async ({ page }) => {
+    // A window is a range of leaf columns, and a header spanning several of
+    // them cannot be given a width when only some are rendered — so the table
+    // renders all of its columns rather than something misaligned.
+    const root = await openStory(page, 'datatable-11-virtualization--grouped-headers')
+    await expect(root).not.toHaveAttribute('data-rtc-column-virtual', 'true')
+
+    // Every column is there, and the rows are still a window.
+    expect(await headerColumnIds(root)).toEqual([
+      'firstName',
+      'lastName',
+      'email',
+      'department',
+      'startDate',
+      'salary',
+    ])
+    expect(await bodyRows(root).count()).toBeLessThan(200)
+  })
+
+  /**
+   * The mounted columns that are actually on screen, once they have stopped
+   * moving.
+   *
+   * Two things a test driving the mouse has to know. A window reaches past
+   * both edges of the viewport by its overscan, so a column's position in the
+   * mounted list says nothing about whether a pointer can reach it — the ones
+   * at either end are deliberately outside it. And a column arriving from
+   * off-screen has its header floor measured as it lands, which can nudge the
+   * window once more, so the aim has to be taken after that has settled.
+   */
+  async function visibleColumns(root: Locator): Promise<string[]> {
+    const read = () =>
+      root.evaluate((element) => {
+        const viewport = element.querySelector('.rtc-container')!.getBoundingClientRect()
+        return [...element.querySelectorAll('thead tr:last-child th[data-rtc-column-id]')]
+          .filter((cell) => {
+            const box = cell.getBoundingClientRect()
+            return box.left >= viewport.left && box.right <= viewport.right
+          })
+          .map((cell) => cell.getAttribute('data-rtc-column-id')!)
+      })
+
+    let previous: string[] = []
+    await expect
+      .poll(async () => {
+        const current = await read()
+        const settled = current.length > 0 && current.join() === previous.join()
+        previous = current
+        return settled
+      })
+      .toBe(true)
+    return previous
+  }
+
+  test('a column dragged inside the window keeps hold of the pointer', async ({ page }) => {
+    const root = await openStory(page, 'datatable-11-virtualization--column-virtualization')
+    await root.locator('.rtc-container').evaluate((element) => {
+      element.scrollLeft = 5000
+    })
+    await expect.poll(async () => (await headerColumnIds(root))[0]).not.toBe('rtc-expand')
+
+    // Both ends of the drag have to be on screen: there is no auto-scroll, and
+    // a window cannot be dragged past itself.
+    const ids = await visibleColumns(root)
+    expect(ids.length).toBeGreaterThan(4)
+    const from = ids[0]!
+    const to = ids[3]!
+
+    await dragTo(page, header(root, from).locator('.rtc-drag-handle'), header(root, to))
+
+    // Three columns apart before, neighbours after. The dragged column is
+    // force-mounted for exactly this: its pointer handlers live on the header,
+    // which the window would otherwise be free to drop the moment the drag
+    // moved off it.
+    await expect
+      .poll(async () => {
+        const after = await headerColumnIds(root)
+        const moved = after.indexOf(from)
+        return moved >= 0 && Math.abs(after.indexOf(to) - moved)
+      })
+      .toBe(1)
+  })
+
+  test('a detail panel spans the table the window is a slice of', async ({ page }) => {
+    const root = await openStory(page, 'datatable-11-virtualization--column-virtualization')
+    const scroller = root.locator('.rtc-container')
+
+    await bodyRows(root).first().locator('.rtc-expand-button').click()
+    const panel = root.locator('.rtc-detail-row')
+    await expect(panel).toHaveCount(1)
+
+    await scroller.evaluate((element) => {
+      element.scrollLeft = 6000
+    })
+    await expect.poll(async () => (await headerColumnIds(root))[0]).not.toBe('rtc-expand')
+
+    // A panel spans every column, so it is the one row the window's padding
+    // must not reach. It starts where the table starts and is as wide — while
+    // the row above it, which does take the padding, holds its first cell
+    // thousands of pixels further along.
+    const geometry = await root.evaluate((element) => {
+      const box = (node: Element | null) =>
+        node ? Math.round(node.getBoundingClientRect().x) : null
+      const table = element.querySelector('.rtc-table')!
+      const panel = element.querySelector('.rtc-detail-row')!
+      const row = element.querySelector('tbody tr[data-rtc-row-id]')!
+      return {
+        tableX: box(table),
+        tableWidth: Math.round(table.getBoundingClientRect().width),
+        panelX: box(panel),
+        panelWidth: Math.round(panel.getBoundingClientRect().width),
+        rowX: box(row),
+        firstCellX: box(row.querySelector('td')),
+      }
+    })
+
+    expect(Math.abs(geometry.panelX! - geometry.tableX!)).toBeLessThanOrEqual(1)
+    expect(Math.abs(geometry.panelWidth - geometry.tableWidth)).toBeLessThanOrEqual(1)
+    // The padding is real, and the panel escaped it.
+    expect(geometry.firstCellX! - geometry.rowX!).toBeGreaterThan(1000)
+  })
+
+  test('the window mirrors in RTL', async ({ page }) => {
+    const root = await openStory(page, 'datatable-11-virtualization--right-to-left-columns')
+    await expect(root).toHaveAttribute('data-rtc-column-virtual', 'true')
+
+    const scroller = root.locator('.rtc-container')
+    const viewport = (await scroller.boundingBox())!
+    const pinned = header(root, 'firstName')
+
+    // RTL puts the start edge on the right, and the container scrolls the
+    // other way — the offset the browser reports for it is negative.
+    const startBefore = (await pinned.boundingBox())!
+    expect(Math.abs(startBefore.x + startBefore.width - (viewport.x + viewport.width))).toBeLessThan(
+      2,
+    )
+
+    const mounted = await headerColumnIds(root)
+    await scroller.evaluate((element) => {
+      element.scrollLeft = -8000
+    })
+    await expect.poll(async () => (await headerColumnIds(root)).at(-1)).not.toBe(mounted.at(-1))
+
+    const startAfter = (await pinned.boundingBox())!
+    expect(Math.abs(startAfter.x - startBefore.x)).toBeLessThan(2)
+  })
+
   /**
    * A detail panel used to be a second `<tr>` rendered inside its row's slot,
    * which the virtualizer neither positioned nor measured: the panel fell back
