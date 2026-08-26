@@ -494,6 +494,10 @@ export interface DataTableOptions<TData extends RowData> {
    * offset.
    */
   enableColumnVirtualization?: boolean
+  /**
+   * `estimateSize` is asked about render items, not rows: an open detail panel
+   * is an item of its own, so the indices shift as panels open and close.
+   */
   rowVirtualizerOptions?: { overscan?: number; estimateSize?: (index: number) => number }
   /** `overscan` is the number of columns kept mounted past each edge. Defaults to 3. */
   columnVirtualizerOptions?: { overscan?: number }

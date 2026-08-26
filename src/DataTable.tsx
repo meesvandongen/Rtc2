@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import type { RowData } from '@tanstack/react-table'
 
+import { getBodyItems } from './components/bodyItems'
 import { type ColumnWindow, WithColumnVirtualizer } from './components/columnVirtualizer'
 import { defaultComponents } from './components/defaultComponents'
 import { EditRowDialog } from './components/EditRowDialog'
@@ -59,8 +60,9 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
   const containerRef = useRef<HTMLDivElement>(null)
 
   // The render order is resolved here so the virtualizer and the body agree
-  // on which rows they are counting.
-  const rows = table.getRenderRows()
+  // on what they are counting — rows plus any open detail panels, each of
+  // which the virtualizer positions and measures as an item of its own.
+  const items = getBodyItems(table, table.getRenderRows())
 
   // Virtualization positions rows absolutely and offsets columns by an exact
   // number of pixels, neither of which the browser's native table layout can
@@ -203,7 +205,7 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
 
         <TableBody
           table={table}
-          rows={rows}
+          items={items}
           rowVirtualizer={rowVirtualizer}
           columnWindow={columnWindow}
           columnCount={columnCount}
@@ -219,7 +221,7 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
   /** The row virtualizer nests inside the column one; both are optional. */
   const renderBody = (columnWindow: ColumnWindow | null) =>
     options.enableRowVirtualization ? (
-      <WithRowVirtualizer table={table} containerRef={containerRef} count={rows.length}>
+      <WithRowVirtualizer table={table} containerRef={containerRef} count={items.length}>
         {(rowVirtualizer) => renderScrollArea(rowVirtualizer, columnWindow)}
       </WithRowVirtualizer>
     ) : (

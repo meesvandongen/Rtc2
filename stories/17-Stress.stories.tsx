@@ -374,13 +374,14 @@ export const EverythingAtOnce: Story = {
             setRows((old) => old.map((row) => (row.id === values.id ? values : row)))
             exitEditingMode()
           }}
-          renderDetailPanel={({ row }) =>
-            row.getIsGrouped() ? null : (
-              <span>
-                {row.original.firstName} {row.original.lastName} — {row.original.email}
-              </span>
-            )
-          }
+          // No guard for group rows: they stand for the rows underneath them
+          // and are not offered a panel, so reading `original` here is also a
+          // canary for that — a group row reaching this throws.
+          renderDetailPanel={({ row }) => (
+            <span>
+              {row.original.firstName} {row.original.lastName} — {row.original.email}
+            </span>
+          )}
           rowActionMenuItems={({ row }) => [
             { id: 'copy', label: `Copy ${row.original.id}`, onSelect: () => undefined },
           ]}
