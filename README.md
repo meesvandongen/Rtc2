@@ -862,6 +862,13 @@ canvas shows the story's own source with a copy button. `source.type` is
 dynamic snippet would show the rendered element tree instead of the code worth
 copying.
 
+`17 Stress` is the exception to one-file-per-feature: it holds the sizes and
+conditions no feature story reaches — 50,000 rows, 252 columns, every feature
+at once over 5,000 rows, a five-level tree, cell values chosen to break
+formatters, and data replaced ten times a second. `e2e/stress.spec.ts` drives
+those stories, so the suite also bounds what the table mounts and how long an
+interaction over the largest fixture may take.
+
 ## Development
 
 This repo uses **pnpm** (pinned via `packageManager`; `corepack enable` picks
@@ -869,7 +876,7 @@ it up automatically).
 
 ```bash
 pnpm install
-pnpm run storybook        # http://localhost:6006 — 114 stories
+pnpm run storybook        # http://localhost:6006 — 126 stories
 pnpm run typecheck
 pnpm run build:lib        # dist/index.js + dist/style.css + dist/index.d.ts
 pnpm run build:storybook  # → storybook-static/
@@ -880,7 +887,7 @@ pnpm run test:e2e         # Playwright, against the built Storybook
 on the approved list because Storybook's core needs its postinstall to link a
 platform binary; without it `build:storybook` fails.
 
-The Playwright suite (158 tests) drives the real Storybook build: it starts
+The Playwright suite (245 tests) drives the real Storybook build: it starts
 `vite preview` over `storybook-static/`, so run `pnpm run build:storybook`
 first. The remote-pagination specs intercept `/api/people` with Mock Service
 Worker.
