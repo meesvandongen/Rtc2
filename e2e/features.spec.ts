@@ -936,6 +936,53 @@ test.describe('virtualization', () => {
       .poll(async () => bodyRows(root).first().getAttribute('data-rtc-row-id'))
       .not.toBe(firstBefore)
   })
+
+  /**
+   * A detail panel used to be a second `<tr>` rendered inside its row's slot,
+   * which the virtualizer neither positioned nor measured: the panel fell back
+   * to its static position at the top of the body, painting over the first row,
+   * and — being the only thing in the body's flow — pushed every row after it
+   * in the DOM down by its own height.
+   */
+  test('an open detail panel sits under its own row and shifts nothing', async ({ page }) => {
+    const root = await openStory(page, 'datatable-11-virtualization--virtualized-detail-panels')
+
+    const rows = bodyRows(root)
+    const target = rows.nth(2)
+    const rowId = await target.getAttribute('data-rtc-row-id')
+    const followingBefore = await rows.nth(3).boundingBox()
+
+    await target.locator('.rtc-expand-button').click()
+
+    const panel = root.locator(`.rtc-detail-row[data-rtc-detail-for="${rowId}"]`)
+    await expect(panel).toHaveCount(1)
+
+    const row = (await target.boundingBox())!
+    const box = (await panel.boundingBox())!
+    // Directly beneath its row, not at the top of the body.
+    expect(Math.abs(box.y - (row.y + row.height))).toBeLessThan(2)
+    // As wide as the row: `colSpan` does nothing in the grid layout that
+    // virtualization switches on, so the panel's cell fills the row instead.
+    expect(Math.abs(box.width - row.width)).toBeLessThan(2)
+
+    // The row that followed has moved down by the panel's height, and by
+    // nothing else: an unmeasured panel left a row-height gap of its own.
+    const followingAfter = (await rows.nth(3).boundingBox())!
+    expect(followingAfter.y - followingBefore!.y).toBeCloseTo(box.height, 0)
+
+    // Scrolling the panel out of the window and back keeps it under its row.
+    await root.locator('.rtc-container').evaluate((element) => {
+      element.scrollTop = 3000
+    })
+    await expect(panel).toHaveCount(0)
+    await root.locator('.rtc-container').evaluate((element) => {
+      element.scrollTop = 0
+    })
+    await expect(panel).toHaveCount(1)
+    const reopened = (await panel.boundingBox())!
+    const rowAgain = (await root.locator(`tr[data-rtc-row-id="${rowId}"]`).boundingBox())!
+    expect(Math.abs(reopened.y - (rowAgain.y + rowAgain.height))).toBeLessThan(2)
+  })
 })
 
 test.describe('theming', () => {

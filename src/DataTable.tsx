@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import type { RowData } from '@tanstack/react-table'
 
+import { getBodyItems } from './components/bodyItems'
 import { defaultComponents } from './components/defaultComponents'
 import { EditRowDialog } from './components/EditRowDialog'
 import { DataTableFilterDrawer } from './components/FilterDrawer'
@@ -58,8 +59,9 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
   const containerRef = useRef<HTMLDivElement>(null)
 
   // The render order is resolved here so the virtualizer and the body agree
-  // on which rows they are counting.
-  const rows = table.getRenderRows()
+  // on what they are counting — rows plus any open detail panels, each of
+  // which the virtualizer positions and measures as an item of its own.
+  const items = getBodyItems(table, table.getRenderRows())
 
   // Virtualization positions rows absolutely, which the browser's native table
   // layout cannot do; fall back to the grid layout automatically.
@@ -178,7 +180,7 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
 
         <TableBody
           table={table}
-          rows={rows}
+          items={items}
           rowVirtualizer={rowVirtualizer}
           columnCount={columnCount}
         />
@@ -227,7 +229,7 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
           ) : null}
 
           {options.enableRowVirtualization ? (
-            <WithRowVirtualizer table={table} containerRef={containerRef} count={rows.length}>
+            <WithRowVirtualizer table={table} containerRef={containerRef} count={items.length}>
               {renderScrollArea}
             </WithRowVirtualizer>
           ) : (

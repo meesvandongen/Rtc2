@@ -1965,6 +1965,31 @@
   padding: var(--rtc-cell-padding-y) var(--rtc-cell-padding-x);
 }
 
+/* A `grid` row is a flex line, where `colSpan` says nothing about width and
+   `--rtc-row-height` is a height rather than a floor. The panel's cell is told
+   to fill the row instead, and the row to grow with a panel taller than a row.
+   Containment is the same bargain the body cells make: a wide panel scrolls
+   with the table rather than widening every column in it. */
+.rtc-root[data-rtc-layout="grid"] .rtc-detail-row,
+.rtc-root[data-rtc-layout="grid-no-grow"] .rtc-detail-row {
+  height: auto;
+  min-height: var(--rtc-row-height);
+}
+
+.rtc-root[data-rtc-layout="grid"] .rtc-detail-row .rtc-td,
+.rtc-root[data-rtc-layout="grid-no-grow"] .rtc-detail-row .rtc-td {
+  flex: 1 1 auto;
+  width: auto;
+  align-items: stretch;
+  contain: inline-size;
+}
+
+.rtc-root[data-rtc-layout="grid"] .rtc-detail-content,
+.rtc-root[data-rtc-layout="grid-no-grow"] .rtc-detail-content {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 /* --------------------------------------------------------- pagination ---- */
 
 .rtc-pagination {

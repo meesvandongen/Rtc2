@@ -253,6 +253,22 @@ test.describe('every feature at once, on 5,000 rows', () => {
     await expect.poll(() => bodyRows(root).count()).toBeGreaterThan(before)
     // Expanding a group of a thousand rows still mounts a window.
     expect(await bodyRows(root).count()).toBeLessThan(100)
+
+    // The group row itself gets no detail panel — it stands for the rows it
+    // opened and has no `original` to describe. The story reads `original`
+    // unguarded, so one reaching the panel would throw rather than pass.
+    await expect(root.locator('.rtc-detail-row')).toHaveCount(0)
+
+    // A row under it does, directly beneath itself: the panel is an item of
+    // the window, not markup the virtualizer never positioned.
+    const leaf = bodyRows(root).nth(2)
+    const leafId = await leaf.getAttribute('data-rtc-row-id')
+    await leaf.locator('.rtc-expand-button').click()
+    const panel = root.locator(`.rtc-detail-row[data-rtc-detail-for="${leafId}"]`)
+    await expect(panel).toHaveCount(1)
+    const leafBox = (await leaf.boundingBox())!
+    const panelBox = (await panel.boundingBox())!
+    expect(Math.abs(panelBox.y - (leafBox.y + leafBox.height))).toBeLessThan(2)
   })
 
   test('a filter, a search and a sort compose over the grouped set', async ({ page }) => {

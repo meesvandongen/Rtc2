@@ -1,6 +1,8 @@
 import type { RowData } from '@tanstack/react-table'
 
 import { BodyRow } from './BodyRow'
+import { type BodyItem, getBodyItems } from './bodyItems'
+import { DetailRow } from './DetailRow'
 import { useComponents } from './registry'
 import type { RowVirtualizer } from './rowVirtualizer'
 import { cx } from '../utils'
@@ -8,8 +10,8 @@ import type { DataTableInstance, DataTableRow } from '../types'
 
 export interface TableBodyProps<TData extends RowData> {
   table: DataTableInstance<TData>
-  /** Render order, resolved by the shell so the virtualizer counts the same rows. */
-  rows: Array<DataTableRow<TData>>
+  /** Render order, resolved by the shell so the virtualizer counts the same items. */
+  items: Array<BodyItem<TData>>
   /** Null when the table is not virtualized, in which case none was created. */
   rowVirtualizer: RowVirtualizer | null
   columnCount: number
@@ -17,7 +19,7 @@ export interface TableBodyProps<TData extends RowData> {
 
 export function TableBody<TData extends RowData>({
   table,
-  rows,
+  items,
   rowVirtualizer,
   columnCount,
 }: TableBodyProps<TData>) {
@@ -68,7 +70,7 @@ export function TableBody<TData extends RowData>({
   const pinnedMode = options.rowPinningDisplayMode ?? 'sticky'
   const showPinnedSections = (options.enableRowPinning ?? false) && pinnedMode !== 'sticky'
 
-  if (rows.length === 0 && topRows.length === 0) {
+  if (items.length === 0 && topRows.length === 0) {
     return (
       <tbody className={cx('rtc-tbody', options.classNames?.body)}>
         <tr className="rtc-tr">
@@ -90,7 +92,7 @@ export function TableBody<TData extends RowData>({
     return (
       <VirtualBody
         table={table}
-        rows={rows}
+        items={items}
         virtualizer={rowVirtualizer}
         columnCount={columnCount}
       />
@@ -100,22 +102,35 @@ export function TableBody<TData extends RowData>({
   const showTop = showPinnedSections && (pinnedMode === 'top' || pinnedMode === 'top-and-bottom')
   const showBottom = showPinnedSections && (pinnedMode === 'bottom' || pinnedMode === 'top-and-bottom')
 
+  // A pinned section renders the same rows the body would, so its keys are
+  // prefixed to stay unique against the rows still in the main list.
+  const renderItem = (item: BodyItem<TData>, keyPrefix = '') =>
+    item.kind === 'detail' ? (
+      <DetailRow
+        key={`${keyPrefix}detail-${item.row.id}`}
+        table={table}
+        row={item.row}
+        columnCount={columnCount}
+      />
+    ) : (
+      <BodyRow
+        key={`${keyPrefix}${item.row.id}`}
+        table={table}
+        row={item.row}
+        renderIndex={item.rowIndex}
+      />
+    )
+
   return (
     <tbody className={cx('rtc-tbody', options.classNames?.body)}>
       {showTop
-        ? topRows.map((row, index) => (
-            <BodyRow key={`pinned-top-${row.id}`} table={table} row={row} renderIndex={index} />
-          ))
+        ? getBodyItems(table, topRows).map((item) => renderItem(item, 'pinned-top-'))
         : null}
 
-      {rows.map((row, index) => (
-        <BodyRow key={row.id} table={table} row={row} renderIndex={index} />
-      ))}
+      {items.map((item) => renderItem(item))}
 
       {showBottom
-        ? bottomRows.map((row, index) => (
-            <BodyRow key={`pinned-bottom-${row.id}`} table={table} row={row} renderIndex={index} />
-          ))
+        ? getBodyItems(table, bottomRows).map((item) => renderItem(item, 'pinned-bottom-'))
         : null}
     </tbody>
   )
@@ -130,12 +145,12 @@ export function TableBody<TData extends RowData>({
  */
 function VirtualBody<TData extends RowData>({
   table,
-  rows,
+  items,
   virtualizer,
   columnCount,
 }: {
   table: DataTableInstance<TData>
-  rows: Array<DataTableRow<TData>>
+  items: Array<BodyItem<TData>>
   virtualizer: RowVirtualizer
   columnCount: number
 }) {
@@ -143,6 +158,7 @@ function VirtualBody<TData extends RowData>({
 
   const virtualRows = virtualizer.getVirtualItems()
   const totalSize = virtualizer.getTotalSize()
+  const measureElement = virtualizer.measureElement as (node: HTMLTableRowElement | null) => void
 
   return (
     <tbody
@@ -155,15 +171,28 @@ function VirtualBody<TData extends RowData>({
         </tr>
       ) : null}
       {virtualRows.map((virtualRow) => {
-        const row = rows[virtualRow.index]
-        if (!row) return null
+        const item = items[virtualRow.index]
+        if (!item) return null
+        if (item.kind === 'detail') {
+          return (
+            <DetailRow
+              key={`detail-${item.row.id}`}
+              table={table}
+              row={item.row}
+              columnCount={columnCount}
+              virtualRef={measureElement}
+              virtualStart={virtualRow.start}
+              virtualIndex={virtualRow.index}
+            />
+          )
+        }
         return (
           <BodyRow
-            key={row.id}
+            key={item.row.id}
             table={table}
-            row={row}
-            renderIndex={virtualRow.index}
-            virtualRef={virtualizer.measureElement as (node: HTMLTableRowElement | null) => void}
+            row={item.row}
+            renderIndex={item.rowIndex}
+            virtualRef={measureElement}
             virtualStart={virtualRow.start}
             virtualIndex={virtualRow.index}
           />
