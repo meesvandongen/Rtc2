@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import type { RowData } from '@tanstack/react-table'
 
+import { type ColumnWindow, WithColumnVirtualizer } from './components/columnVirtualizer'
 import { defaultComponents } from './components/defaultComponents'
 import { EditRowDialog } from './components/EditRowDialog'
 import { DataTableFilterDrawer } from './components/FilterDrawer'
@@ -61,9 +62,28 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
   // on which rows they are counting.
   const rows = table.getRenderRows()
 
-  // Virtualization positions rows absolutely, which the browser's native table
-  // layout cannot do; fall back to the grid layout automatically.
-  const layoutMode = options.layoutMode ?? (options.enableRowVirtualization ? 'grid' : 'semantic')
+  // Virtualization positions rows absolutely and offsets columns by an exact
+  // number of pixels, neither of which the browser's native table layout can
+  // do; fall back to the grid layout automatically.
+  const layoutMode =
+    options.layoutMode ??
+    (options.enableRowVirtualization || options.enableColumnVirtualization ? 'grid' : 'semantic')
+
+  /**
+   * Column virtualization needs two things the option alone cannot promise.
+   *
+   * The grid layout modes are the ones where the component resolves every
+   * column width itself, and the window's padding is computed from those same
+   * widths — under the browser's table algorithm the padding would be handed
+   * to columns that then resize around it. And a window over the *leaf*
+   * columns says nothing about a header that spans several of them, so a table
+   * with grouped headers renders all of its columns rather than a misaligned
+   * subset.
+   */
+  const virtualizeColumns =
+    (options.enableColumnVirtualization ?? false) &&
+    layoutMode !== 'semantic' &&
+    table.getHeaderGroups().length === 1
 
   const showTopToolbar = (options.enableToolbar ?? true) && (options.enableTopToolbar ?? true)
   const showBottomToolbar = (options.enableToolbar ?? true) && (options.enableBottomToolbar ?? true)
@@ -153,10 +173,13 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
 
   const showProgress = !!options.isLoading || !!options.isSaving
 
-  // Defined once and rendered either inside `WithRowVirtualizer`, which owns
-  // the virtualizer above the container it measures, or on its own when the
-  // table does not virtualize and no virtualizer is built.
-  const renderScrollArea = (rowVirtualizer: RowVirtualizer | null) => (
+  // Defined once and rendered through however many virtualizers the table
+  // asked for: each owns its virtualizer above the container it measures, and
+  // a table that does not virtualize builds neither and is handed nulls.
+  const renderScrollArea = (
+    rowVirtualizer: RowVirtualizer | null,
+    columnWindow: ColumnWindow | null,
+  ) => (
     <div
       ref={containerRef}
       className={cx('rtc-container', options.classNames?.container)}
@@ -174,19 +197,34 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
           <caption>{options.renderCaption?.({ table }) ?? options.caption}</caption>
         ) : null}
 
-        {(options.enableTableHead ?? true) ? <TableHead table={table} /> : null}
+        {(options.enableTableHead ?? true) ? (
+          <TableHead table={table} columnWindow={columnWindow} />
+        ) : null}
 
         <TableBody
           table={table}
           rows={rows}
           rowVirtualizer={rowVirtualizer}
+          columnWindow={columnWindow}
           columnCount={columnCount}
         />
 
-        {(options.enableTableFooter ?? true) ? <TableFoot table={table} /> : null}
+        {(options.enableTableFooter ?? true) ? (
+          <TableFoot table={table} columnWindow={columnWindow} />
+        ) : null}
       </table>
     </div>
   )
+
+  /** The row virtualizer nests inside the column one; both are optional. */
+  const renderBody = (columnWindow: ColumnWindow | null) =>
+    options.enableRowVirtualization ? (
+      <WithRowVirtualizer table={table} containerRef={containerRef} count={rows.length}>
+        {(rowVirtualizer) => renderScrollArea(rowVirtualizer, columnWindow)}
+      </WithRowVirtualizer>
+    ) : (
+      renderScrollArea(null, columnWindow)
+    )
 
   return (
     <DragProvider
@@ -202,6 +240,9 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
         data-rtc-header-fit={(options.enableHeaderContentFit ?? true) ? undefined : 'clip'}
         data-rtc-cell-selection={(options.enableCellSelection ?? false) ? 'true' : undefined}
         data-rtc-fullscreen={table.ui.isFullScreen ? 'true' : undefined}
+        /* Reports whether the option was honoured, since it is declined for a
+           semantic layout or a grouped header. */
+        data-rtc-column-virtual={virtualizeColumns ? 'true' : undefined}
         data-rtc-sticky-header={(options.enableStickyHeader ?? false) ? 'true' : undefined}
         data-rtc-sticky-footer={(options.enableStickyFooter ?? false) ? 'true' : undefined}
         data-rtc-stripes={(options.enableStripes ?? false) ? 'true' : undefined}
@@ -226,12 +267,15 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
             <DataTableFilterPanel table={table} className="rtc-filter-panel-docked" />
           ) : null}
 
-          {options.enableRowVirtualization ? (
-            <WithRowVirtualizer table={table} containerRef={containerRef} count={rows.length}>
-              {renderScrollArea}
-            </WithRowVirtualizer>
+          {/* Both virtualizers are created above the container they measure and
+              below `DragProvider`, whose state decides which columns the
+              window is not allowed to drop. */}
+          {virtualizeColumns ? (
+            <WithColumnVirtualizer table={table} containerRef={containerRef}>
+              {(columnWindow) => renderBody(columnWindow)}
+            </WithColumnVirtualizer>
           ) : (
-            renderScrollArea(null)
+            renderBody(null)
           )}
 
           {showPanel && panelPosition === 'end' ? (

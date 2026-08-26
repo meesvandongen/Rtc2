@@ -1,6 +1,7 @@
 import type { RowData } from '@tanstack/react-table'
 
 import { BodyRow } from './BodyRow'
+import type { ColumnWindow } from './columnVirtualizer'
 import { useComponents } from './registry'
 import type { RowVirtualizer } from './rowVirtualizer'
 import { cx } from '../utils'
@@ -12,6 +13,8 @@ export interface TableBodyProps<TData extends RowData> {
   rows: Array<DataTableRow<TData>>
   /** Null when the table is not virtualized, in which case none was created. */
   rowVirtualizer: RowVirtualizer | null
+  /** Null when the columns are not virtualized, for the same reason. */
+  columnWindow: ColumnWindow | null
   columnCount: number
 }
 
@@ -19,6 +22,7 @@ export function TableBody<TData extends RowData>({
   table,
   rows,
   rowVirtualizer,
+  columnWindow,
   columnCount,
 }: TableBodyProps<TData>) {
   const ui = useComponents()
@@ -43,11 +47,15 @@ export function TableBody<TData extends RowData>({
   // already on screen shows the progress bar instead so rows do not flash.
   if (options.isLoading && !options.showProgressBars && options.data.length === 0) {
     const rowCount = options.skeletonRowCount ?? 5
+    // A placeholder is worth no more than the data it stands in for: the
+    // window applies here too, or a 500-column table would mount every
+    // skeleton cell of every skeleton row before it had any data at all.
+    const skeletonColumns = columnWindow?.indexes ?? Array.from({ length: columnCount }, (_, i) => i)
     return (
       <tbody className={cx('rtc-tbody', options.classNames?.body)} aria-busy="true">
         {Array.from({ length: rowCount }, (_, rowIndex) => (
-          <tr className="rtc-tr" key={rowIndex}>
-            {Array.from({ length: columnCount }, (_, cellIndex) => (
+          <tr className="rtc-tr" key={rowIndex} style={columnWindow?.rowStyle}>
+            {skeletonColumns.map((cellIndex) => (
               <td className="rtc-td" key={cellIndex}>
                 <ui.Skeleton width={`${50 + ((rowIndex * 7 + cellIndex * 13) % 45)}%`} />
               </td>
@@ -92,6 +100,7 @@ export function TableBody<TData extends RowData>({
         table={table}
         rows={rows}
         virtualizer={rowVirtualizer}
+        columnWindow={columnWindow}
         columnCount={columnCount}
       />
     )
@@ -104,17 +113,35 @@ export function TableBody<TData extends RowData>({
     <tbody className={cx('rtc-tbody', options.classNames?.body)}>
       {showTop
         ? topRows.map((row, index) => (
-            <BodyRow key={`pinned-top-${row.id}`} table={table} row={row} renderIndex={index} />
+            <BodyRow
+              key={`pinned-top-${row.id}`}
+              table={table}
+              row={row}
+              renderIndex={index}
+              columnWindow={columnWindow}
+            />
           ))
         : null}
 
       {rows.map((row, index) => (
-        <BodyRow key={row.id} table={table} row={row} renderIndex={index} />
+        <BodyRow
+          key={row.id}
+          table={table}
+          row={row}
+          renderIndex={index}
+          columnWindow={columnWindow}
+        />
       ))}
 
       {showBottom
         ? bottomRows.map((row, index) => (
-            <BodyRow key={`pinned-bottom-${row.id}`} table={table} row={row} renderIndex={index} />
+            <BodyRow
+              key={`pinned-bottom-${row.id}`}
+              table={table}
+              row={row}
+              renderIndex={index}
+              columnWindow={columnWindow}
+            />
           ))
         : null}
     </tbody>
@@ -132,11 +159,13 @@ function VirtualBody<TData extends RowData>({
   table,
   rows,
   virtualizer,
+  columnWindow,
   columnCount,
 }: {
   table: DataTableInstance<TData>
   rows: Array<DataTableRow<TData>>
   virtualizer: RowVirtualizer
+  columnWindow: ColumnWindow | null
   columnCount: number
 }) {
   const options = table.dataTableOptions
@@ -163,6 +192,7 @@ function VirtualBody<TData extends RowData>({
             table={table}
             row={row}
             renderIndex={virtualRow.index}
+            columnWindow={columnWindow}
             virtualRef={virtualizer.measureElement as (node: HTMLTableRowElement | null) => void}
             virtualStart={virtualRow.start}
             virtualIndex={virtualRow.index}

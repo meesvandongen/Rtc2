@@ -3,6 +3,7 @@ import { memo } from 'react'
 import { Subscribe } from '@tanstack/react-table'
 
 import { BodyCell } from './BodyCell'
+import { type ColumnWindow, windowedEntries } from './columnVirtualizer'
 import { useDrag } from '../dragContext'
 import { cx } from '../utils'
 import type { DataTableInstance, DataTableRow } from '../types'
@@ -12,6 +13,12 @@ export interface BodyRowProps<TData extends RowData> {
   row: DataTableRow<TData>
   /** Position within the rendered rows, used for zebra striping. */
   renderIndex: number
+  /**
+   * Which columns to render, when they are virtualized. Referentially stable
+   * while the window holds still, so scrolling *vertically* does not re-render
+   * every row through `memo`.
+   */
+  columnWindow?: ColumnWindow | null
   /** Sticky offset for pinned rows, in pixels. */
   pinnedOffset?: number
   /** Virtualization: measured by the row virtualizer. */
@@ -25,6 +32,7 @@ function BodyRowImpl<TData extends RowData>({
   table,
   row,
   renderIndex,
+  columnWindow,
   pinnedOffset,
   virtualRef,
   virtualStart,
@@ -50,6 +58,7 @@ function BodyRowImpl<TData extends RowData>({
             {...userProps}
             className={cx('rtc-tr', options.classNames?.bodyRow, userProps?.className)}
             style={{
+              ...columnWindow?.rowStyle,
               ...(virtualStart !== undefined
                 ? { transform: `translateY(${virtualStart}px)`, position: 'absolute', width: '100%' }
                 : {}),
@@ -78,7 +87,7 @@ function BodyRowImpl<TData extends RowData>({
                 : userProps?.onClick
             }
           >
-            {cells.map((cell, index) => (
+            {windowedEntries(cells, columnWindow ?? null).map(({ entry: cell, index }) => (
               <BodyCell
                 key={cell.id}
                 table={table}

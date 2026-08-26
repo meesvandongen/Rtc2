@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite'
 
 import { DataTable } from '../src'
 import { loadingArgTypes } from './controls'
-import { makePeople, makeWideColumns, personColumns } from './fixtures'
+import { groupedHeaderColumns, makePeople, makeWideColumns, personColumns } from './fixtures'
 
 const meta: Meta = {
   title: 'DataTable/11 Virtualization',
@@ -87,11 +87,108 @@ export const VirtualizedWithFeatures: Story = {
   ),
 }
 
-/** A wide table: many columns plus a large row count. */
+/**
+ * 200 columns over 50 rows, with the rows left alone.
+ *
+ * The two axes are independent options, and this is the case that only needs
+ * the horizontal one: 50 rows are nothing to mount, but 200 columns each of
+ * them would be 10,000 cells. Scroll sideways — the header, the rows and the
+ * footer all render the same window of columns, and the space the rest would
+ * have taken is held open so the scrollbar spans the whole table.
+ */
+export const ColumnVirtualization: Story = {
+  args: {
+    enableRowVirtualization: false,
+    enableColumnVirtualization: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  argTypes: virtualizationArgTypes,
+  render: (args) => (
+    <>
+      <p className="rtc-sb-note">
+        200 columns over 50 rows — only the columns in view are mounted, on every row at once.
+      </p>
+      <DataTable
+        columns={makeWideColumns(200)}
+        data={makePeople(50)}
+        getRowId={(row) => row.id}
+        layoutMode="grid-no-grow"
+        enablePagination={false}
+        enableStickyHeader
+        enableColumnResizing
+        enableColumnActions
+        enableColumnDragging
+        height={520}
+        density="compact"
+        enableStripes
+        {...args}
+      />
+    </>
+  ),
+}
+
+/**
+ * The same window, mirrored.
+ *
+ * `direction="rtl"` reverses which way the container scrolls, and the browser
+ * reports that offset differently — so the virtualizer is told about it, and
+ * the gap left by the columns outside the window is expressed as
+ * `padding-inline`, which follows the writing direction on its own.
+ */
+export const RightToLeftColumns: Story = {
+  args: {
+    enableRowVirtualization: false,
+    enableColumnVirtualization: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  argTypes: virtualizationArgTypes,
+  render: (args) => (
+    <>
+      <p className="rtc-sb-note">
+        The 200-column table in RTL. Scroll from the right: the pinned column holds the start edge.
+      </p>
+      <DataTable
+        columns={makeWideColumns(200)}
+        data={makePeople(50)}
+        getRowId={(row) => row.id}
+        direction="rtl"
+        layoutMode="grid-no-grow"
+        enablePagination={false}
+        enableStickyHeader
+        enableColumnPinning
+        height={520}
+        density="compact"
+        initialState={{ columnPinning: { start: ['firstName'], end: [] } }}
+        {...args}
+      />
+    </>
+  ),
+}
+
+/**
+ * Both axes at once: 40 columns over 3,000 rows, with a pinned column.
+ *
+ * A pinned column is the part of column virtualization worth looking at. It is
+ * force-mounted at every scroll offset — the window is allowed to drop
+ * anything else, but a sticky column that unmounted would leave the edge of
+ * the table blank — and the gap left by the columns that *were* dropped is
+ * measured from just after it, so it holds its position while the rest slide
+ * underneath.
+ */
 export const WideAndTall: Story = {
   args: {
     enableRowVirtualization: true,
-    enableColumnVirtualization: false,
+    enableColumnVirtualization: true,
     isLoading: false,
     showProgressBars: false,
     isSaving: false,
@@ -114,6 +211,46 @@ export const WideAndTall: Story = {
       initialState={{ columnPinning: { start: ['firstName'], end: [] } }}
       {...args}
     />
+  ),
+}
+
+/**
+ * Grouped headers decline column virtualization.
+ *
+ * A window is a range of *leaf* columns, and a header that spans several of
+ * them has no width to be given when only some of its children are rendered.
+ * Rather than draw a header out of step with the cells under it, the table
+ * renders every column and says so on the root: `data-rtc-column-virtual` is
+ * absent here even though the option is on. Rows are still virtualized.
+ */
+export const GroupedHeaders: Story = {
+  args: {
+    enableRowVirtualization: true,
+    enableColumnVirtualization: true,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  argTypes: virtualizationArgTypes,
+  render: (args) => (
+    <>
+      <p className="rtc-sb-note">
+        Two header groups over 2,000 rows. Every column is mounted; the rows are still a window.
+      </p>
+      <DataTable
+        columns={groupedHeaderColumns}
+        data={makePeople(2000)}
+        getRowId={(row) => row.id}
+        enablePagination={false}
+        enableStickyHeader
+        height={520}
+        density="compact"
+        {...args}
+      />
+    </>
   ),
 }
 

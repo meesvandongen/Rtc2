@@ -36,6 +36,13 @@ export type HeaderMinSizes = Record<string, number>
 export function useHeaderContentFit<TData extends RowData>(
   table: DataTableInstance<TData>,
   headRef: React.RefObject<HTMLTableSectionElement | null>,
+  /**
+   * Identity of the rendered column window, when the columns are virtualized.
+   * A header can only be measured while it is mounted, so a new window is a
+   * new set of headers to measure — and the ones that just unmounted keep the
+   * floor they were last measured at.
+   */
+  columnWindowKey?: string,
 ) {
   const options = table.dataTableOptions
   // Semantic tables need no help; the browser already did this.
@@ -47,11 +54,26 @@ export function useHeaderContentFit<TData extends RowData>(
   /** Re-entry guard: probing mutates styles, which the observer would see. */
   const probingRef = useRef(false)
 
+  // Read through a ref so `measure` stays stable: the instance is a fresh
+  // shallow copy on every render, and a `measure` that changed with it would
+  // tear the observers down and rebuild them just as often.
+  const visibleIdsRef = useRef<string[]>([])
+  visibleIdsRef.current = table.getVisibleLeafColumns().map((column) => column.id)
+
   const measure = useCallback(() => {
     const head = headRef.current
     if (!head || probingRef.current) return
+
+    // Carry forward the floors of columns that are still part of the table but
+    // are not currently in the header. Without virtualized columns that set is
+    // empty and this is a plain re-measure; with them, dropping the floor of
+    // every column outside the window would make each one jump between two
+    // widths as it scrolled in and out.
     const next: HeaderMinSizes = {}
-    let changed = false
+    for (const id of visibleIdsRef.current) {
+      const carried = appliedRef.current[id]
+      if (carried !== undefined) next[id] = carried
+    }
 
     probingRef.current = true
     try {
@@ -72,13 +94,16 @@ export function useHeaderContentFit<TData extends RowData>(
 
         if (floor <= 0) continue
         next[id] = floor
-        if (Math.abs(floor - (appliedRef.current[id] ?? 0)) > EPSILON) changed = true
       }
     } finally {
       probingRef.current = false
     }
 
-    if (!changed && Object.keys(next).length === Object.keys(appliedRef.current).length) return
+    const applied = appliedRef.current
+    const changed =
+      Object.keys(next).length !== Object.keys(applied).length ||
+      Object.keys(next).some((id) => Math.abs(next[id]! - (applied[id] ?? 0)) > EPSILON)
+    if (!changed) return
     appliedRef.current = next
     setMinSizes(next)
   }, [headRef, setMinSizes])
@@ -86,6 +111,10 @@ export function useHeaderContentFit<TData extends RowData>(
   // Column visibility, density, ordering, the enable* flags and web-font
   // loading all change how wide a header wants to be. Observing the header
   // covers every one of them without enumerating any.
+  //
+  // `columnWindowKey` is the one thing an observer cannot cover: virtualized
+  // columns mount headers that did not exist to be observed when this ran, and
+  // they arrive without changing the size of anything already on screen.
   useEffect(() => {
     if (!enabled) return
     const head = headRef.current
@@ -96,7 +125,7 @@ export function useHeaderContentFit<TData extends RowData>(
     observer.observe(head)
     for (const cell of head.querySelectorAll('.rtc-th')) observer.observe(cell)
     return () => observer.disconnect()
-  }, [enabled, measure, headRef])
+  }, [enabled, measure, headRef, columnWindowKey])
 
   useEffect(() => {
     if (enabled || Object.keys(appliedRef.current).length === 0) return

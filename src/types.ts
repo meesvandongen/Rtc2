@@ -469,9 +469,33 @@ export interface DataTableOptions<TData extends RowData> {
   /** Draw cell borders. */
   enableBorders?: boolean | 'horizontal' | 'vertical' | 'all' | 'none'
 
+  /** Mount only the rows in view. Needs a bounded `height`. */
   enableRowVirtualization?: boolean
+  /**
+   * Mount only the columns in view.
+   *
+   * Worth it from a few dozen columns up, where every mounted row pays for
+   * every column: at 250 columns a 30-row window is 7,500 cells, and a window
+   * of columns cuts that by an order of magnitude.
+   *
+   * Two conditions, both of which the table falls back from silently rather
+   * than rendering something misaligned — `data-rtc-column-virtual` on the
+   * root reports whether the option was honoured:
+   *
+   * - The layout must not be `semantic`. Like row virtualization this switches
+   *   `layoutMode` to `grid` on its own; only an explicit `layoutMode:
+   *   'semantic'` declines it, because column offsets have to be exact and the
+   *   browser's table algorithm resolves widths itself.
+   * - Headers must not be grouped. A window is a range of *leaf* columns, and
+   *   a header spanning several of them has no width to be given when only
+   *   some are rendered.
+   *
+   * Pinned columns and the column being dragged stay mounted at any scroll
+   * offset.
+   */
   enableColumnVirtualization?: boolean
   rowVirtualizerOptions?: { overscan?: number; estimateSize?: (index: number) => number }
+  /** `overscan` is the number of columns kept mounted past each edge. Defaults to 3. */
   columnVirtualizerOptions?: { overscan?: number }
 
   enableKeyboardNavigation?: boolean

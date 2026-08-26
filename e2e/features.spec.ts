@@ -936,6 +936,120 @@ test.describe('virtualization', () => {
       .poll(async () => bodyRows(root).first().getAttribute('data-rtc-row-id'))
       .not.toBe(firstBefore)
   })
+
+  test('mounts only a window of columns and updates on horizontal scroll', async ({ page }) => {
+    const root = await openStory(page, 'datatable-11-virtualization--column-virtualization')
+    await expect(root).toHaveAttribute('data-rtc-column-virtual', 'true')
+
+    /**
+     * Header and body ids in one round trip.
+     *
+     * They have to be read together: the header and the body always render the
+     * same window, but a column arriving from off-screen is measured as it
+     * lands, and that can move the window between two separate reads.
+     */
+    const columnsInView = () =>
+      root.evaluate((element) => {
+        const ids = (scope: Element | null, selector: string) =>
+          [...(scope?.querySelectorAll(selector) ?? [])].map((cell) =>
+            cell.getAttribute('data-rtc-column-id'),
+          )
+        return {
+          head: ids(element.querySelector('thead tr:last-child'), 'th[data-rtc-column-id]'),
+          body: ids(element.querySelector('tbody tr[data-rtc-row-id]'), 'td'),
+        }
+      })
+
+    // 202 columns in the story, and the rows are deliberately not virtualized:
+    // the two axes are independent options.
+    const mounted = await columnsInView()
+    expect(mounted.head.length).toBeGreaterThan(2)
+    expect(mounted.head.length).toBeLessThan(40)
+    expect(mounted.body).toEqual(mounted.head)
+    expect(await bodyRows(root).count()).toBe(50)
+
+    await root.locator('.rtc-container').evaluate((element) => {
+      element.scrollLeft = 8000
+    })
+
+    await expect.poll(async () => (await columnsInView()).head[0]).not.toBe(mounted.head[0])
+    // The body follows the header, cell for cell.
+    const scrolled = await columnsInView()
+    expect(scrolled.body).toEqual(scrolled.head)
+  })
+
+  test('column virtualization is declined for a grouped header', async ({ page }) => {
+    // A window is a range of leaf columns, and a header spanning several of
+    // them cannot be given a width when only some are rendered — so the table
+    // renders all of its columns rather than something misaligned.
+    const root = await openStory(page, 'datatable-11-virtualization--grouped-headers')
+    await expect(root).not.toHaveAttribute('data-rtc-column-virtual', 'true')
+
+    // Every column is there, and the rows are still a window.
+    expect(await headerColumnIds(root)).toEqual([
+      'firstName',
+      'lastName',
+      'email',
+      'department',
+      'startDate',
+      'salary',
+    ])
+    expect(await bodyRows(root).count()).toBeLessThan(200)
+  })
+
+  test('a column dragged inside the window keeps hold of the pointer', async ({ page }) => {
+    const root = await openStory(page, 'datatable-11-virtualization--column-virtualization')
+    await root.locator('.rtc-container').evaluate((element) => {
+      element.scrollLeft = 5000
+    })
+    await expect.poll(async () => (await headerColumnIds(root))[0]).not.toBe('firstName')
+
+    const ids = await headerColumnIds(root)
+    // Away from the edges, so both ends of the drag are on screen: there is no
+    // auto-scroll, and a window cannot be dragged past itself.
+    const from = ids[3]!
+    const to = ids[6]!
+    expect(ids.indexOf(to) - ids.indexOf(from)).toBe(3)
+
+    await dragTo(page, header(root, from).locator('.rtc-drag-handle'), header(root, to))
+
+    // Three columns apart before, neighbours after. The dragged column is
+    // force-mounted for exactly this: its pointer handlers live on the header,
+    // which the window would otherwise be free to drop the moment the drag
+    // moved off it.
+    await expect
+      .poll(async () => {
+        const after = await headerColumnIds(root)
+        const moved = after.indexOf(from)
+        return moved >= 0 && Math.abs(after.indexOf(to) - moved)
+      })
+      .toBe(1)
+  })
+
+  test('the window mirrors in RTL', async ({ page }) => {
+    const root = await openStory(page, 'datatable-11-virtualization--right-to-left-columns')
+    await expect(root).toHaveAttribute('data-rtc-column-virtual', 'true')
+
+    const scroller = root.locator('.rtc-container')
+    const viewport = (await scroller.boundingBox())!
+    const pinned = header(root, 'firstName')
+
+    // RTL puts the start edge on the right, and the container scrolls the
+    // other way — the offset the browser reports for it is negative.
+    const startBefore = (await pinned.boundingBox())!
+    expect(Math.abs(startBefore.x + startBefore.width - (viewport.x + viewport.width))).toBeLessThan(
+      2,
+    )
+
+    const mounted = await headerColumnIds(root)
+    await scroller.evaluate((element) => {
+      element.scrollLeft = -8000
+    })
+    await expect.poll(async () => (await headerColumnIds(root)).at(-1)).not.toBe(mounted.at(-1))
+
+    const startAfter = (await pinned.boundingBox())!
+    expect(Math.abs(startAfter.x - startBefore.x)).toBeLessThan(2)
+  })
 })
 
 test.describe('theming', () => {
