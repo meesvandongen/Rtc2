@@ -44,59 +44,55 @@ function BodyRowImpl<TData extends RowData>({
   return (
     <Subscribe source={row.table.atoms.rowSelection} selector={(selection) => !!selection[row.id]}>
       {(selected) => (
-        <>
-          <tr
-            ref={virtualRef}
-            {...userProps}
-            className={cx('rtc-tr', options.classNames?.bodyRow, userProps?.className)}
-            style={{
-              ...(virtualStart !== undefined
-                ? { transform: `translateY(${virtualStart}px)`, position: 'absolute', width: '100%' }
-                : {}),
-              ...(pinnedOffset !== undefined
-                ? ({ '--rtc-pinned-row-offset': `${pinnedOffset}px` } as React.CSSProperties)
-                : {}),
-              ...userProps?.style,
-            }}
-            data-index={virtualIndex}
-            data-rtc-row-id={row.id}
-            data-rtc-parity={renderIndex % 2 === 0 ? 'odd' : 'even'}
-            data-rtc-selected={selected ? 'true' : undefined}
-            data-rtc-row-pinned={pinned || undefined}
-            data-rtc-depth={row.depth > 0 ? row.depth : undefined}
-            data-rtc-clickable={clickable ? 'true' : undefined}
-            data-rtc-dragging={drag.kind === 'row' && drag.activeId === row.id ? 'true' : undefined}
-            data-rtc-drop-target={isDropTarget ? 'true' : undefined}
-            data-rtc-drop-edge={isDropTarget ? drag.overEdge : undefined}
-            aria-selected={options.enableRowSelection ? selected : undefined}
-            onClick={
-              clickable
-                ? (event) => {
-                    userProps?.onClick?.(event)
-                    if (!event.defaultPrevented) row.toggleSelected()
-                  }
-                : userProps?.onClick
-            }
-          >
-            {cells.map((cell, index) => (
-              <BodyCell
-                key={cell.id}
-                table={table}
-                row={row}
-                cell={cell as never}
-                columnIndex={index}
-              />
-            ))}
-          </tr>
-
-          {options.renderDetailPanel && row.getIsExpanded() ? (
-            <tr className={cx('rtc-tr', 'rtc-detail-row')} data-rtc-detail-for={row.id}>
-              <td className="rtc-td" colSpan={cells.length}>
-                <div className="rtc-detail-content">{options.renderDetailPanel({ table, row })}</div>
-              </td>
-            </tr>
-          ) : null}
-        </>
+        <tr
+          ref={virtualRef}
+          {...userProps}
+          className={cx('rtc-tr', options.classNames?.bodyRow, userProps?.className)}
+          style={{
+            // `top: 0` rather than leaving it `auto`, which resolves to the
+            // static position: a row would then be offset by whatever precedes
+            // it in the body's flow, and the body is meant to hold nothing but
+            // out-of-flow rows. Anything that does end up in it — a detail
+            // panel that lost its positioning, say — would push the rows after
+            // it down with no sign of where the offset came from.
+            ...(virtualStart !== undefined
+              ? { transform: `translateY(${virtualStart}px)`, position: 'absolute', top: 0, width: '100%' }
+              : {}),
+            ...(pinnedOffset !== undefined
+              ? ({ '--rtc-pinned-row-offset': `${pinnedOffset}px` } as React.CSSProperties)
+              : {}),
+            ...userProps?.style,
+          }}
+          data-index={virtualIndex}
+          data-rtc-row-id={row.id}
+          data-rtc-parity={renderIndex % 2 === 0 ? 'odd' : 'even'}
+          data-rtc-selected={selected ? 'true' : undefined}
+          data-rtc-row-pinned={pinned || undefined}
+          data-rtc-depth={row.depth > 0 ? row.depth : undefined}
+          data-rtc-clickable={clickable ? 'true' : undefined}
+          data-rtc-dragging={drag.kind === 'row' && drag.activeId === row.id ? 'true' : undefined}
+          data-rtc-drop-target={isDropTarget ? 'true' : undefined}
+          data-rtc-drop-edge={isDropTarget ? drag.overEdge : undefined}
+          aria-selected={options.enableRowSelection ? selected : undefined}
+          onClick={
+            clickable
+              ? (event) => {
+                  userProps?.onClick?.(event)
+                  if (!event.defaultPrevented) row.toggleSelected()
+                }
+              : userProps?.onClick
+          }
+        >
+          {cells.map((cell, index) => (
+            <BodyCell
+              key={cell.id}
+              table={table}
+              row={row}
+              cell={cell as never}
+              columnIndex={index}
+            />
+          ))}
+        </tr>
       )}
     </Subscribe>
   )

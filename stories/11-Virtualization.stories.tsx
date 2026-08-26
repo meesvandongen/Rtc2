@@ -117,6 +117,56 @@ export const WideAndTall: Story = {
   ),
 }
 
+/**
+ * Detail panels inside a virtualized body.
+ *
+ * An open panel is an item of the window in its own right, not markup tucked
+ * inside its row: the virtualizer positions and measures one element per index,
+ * so a panel that travelled with its row would be left out of both — painted at
+ * the top of the body, with the rows below it sitting a row's height too low.
+ * Measured on its own, a panel taller than a row pushes the rows below it down
+ * by exactly its own height.
+ */
+export const VirtualizedDetailPanels: Story = {
+  args: {
+    enableRowVirtualization: true,
+    enableColumnVirtualization: false,
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  argTypes: virtualizationArgTypes,
+  render: (args) => (
+    <>
+      <p className="rtc-sb-note">
+        2,000 rows — open a few panels, then scroll past them and back.
+      </p>
+      <DataTable
+        columns={personColumns.slice(0, 6)}
+        data={makePeople(2000)}
+        getRowId={(row) => row.id}
+        renderDetailPanel={({ row }) => (
+          <div style={{ display: 'grid', gap: 6 }}>
+            <strong>{row.original.email}</strong>
+            <span>
+              {row.original.city} · {row.original.department} · started {row.original.startDate}
+            </span>
+          </div>
+        )}
+        enablePagination={false}
+        enableStickyHeader
+        enableStripes
+        height={520}
+        density="compact"
+        {...args}
+      />
+    </>
+  ),
+}
+
 /** Tune the overscan and estimated row height for taller rows. */
 export const CustomVirtualizerOptions: Story = {
   args: {
