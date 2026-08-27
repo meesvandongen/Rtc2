@@ -5,6 +5,7 @@ import { ColumnFilterPopover } from './ColumnFilterPopover'
 import { useComponents } from './registry'
 import { isDisplayColumnId } from '../displayColumns'
 import { useDrag } from '../dragContext'
+import { resolveLayoutMode } from '../layoutMode'
 import { formatMessage } from '../locale'
 import { cx, getColumnLabel } from '../utils'
 import type { DataTableHeader, DataTableInstance } from '../types'
@@ -37,7 +38,10 @@ export function getCellLayoutProps<TData extends RowData>(
 ) {
   const options = table.dataTableOptions
   const pinned = (options.enableColumnPinning ?? false) ? column.getIsPinned() : false
-  const layoutMode = options.layoutMode ?? 'semantic'
+  // The mode the table renders in, not the option: virtualization switches a
+  // table to `grid` without the caller naming it, and a cell sized for a
+  // semantic table inside a grid one gets no header floor at all.
+  const layoutMode = resolveLayoutMode(options)
   const isGrid = layoutMode !== 'semantic'
 
   let pinOffset: string | undefined

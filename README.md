@@ -673,17 +673,24 @@ not, and carry `min-width: min-content`. The browser's own table algorithm does
 the rest, and keeps doing it through font swaps, translated labels and density
 changes, none of which JavaScript would reliably hear about.
 
-One number still crosses in code, in the `grid` layout modes only. There each
-row is its own flex container, so a header that grows to fit its label grows
-alone and slides out of alignment with the cells beneath it. `subgrid` is the
-real answer — one set of column tracks spanning header and body, sized
-intrinsically — but the virtualized body takes its rows out of flow with
-`position: absolute`, so they would not be grid items. Until that changes, the
-header's `min-content` width is read once per layout change and published to
+One number still crosses in code, in the `grid` layout modes only — which is
+also what a virtualized table renders as, whether or not `layoutMode` says so.
+There each row is its own flex container, so a header that grows to fit its
+label grows alone and slides out of alignment with the cells beneath it.
+`subgrid` is the real answer — one set of column tracks spanning header and
+body, sized intrinsically — but the virtualized body takes its rows out of flow
+with `position: absolute`, so they would not be grid items. Until that changes,
+the header's `min-content` width is read once per layout change and published to
 the column as a custom property.
 
-Set `enableHeaderContentFit={false}` to restore clipping and let columns shrink
-to whatever the container allows.
+Set `enableHeaderContentFit={false}` to give the declared width back and let
+columns shrink to whatever the container allows. The label then truncates with
+an ellipsis — what it never does is keep its full width and paint across the
+funnel and the column menu beside it. The label clips in every mode for exactly
+that reason, and clipping costs the sizing above nothing: an element's
+min-content width does not depend on its `overflow`, so the label still asks the
+column for the room it needs while being the one item in the row that yields
+when the room is not there.
 
 The other half of the question is where the *surplus* goes, since a table is
 nearly always wider than the sum of its columns. It goes to the data columns.
