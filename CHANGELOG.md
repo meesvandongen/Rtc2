@@ -1,5 +1,241 @@
 # @mvd/table
 
+## 0.4.0
+
+### Minor Changes
+
+- bfdb48b: Implement `enableColumnVirtualization`. The option has been on
+  `DataTableOptions` since the beginning, and nothing read it: a 252-column table
+  mounted 252 cells in every row it mounted, so the two virtualization axes
+  multiplied instead of bounding each other.
+
+  A horizontal virtualizer now windows the leaf columns, and the header, the
+  body, the footer and the loading skeleton all render that one window — the
+  same object reaches every row, so there is no way for a cell to land under the
+  wrong header. The columns left out are represented by padding on each row
+  rather than by spacer cells, so nothing is added to the DOM that keyboard
+  navigation, `colSpan` or a stylesheet would have to know about, and each
+  rendered cell states its `aria-colindex` rather than leaving a reader to count
+  the cells that are present.
+
+  Three things stay mounted at every scroll offset, because dropping them breaks
+  something a window is not entitled to break:
+
+  - **Pinned columns.** A sticky column that unmounted would leave the edge of
+    the table blank. The gap is measured from just past the pinned block, so the
+    pins hold their position while everything else slides underneath.
+  - **The column being dragged**, whose pointer handlers live on the header that
+    would otherwise unmount under the pointer.
+  - **Measured header floors.** `enableHeaderContentFit` reads a header's
+    `min-content` width, which can only be done while the header is mounted, so
+    columns are measured as they arrive from off-screen and keep that floor once
+    they leave. Widths that the offsets are built from now come from the same
+    `max(size, minSize, header floor)` the stylesheet resolves, and a resize, a
+    density change or a newly measured header re-measures the virtualizer.
+
+  The option is declined, rather than half-applied, in the two cases where a
+  window cannot be laid out correctly: an explicit `layoutMode="semantic"`, where
+  the browser's table algorithm resolves widths itself, and grouped headers,
+  where a range of leaf columns says nothing about the header spanning several
+  of them. Like row virtualization it otherwise switches `layoutMode` to `grid`
+  on its own. `data-rtc-column-virtual` on the root reports which way it went.
+
+- 05eabbe: Localize the strings the filter data types contribute, and build the controls
+  for the features whose strings had nowhere to appear.
+
+  ### Filter data types are localized
+
+  A data type does more than pick operators: it names them, spells out a
+  boolean's yes/no, labels its own operands, and summarises a condition for the
+  toolbar chip. Several of those went straight to the DOM in English no matter
+  what `localization` said.
+
+  - **Operator names are localizable per data type.** `filterOperators` accepts a
+    `dataTypeId.operatorId` key, which wins over the bare operator id. This is
+    what `enum`'s "Is" (rather than text's "Equals") and `datetime`'s "Is at"
+    (rather than `date`'s "Is on") now come from — both were hard-coded on the
+    data type and, because the lookup went by operator id alone, were never
+    displayed at all.
+  - **Summary chips are assembled from the strings.** A boolean filter printed
+    the raw `true`/`false`, a rolling date window printed the raw unit id
+    (`3 day`), the geo bounding box printed "in box", and two conditions on one
+    column were joined by a hard-coded " and " / " or ". `describe` now receives
+    the table's `localization` instead of reaching for it through a cast.
+  - **Nested overrides merge instead of replacing.** Naming one date preset used
+    to revert the other thirteen to English; the same for `dateUnits`, `bounds`
+    and `filterOperators`. `weekdays` stays all-or-nothing — it is positional —
+    and is ignored unless it has seven entries.
+  - **Operand editors take their names from the strings.** The rolling-window
+    operand labelled its fields `"… amount"` / `"… unit"`, and both range-slider
+    thumbs were announced as `"… minimum"` / `"… maximum"` by the built-in and
+    Radix sliders. `RtcRangeSliderProps` gains optional `minLabel`/`maxLabel` so
+    an adapter no longer has to invent them. New keys: `amount`, `unit`.
+  - **Grouping reads from the strings too.** A boolean group row showed
+    "true"/"false", and nested grouping joined its column names with a comma
+    rather than the existing `thenBy`.
+  - A load error in the toolbar rendered an icon inside a `role="alert"` with no
+    text at all — it now carries `errorMessage ?? errorLoadingData`.
+
+  ### Controls for the strings that had none
+
+  Several `DataTableLocalization` keys came over from Material React Table's
+  string table without the feature that renders them. Where the machinery was
+  already registered and only the control was missing, the control now exists:
+
+  - **`enableRowPinning` has a pin control.** It used to buy the sticky rendering
+    and nothing else — pinning meant calling `row.pin()` from your own
+    `renderRowActions`, which every consumer then had to build and name in
+    English. Pin to top / pin to bottom / unpin are now entries in each row's
+    overflow menu, and `enableRowPinning` brings the actions column along.
+    (`pinToTop`, `pinToBottom`)
+  - **"Unpin all" and "Reset order"** are in the columns menu. Dragging a header
+    or pinning a column had no way back short of a reload. (`unpinAll`,
+    `resetOrder`)
+  - **`enableGlobalFilterModes`** puts a mode menu in the search field — the
+    table-wide counterpart of `enableFilterModes` — with
+    `globalFilterModeOptions`, `ui.globalFilterFn` state and an
+    `onGlobalFilterFnChange` callback. (`changeSearchMode`)
+  - **`enableClickToCopy`**, or `meta.enableClickToCopy` per column, makes a
+    cell's value copy on click. The cell text stays the button's accessible name
+    and the confirmation goes through a live region, so a screen reader hears the
+    value rather than the affordance. (`clickToCopy`, `copiedToClipboard`)
+  - **The sort control's tooltip is back.** It stated the current sort, and what a
+    click would do when unsorted; it was lost when that control moved from a raw
+    `<button title=…>` to the registry, whose tooltips live in a `Tooltip` slot —
+    a slot that had four implementations and, until now, no call sites.
+    (`sortedByColumnAsc`, `sortedByColumnDesc`)
+
+  Four keys stay removed because they describe no reachable state, not because
+  the feature is missing: `filterVariantEmpty` and `filterVariantNotEmpty` were
+  superseded by `filterOperators.isEmpty`/`isNotEmpty`; `filterMode` duplicated
+  the operator name already rendered on the filter-mode button; and
+  `toggleVisibility` named a switch this table renders as a checkbox labelled
+  with the column. Passing any of them was already a no-op; it is now a type
+  error.
+
+  ### Also
+
+  - Exports `mergeLocalization` and `filterOperatorLabel`, the two functions that
+    resolve a partial `localization` and an operator's displayed name.
+  - `enableGlobalFilterModes` re-filters the moment the mode changes, applying to
+    whatever is already in the search box — no retyping. Getting that meant going
+    around `options.globalFilterFn`: `createFilteredRowModel` memoizes on
+    `[preFilteredRowModel, columnFilters, globalFilter]`, all of which is state,
+    so a mode held in an option changes how matching _would_ work and never
+    re-runs it. The mode travels inside the global filter value instead, where the
+    row model can see it change. `state.globalFilter` stays a plain string for
+    callers, and an empty box is passed through unwrapped so it still reads as
+    "no filter".
+
+### Patch Changes
+
+- 8285a71: Fix a detail panel appearing at the top of a virtualized table instead of under
+  its row. Panels are now render items of their own, so the virtualizer positions
+  and measures them like any other row.
+
+  The panel used to be a second `<tr>` rendered inside its row's slot. The
+  virtualizer positions and measures exactly one element per index, so the panel
+  got neither: it painted over the first row and, as the only thing left in the
+  body's flow, pushed every absolutely positioned row after it down by its own
+  height — the rows below the expanded one sat a row too low, over a gap. Nothing
+  about grouping caused it; grouping only hid it, because a story that returns no
+  panel for a group row left the stray row empty and hard to spot until the
+  grouping came off.
+
+  The body now renders a list of items — one per row, plus one for each open
+  panel — which the shell resolves once so the virtualizer and the body count the
+  same things. The plain body renders the same list, so the two paths cannot
+  disagree about where a panel goes. Two consequences of a panel being an item:
+
+  - `rowVirtualizerOptions.estimateSize` is asked about items rather than rows,
+    so its `index` shifts as panels open and close.
+  - Expanding a group row no longer renders a panel row for it. A group row
+    stands for the rows underneath it and has no `original` behind it for a panel
+    to describe, so `renderDetailPanel` is no longer called for one; a consumer
+    guarding on `row.getIsGrouped()` can drop the check.
+
+  In the `grid` layout modes — which virtualization switches on — a panel now
+  fills the width of its row and grows past the row height when it needs to.
+  `colSpan` says nothing to a flex row, so the panel's cell was as wide as its
+  text, and `--rtc-row-height` applied to it as a height rather than a floor. The
+  panel's content is size-contained like a body cell's, so a wide panel scrolls
+  with the table instead of widening every column in it.
+
+- 04baafa: Stop header labels from running under the filter and column-actions buttons.
+
+  A virtualized table renders as a `grid` whether or not `layoutMode` says so —
+  rows positioned absolutely and columns offset by an exact number of pixels are
+  not something the browser's table algorithm can do — but only the root element
+  was told. The header cells and the header-fit measurement both read the raw
+  `layoutMode` option and so sized themselves for a semantic table, where the
+  browser widens a column to fit its header. Nothing widened it: every column
+  stayed at its declared `size`, and a label longer than that was drawn straight
+  across the funnel and the column menu beside it. `enableRowVirtualization` with
+  `enableColumnActions` or a column filter was enough to see it. The resolved mode
+  now comes from one function that all three ask.
+
+  Two smaller fixes behind it, so a squeezed header cannot overlap in the first
+  place:
+
+  - **The label truncates instead of overflowing.** It carries `overflow: hidden`
+    in every mode now, not just under `enableHeaderContentFit={false}`. An
+    element's min-content width does not depend on its `overflow`, so the column
+    is still sized to fit the whole label where it can be; where it cannot — the
+    fit opted out, a grid layout on the frame before its floor is measured — the
+    label ends in an ellipsis rather than on top of a button.
+  - **The sort control's optical nudge stopped costing the label 4px.** The
+    `-4px` inline-start margin that lines a sortable header's text up with the
+    data below it also came off what the header row reports as its minimum width,
+    so a column sized to exactly its header was 4px short — and the label, now the
+    item that clips, was what paid. The nudge moved onto the label, inside the
+    button's own padding, where nothing depends on it.
+
+- 2343e53: Fix two bugs a stress test found: a search box that never commits while the
+  data churns, and grouped rows that refuse to open while a search is active.
+
+  - **The debounced search survives a table that re-renders faster than the
+    debounce.** `useTable` returns a fresh instance object on every render, and
+    the effect that commits the search depended on it — so every render cleared
+    the pending timer. A table whose `data` is replaced more often than every
+    200ms (a live feed, a polling query) kept the typed term in the box and never
+    filtered a row. The instance is read through a ref now, so only the term
+    itself restarts the debounce.
+
+  - **`enableGlobalFilterModes` no longer resets expansion on every state
+    change.** With a mode menu in the search field the global filter value is an
+    object (`{ query, mode }`), and it was rebuilt whenever any state slice
+    changed. TanStack reads a new object as a changed filter and its auto-resets
+    fire on that, so with a term in the box, expanding a grouped row wiped the
+    expansion in the same commit and the group could not be opened at all — nor
+    could a detail panel, and the page index reset with it. The wrapper is now
+    memoized on the query and the mode alone.
+
+- 312eb37: Stop the generated utility columns from absorbing a wide table's surplus
+  width. Selection, expand, row-number and row-action columns now keep the width
+  of the control they hold, and the space left over goes to the data columns.
+
+  A table is nearly always wider than the sum of its columns, and every layout
+  mode used to spread that surplus over all of them: `grid` gives every unpinned
+  column `flex-grow: 1`, and the browser's auto table algorithm, once every
+  column has declared a width, falls back to distributing the excess in
+  proportion to those widths. On a 1500px-wide table that stretched a 44px
+  checkbox column to 82px and doubled the row-actions column, taking the width
+  from the columns that hold the data.
+
+  In the `grid` modes the utility columns simply no longer get the `flex-grow`.
+  In `semantic` they keep their pixel width and the data columns declare none,
+  which is what makes the browser hand them the surplus instead; a growing
+  column carries its declared `size` as a floor, and its cells are size-contained
+  so a long value cannot widen the column or shift the layout from page to page.
+  Pinned columns keep their declared width in every mode too — their sticky
+  offsets are computed from it, so a column that renders wider than it measures
+  sits at the wrong offset.
+
+  Two consequences worth knowing: a `semantic` table now scrolls rather than
+  squeezing columns below their declared `size` (which is what the `grid` modes
+  have always done), and `layoutMode="grid-no-grow"` is unchanged — there no
+  column grows and the surplus stays empty to the right.
+
 ## 0.3.1
 
 ### Patch Changes
