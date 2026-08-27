@@ -1,0 +1,79 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+
+<Meta title="Docs/01 Introduction" />
+
+# @mvd/table
+
+A batteries-included, CSS-variable-themable React table component built on
+[TanStack Table v9 (beta)](https://tanstack.com/table).
+
+TanStack Table is headless — it gives you state and row models and leaves the
+markup to you. This package is the other half: a single `<DataTable />` that
+renders all of it, exposes every v9 feature behind an `enable*` prop, and is
+styled entirely through CSS custom properties so it can be made to look like
+Material, shadcn/ui, Ant, Linear, or a spreadsheet without overriding a single
+selector.
+
+## Install
+
+```bash
+pnpm add @mvd/table   # or npm install / yarn add
+```
+
+`react` and `react-dom` (>= 18) are peer dependencies. `@tanstack/react-table`
+and `@tanstack/react-virtual` are direct dependencies, so a plain install is
+enough — MUI, Mantine, Radix and `@lolmath/ui` are optional peers needed only
+if you use the matching `@mvd/table/<name>` export, see
+[Components](?path=/docs/docs-03-components--docs).
+
+Import the stylesheet once, anywhere in your app:
+
+```ts
+import '@mvd/table/styles.css'
+```
+
+## Quick start
+
+```tsx
+import { DataTable, createDataTableColumnHelper } from '@mvd/table'
+import '@mvd/table/styles.css'
+
+type Person = { id: string; name: string; age: number }
+
+const helper = createDataTableColumnHelper<Person>()
+const columns = helper.columns([
+  helper.accessor('name', { header: 'Name' }),
+  helper.accessor('age', { header: 'Age', meta: { align: 'right' } }),
+])
+
+export function People({ data }: { data: Person[] }) {
+  return <DataTable columns={columns} data={data} getRowId={(row) => row.id} />
+}
+```
+
+> **Keep `columns` and `data` stable.** TanStack v9 requires it. The component
+> defensively stabilizes arrays whose contents have not changed, but defining
+> them outside render (or in `useMemo`) is still the right thing to do.
+
+## Feature registration
+
+v9 gates state and instance APIs on an explicitly registered feature list. This
+component registers the whole stock set once, in `dataTableFeatures`, and gates
+behaviour with `enable*` props instead. That trades v9's per-feature
+tree-shaking for one stable table type and a single prop surface — if you need
+a minimal bundle for one narrow table, build your own `tableFeatures({ … })`
+and use `useTable` directly.
+
+## Where to go next
+
+- [Features](?path=/docs/docs-02-features--docs) — every option, by area.
+- [Components](?path=/docs/docs-03-components--docs) — render the table with
+  your own design system.
+- [Filtering](?path=/docs/docs-04-filtering--docs) and
+  [Filter data types](?path=/docs/docs-05-filter-data-types--docs) — the part
+  that differs most from other tables.
+- [Theming](?path=/docs/docs-07-theming--docs) — the `--rtc-*` variables and
+  the seven presets.
+
+Every feature area also has its own story section in the sidebar, and the
+**Code** panel beside each story shows the source that produced it.

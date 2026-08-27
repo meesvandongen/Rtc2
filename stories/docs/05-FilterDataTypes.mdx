@@ -1,0 +1,145 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+
+<Meta title="Docs/05 Filter data types" />
+
+# Filter data types
+
+A column's *data type* decides what you can ask of it. A date is not a string
+with a calendar icon: "in the last 3 weeks", "any Tuesday", "between 09:00 and
+17:00 on any day" are all questions a text box cannot express, and none of them
+is a variant of the others. So the operator list, the predicate, and the
+operand editor all come from the type — not from the filter component, which
+knows nothing about dates or coordinates.
+
+```tsx
+helper.accessor('lastSeen', {
+  header: 'Last seen',
+  meta: {
+    dataType: 'datetime',
+    filterTypeMeta: { dateTimeZone: 'utc' },   // per-column type config
+    filterOperators: ['dateInLast', 'dateBetween'], // optional subset
+  },
+})
+```
+
+Declare nothing and the type is inferred from the first non-empty cell —
+convenient for a quick table, but anything load-bearing should say what it is.
+
+## Built-in types
+
+| Type | Operators |
+| --- | --- |
+| `text` | `contains`, `equals`, `startsWith`, `endsWith`, `matchesRegex`, `isAnyOf`, `isOneOfChecklist`, `isEmpty`, `isNotEmpty` |
+| `enum` | `equals` (faceted picker), `isAnyOf`, `isOneOfChecklist`, `isEmpty`, `isNotEmpty` |
+| `number` | `equals`, `notEquals`, `greaterThan`, `greaterThanOrEqual`, `lessThan`, `lessThanOrEqual`, `between`, `betweenExclusive`, `inRangeSlider`, `isAnyOf`, `isEmpty`, `isNotEmpty` |
+| `duration` | the numeric operators, with a unit-aware operand and summary (`filterTypeMeta.durationUnit`) |
+| `boolean` | `booleanIs` (tri-state), `isEmpty`, `isNotEmpty` |
+| `date` / `datetime` | `dateIs`, `dateBefore`, `dateOnOrBefore`, `dateAfter`, `dateOnOrAfter`, `dateBetween`, `dateInPeriod`, `dateInLast`, `dateInNext`, `dateWeekdayIs`, `dateTimeOfDayBetween`, `isEmpty`, `isNotEmpty` |
+| `collection` | `containsAnyOf`, `containsAllOf`, `containsNoneOf`, `countEquals`, `countAtLeast`, `isEmpty`, `isNotEmpty` |
+| `geoPoint` | `geoWithinRadius` (haversine), `geoWithinBounds`, `isEmpty`, `isNotEmpty` |
+
+Temporal detail worth knowing:
+
+- **Granularity is orthogonal to the operator.** Every comparison truncates to
+  `filterTypeMeta.dateGranularity` — `day` for `date`, `minute` for `datetime` —
+  so "on 3 March" matches a row stored at 14:37 on 3 March.
+- **Periods** (`dateInPeriod`) covers 14 named windows: today, yesterday,
+  tomorrow, this/last/next week, month, quarter and year.
+- **Rolling windows** (`dateInLast` / `dateInNext`) take `{ n, unit }` and are
+  re-evaluated against a single `now` per filter pass, so rows either side of a
+  boundary are judged against the same clock. Pass `filterNow` to pin it, which
+  is what the stories and tests do.
+- **Time of day** is matched independently of the date, and a window that wraps
+  midnight (22:00–02:00) is treated as a union rather than an empty range.
+- Day/week arithmetic is calendar-based rather than `n × 86400000`, so it
+  survives DST.
+
+## The filter value
+
+The operator lives *inside* the value, not beside it:
+
+```jsonc
+{ "id": "age", "value": { "op": "between", "value": [30, 40] } }
+// several conditions on one column:
+{ "id": "age", "value": { "join": "or", "conditions": [
+  { "op": "lessThan", "value": 30 },
+  { "op": "greaterThan", "value": 60 }
+] } }
+```
+
+That makes `columnFilters` self-describing: it round-trips through a URL, a
+saved view or an API without a parallel map of which function each column
+happens to be using. A bare value (`"Engineering"`, `[30, 40]`) is still
+accepted and read as the operand of the type's default operator, so hand-seeded
+state keeps working.
+
+Set `enableMultipleFilterConditions` (per table or per column) to surface the
+"add condition" control and the and/or joiner.
+
+Cross-cutting concerns are modelled as **modifiers** on a condition rather than
+by doubling the operator list: `negate`, `caseSensitive`, `ignoreDiacritics`
+and `includeNulls`.
+
+## Adding a type
+
+A type is an object; there is nothing to subclass and no component to change.
+
+```tsx
+const semverDataType: ColumnDataType = {
+  id: 'semver',
+  defaultOperator: 'semverAtLeast',
+  Operand: TextOperand,           // default operand editor
+  operators: [
+    {
+      id: 'semverAtLeast',
+      label: 'Is at least',
+      arity: 1,
+      test: (dataValue, operand) => compare(parse(dataValue), parse(operand)) >= 0,
+    },
+    {
+      id: 'isEmpty',
+      label: 'Is empty',
+      arity: 0,
+      Operand: NoOperand,          // per-operator override
+      isIncomplete: () => false,
+      test: (dataValue) => parse(dataValue) == null,
+    },
+  ],
+  describe: (condition, ctx) => `${ctx.columnLabel} ≥ ${condition.value}`,
+}
+
+<DataTable dataTypes={{ semver: semverDataType }} … />
+```
+
+Register it by id through `dataTypes`, or pass the object straight to
+`meta.dataType` for a one-off column. Composing beats writing from scratch —
+spread a built-in and add an operator:
+
+```tsx
+meta: {
+  dataType: {
+    ...numberDataType,
+    id: 'salary',
+    operators: [...numberDataType.operators, isRoundNumber],
+  },
+}
+```
+
+An operator declares its `arity` (`0 | 1 | 2 | 'n'`), a `test`, and optionally
+an `Operand` editor, an `initialValue` for when it is selected, `usesFacets` to
+receive the column's faceted values, and `isIncomplete` so a half-entered
+condition does not hide every row while the user types. Operand editors render
+through the [component registry](?path=/docs/docs-03-components--docs), so they
+pick up the host design system like everything else.
+
+An operator's `label` is a *fallback*: the displayed name comes from
+[`localization.filterOperators`](?path=/docs/docs-11-localization--docs), by
+`dataTypeId.operatorId` then by the bare id. `describe` and the operand editors
+are both handed the table's `localization` for the same reason — a summary chip
+or an operand label that hard-codes English is the one part of a translated
+table that gives the game away.
+
+Types that are deliberately *not* built in, but are a few lines each on this
+model: IP address / CIDR, semantic version, colour (ΔE distance), JSON path,
+relation or reference with async options, file size and MIME type, rating,
+currency with conversion, and polygon or named-region geo matching.

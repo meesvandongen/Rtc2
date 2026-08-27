@@ -1,0 +1,120 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+
+<Meta title="Docs/07 Theming" />
+
+# Theming
+
+Everything visual comes from custom properties declared on `.rtc-root`. Nothing
+in the stylesheet hard-codes a colour, radius, or spacing value outside that
+block, so a handful of overrides restyles the whole table.
+
+```tsx
+<DataTable
+  columns={columns}
+  data={data}
+  cssVars={{
+    '--rtc-color-accent': '#e11d48',
+    '--rtc-radius': '20px',
+    '--rtc-row-height-comfortable': '64px',
+    '--rtc-header-text-transform': 'uppercase',
+  }}
+/>
+```
+
+Seven presets ship with the package:
+
+```tsx
+import { materialTheme } from '@mvd/table'
+
+<DataTable columns={columns} data={data} cssVars={materialTheme} />
+```
+
+`material`, `shadcn`, `ant`, `linear`, `spreadsheet`, `soft`, `highContrast` —
+each a plain `Record<string, string>`, so copy one as a starting point.
+
+Variables are grouped as `--rtc-color-*`, `--rtc-font-*` / `--rtc-header-*`,
+metrics (`--rtc-radius`, `--rtc-cell-padding-*`, `--rtc-row-height-*`),
+surfaces (`--rtc-row-bg-*`, `--rtc-cell-bg-*`) and effects (`--rtc-shadow-*`,
+`--rtc-focus-ring`, `--rtc-transition`). See `src/styles.css` for the full list
+with defaults.
+
+## Dark mode
+
+Dark mode follows `prefers-color-scheme`. Force it either way with
+`data-rtc-theme="dark"` / `"light"` on the table or any ancestor.
+
+**Put the attribute high enough.** Not everything the table opens stays inside
+it: the modal editor portals to `document.body`, and every adapter renders its
+menus and popovers there too. Those surfaces carry `rtc-vars` and so resolve
+the palette from *their* ancestors, which is the body — not the wrapper the
+table happens to sit in. Setting `data-rtc-theme` on a `div` around the table
+leaves them light while the table is dark. Set it on `html` (or `body`), as
+an app switching themes would anyway, and everything lands on the same palette.
+
+The palette also sets [`color-scheme`](https://developer.mozilla.org/en-US/docs/Web/CSS/color-scheme),
+which is what makes the browser paint its own chrome to match: scrollbars, the
+drop-down list of a native `select`, date pickers, number spinners. Without
+it a dark table opens a white select popup, which no amount of variable
+overriding can reach.
+
+A design system with a colour scheme of its own — MUI's `ThemeProvider`,
+Mantine's `MantineProvider` — is not driven by any of this. Tell it the mode
+directly, alongside the attribute:
+
+```tsx
+<ThemeProvider theme={createTheme({ palette: { mode } })}>
+  <DataTable columns={columns} data={data} components={muiComponents} />
+</ThemeProvider>
+```
+
+## Column widths
+
+A header is not just a label: it carries a sort control, a filter funnel and a
+column menu. Give a column `size: 90` with all three enabled and the label is
+squeezed to nothing, while the table may still have empty space beside it.
+
+So a declared `size` is a preference and the header's own content is a floor.
+When the floor pushes the total past the container the table scrolls
+horizontally — the same trade AG Grid's header auto-size makes, and the right
+one: a scrollbar is recoverable, a header truncated to `A…` is not. Sizing to
+*body* content is deliberately not the default, since one long cell blows the
+column out.
+
+**This is a stylesheet rule, not a measurement pass.** A header truncates
+because something told the browser it may: `overflow: hidden` on the cell gives
+it a min-content width of zero. Body cells still clip — their content is data,
+and one long email address must not set a column's width — but header cells do
+not, and carry `min-width: min-content`. The browser's own table algorithm does
+the rest, and keeps doing it through font swaps, translated labels and density
+changes, none of which JavaScript would reliably hear about.
+
+One number still crosses in code, in the `grid` layout modes only — which is
+also what a virtualized table renders as, whether or not `layoutMode` says so.
+There each row is its own flex container, so a header that grows to fit its
+label grows alone and slides out of alignment with the cells beneath it.
+`subgrid` is the real answer — one set of column tracks spanning header and
+body, sized intrinsically — but the virtualized body takes its rows out of flow
+with `position: absolute`, so they would not be grid items. Until that changes,
+the header's `min-content` width is read once per layout change and published to
+the column as a custom property.
+
+Set `enableHeaderContentFit={false}` to give the declared width back and let
+columns shrink to whatever the container allows. The label then truncates with
+an ellipsis — what it never does is keep its full width and paint across the
+funnel and the column menu beside it. The label clips in every mode for exactly
+that reason, and clipping costs the sizing above nothing: an element's
+min-content width does not depend on its `overflow`, so the label still asks the
+column for the room it needs while being the one item in the row that yields
+when the room is not there.
+
+The other half of the question is where the *surplus* goes, since a table is
+nearly always wider than the sum of its columns. It goes to the data columns.
+The generated utility columns — selection, expand, row numbers, row actions —
+are sized for the control they hold, and a checkbox is no easier to hit at
+160px; pinned columns are left out too, because their sticky offsets are
+computed from the size they declare. In the `grid` modes that is a `flex-grow`
+the utility columns do not get. In `semantic` it is the browser's own auto
+layout, which hands the surplus to the columns that declared no width — so the
+growing columns declare none, and carry their `size` as a floor instead. Use
+`layoutMode="grid-no-grow"` for a table where no column grows and the surplus
+stays empty to the right.

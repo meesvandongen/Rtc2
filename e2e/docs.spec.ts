@@ -4,6 +4,7 @@ interface IndexEntry {
   id: string
   type: string
   title: string
+  tags?: string[]
 }
 
 /**
@@ -25,7 +26,12 @@ test.describe('docs pages', () => {
     const entries = Object.values(
       ((await index.json()) as { entries: Record<string, IndexEntry> }).entries,
     )
-    const docs = entries.filter((entry) => entry.type === 'docs')
+    // Only the autodocs pages generated from a stories file. The prose pages
+    // under `stories/docs/` are standalone MDX with no story to lay out, which
+    // Storybook marks `unattached-mdx`.
+    const docs = entries.filter(
+      (entry) => entry.type === 'docs' && !entry.tags?.includes('unattached-mdx'),
+    )
     expect(docs.length).toBeGreaterThan(10)
 
     const collapsed: string[] = []

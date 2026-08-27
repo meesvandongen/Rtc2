@@ -1,0 +1,82 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+
+<Meta title="Docs/04 Filtering" />
+
+# Filtering
+
+**There is no in-table filter row.** A row of filter inputs forces every row to
+the height of the tallest editor, and the useful editors — date ranges,
+checkbox groups, range sliders — are tall. Filters live in two places instead,
+selected with `filterDisplayMode`:
+
+| Mode | Behaviour |
+| --- | --- |
+| `popover` (default) | A funnel button in each header opens that column's editor in a popover. |
+| `panel` | A vertical, independently scrolling pane docked beside the table. |
+| `popover-and-panel` | Both. |
+| `none` | No built-in UI; drive `columnFilters` yourself. |
+
+Because the editors are hidden until opened, active filters surface as
+removable chips in the toolbar (`showActiveFilterChips`, on by default) and the
+filtered column's header carries `data-rtc-filtered`.
+
+The panel is also a standalone export, so it does not have to live inside the
+table at all:
+
+```tsx
+const table = useDataTable({ columns, data, filterDisplayMode: 'none' })
+
+return (
+  <Layout>
+    <Sidebar>
+      <DataTableFilterPanel table={table} />
+    </Sidebar>
+    <DataTable table={table} />
+  </Layout>
+)
+```
+
+It installs its own component registry from the table's options, so it works
+anywhere in the tree.
+
+## On a phone
+
+Neither surface survives a narrow viewport: a popover anchored to a 24px funnel
+in a header that scrolls sideways has nowhere to open, and a 280px pane docked
+beside the rows leaves no rows. Below `mobileBreakpoint` (640px by default) the
+table swaps both for a modal bottom sheet — shadcn's drawer, in the shape the
+platform already ships:
+
+- the header funnel opens that column's editor in the sheet;
+- the docked panel becomes a full-width sheet holding every filterable column;
+- the toolbar always offers the funnel that opens it, whatever the display mode,
+  because the per-column buttons are off-screen as soon as the table scrolls;
+- the sheet never opens by itself. `initialState.showFilterPanel: true` and
+  `filterDisplayMode: 'panel'` both mean "the pane starts open beside the
+  table", which is a layout choice; read as "a modal covers the data on
+  arrival" it is not one anybody made. In drawer mode the surface opens on a
+  gesture and nothing else — including when the breakpoint is crossed by a
+  resize, where a pane left open does not become an overlay. (A controlled
+  `state.showFilterPanel` is still honoured: that is you driving it directly.)
+
+The default sheet is a native modal `dialog` element, so the top layer, the
+`::backdrop`, the focus trap, Escape and focus restoration are the browser's
+rather than ours; the slide-in is CSS (`@starting-style` plus
+`transition-behavior: allow-discrete`) and the only JavaScript is the
+swipe-down-to-dismiss on the grabber. It is a registry component like every
+other overlay — override `Drawer` to use your own, as the MUI, Radix and
+Mantine adapters do:
+
+```tsx
+<DataTable
+  columns={columns}
+  data={data}
+  mobileBreakpoint={768}          // or a CSS length: '48em'
+  enableMobileFilterDrawer={false} // opt out entirely
+/>
+```
+
+`DataTableFilterDrawer` is exported for the same reason the panel is: a layout
+that owns its own chrome can put the sheet behind its own button. Both are
+driven by `ui.showFilterPanel`, so the toolbar funnel, `onShowFilterPanelChange`
+and a controlled `state` work the same either side of the breakpoint.

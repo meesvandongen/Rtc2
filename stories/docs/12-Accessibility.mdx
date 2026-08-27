@@ -1,0 +1,23 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+
+<Meta title="Docs/12 Accessibility" />
+
+# Accessibility
+
+- Native `table` semantics, with `scope`, `aria-sort`,
+  `aria-rowcount`/`aria-colcount`, `aria-selected`, `aria-expanded` and
+  `aria-busy` wired up.
+- Every icon-only control takes its accessible name from `localization`.
+- Anything that names a column — the visibility menu, the grouping chips, the
+  filter panel, "Sort by {column} ascending" — reads a plain-string `header`,
+  falling back to `meta.label` when the header is a render function or an
+  element. The columns the component generates (selection, expand, row number,
+  row actions) are named from `localization`, so they are readable and
+  translated rather than showing an internal id.
+- Menus are portalled, dismiss on Escape and outside click, support arrow-key
+  roving focus, and restore focus to their trigger.
+- The modal editor traps focus and is labelled `role="dialog" aria-modal`.
+- Column resize grips are `role="separator"` and respond to arrow keys; row drag
+  handles reorder with up/down arrows — both are usable without a pointer.
+- `prefers-reduced-motion` disables animation and transitions.
+- Opt into arrow-key cell navigation with `enableKeyboardNavigation`.
