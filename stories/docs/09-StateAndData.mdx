@@ -1,0 +1,64 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+
+<Meta title="Docs/09 State and data" />
+
+# State and server-side data
+
+## Controlling state
+
+Each slice can be left alone, observed, or fully controlled — independently.
+
+```tsx
+// Uncontrolled, with a starting value.
+<DataTable initialState={{ sorting: [{ id: 'name', desc: false }] }} … />
+
+// Observed.
+<DataTable onSortingChange={(updater) => log(updater)} … />
+
+// Controlled.
+<DataTable state={{ sorting }} onSortingChange={applySortingUpdater} … />
+```
+
+`initialState` also accepts the presentation-only slices — `density`,
+`isFullScreen`, `showColumnFilters`, `showGlobalFilter`, `rowOrder`,
+`columnFilterFns` — which makes saving and restoring a user's layout a single
+object. `onStateChange` reports all of it, replacing the global callback v9
+removed.
+
+To read table state from the surrounding page, build the instance yourself:
+
+```tsx
+const table = useDataTable({ columns, data, enableRowSelection: true })
+const selected = Object.keys(table.state.rowSelection).length
+return <DataTable table={table} />
+```
+
+## Server-side data
+
+Set the `manual*` flags, feed the table the current page, and tell it the total
+row count:
+
+```tsx
+<DataTable
+  columns={columns}
+  data={page.rows}
+  manualPagination
+  manualSorting
+  manualFiltering
+  rowCount={page.total}
+  isLoading={isFetching}
+  showProgressBars={page.rows.length > 0}
+  isLoadingError={isError}
+  state={{ pagination, sorting, globalFilter: search }}
+  onPaginationChange={applyPaginationUpdater}
+  onSortingChange={applySortingUpdater}
+  onGlobalFilterChange={(next) => {
+    applySearchUpdater(next)
+    setPagination((old) => ({ ...old, pageIndex: 0 }))
+  }}
+/>
+```
+
+A complete working example — including the Mock Service Worker handler it runs
+against — lives in `stories/04-Pagination.stories.tsx` and `stories/remoteApi.ts`,
+covered end-to-end by `e2e/remote-pagination.spec.ts`.

@@ -1,0 +1,29 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+
+<Meta title="Docs/10 Editing" />
+
+# Editing
+
+Four modes, matching Material React Table's:
+
+- `cell` — double-click a cell; commits on blur or Enter, reverts on Escape.
+- `row` — an edit action turns the row into inputs with save/cancel.
+- `table` — every cell is an input at once.
+- `modal` — an edit action opens a focus-trapped dialog.
+
+```tsx
+<DataTable
+  columns={columns}
+  data={rows}
+  enableEditing
+  editMode="row"
+  onEditingRowSave={({ values, exitEditingMode }) => {
+    save(values)
+    exitEditingMode()
+  }}
+/>
+```
+
+Editor widgets come from `meta.editVariant`: `text`, `number`, `select`,
+`checkbox`, `date`. Generated columns (selection, expand, actions) are never
+editable, and neither are display columns without an accessor.

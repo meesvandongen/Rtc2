@@ -1,0 +1,230 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+
+<Meta title="Docs/03 Components" />
+
+# Bring your own components
+
+Every interactive control the table renders — buttons, inputs, selects,
+popovers, menus, the modal editor, the mobile filter drawer — comes from a
+component registry, along with the one piece of chrome that is not a control:
+`Label`, the text over a field. Supply your design system once and the whole
+table adopts it:
+
+```tsx
+import { DataTable, defaultComponents } from '@mvd/table'
+
+<DataTable columns={columns} data={data} components={myComponents} />
+```
+
+`components` is a partial override: anything omitted keeps its built-in
+implementation, so replacing one control is as valid as replacing all of them.
+
+Three constraints shaped the contract, each learned from making a real library
+satisfy it:
+
+- **Overlays take a rendered `trigger` element, not a render prop.** Radix
+  clones it with `asChild`, MUI anchors to it, Mantine's `Popover.Target`
+  clones it. A render prop would suit none of them.
+- **Lists are data, not children.** Mantine's `Select` and `MultiSelect` take a
+  `data` array; a children-based option API simply cannot be backed by them. So
+  `Menu` takes `RtcMenuItem[]` and `Select` takes options.
+- **Overlays own their open state by default.** Each library manages focus,
+  dismissal and portalling differently; `open`/`onOpenChange` exist only for
+  when the table genuinely needs control.
+
+Structural markup — `table`, `tr`, `th`, `td` — is deliberately *not* in the
+registry. Column pinning, resizing and virtualization all depend on the exact
+DOM and data attributes the table emits, so those stay ours and are styled
+with CSS variables instead.
+
+Working adapters for **MUI**, **Radix**, **Mantine** and
+**[`@lolmath/ui`](https://github.com/lolmath/lolmath/tree/main/packages/ui)**
+ship with the package as optional subpath exports — see
+[UI library exports](#ui-library-exports) — and are exercised by both the
+*15 UI Libraries* stories and the Playwright suite, which runs the same
+interaction tests against all four.
+
+```tsx
+import type { DataTableComponents } from '@mvd/table'
+
+const myComponents: Partial<DataTableComponents> = {
+  // `...rest` is not optional. See below.
+  Button: ({ children, onClick, variant, disabled, ...rest }) => (
+    <MyButton kind={variant} onPress={onClick} isDisabled={disabled} {...rest}>
+      {children}
+    </MyButton>
+  ),
+}
+```
+
+## The one hard rule
+
+**`Button` and `IconButton` must spread every prop they do not recognise onto
+the underlying element, and accept a `ref`.**
+
+Buttons are what overlays hang off, and each library delivers a trigger
+differently: Radix merges props through `asChild`, MUI clones to attach an
+`anchorEl`, Mantine clones to attach a reference ref and its own handlers. An
+adapter that destructures the props it knows and drops the rest renders a
+button that looks perfect and opens nothing — or one whose overlay has no
+element to measure and lands in the corner of the viewport. Nothing about it
+looks wrong in a screenshot.
+
+React Aria — which `@lolmath/ui` is built on — is the case that shows why the
+rule is stated in terms of the *element* rather than the props: it delivers
+nothing onto the trigger at all, wiring it through a `PressResponder` context
+instead. That works for the same underlying reason the other three do, which
+is that the registry hands over a rendered element and the library's own
+button is therefore already in the tree.
+
+`e2e/overlays.spec.ts` opens every overlay in every adapter for exactly this
+reason, and it is what actually enforces the rule. A new adapter has to pass
+it, along with the geometry checks that no control overflows its filter field
+and no header truncates its own label.
+
+## Nothing half-styled
+
+Two rules keep an adapted table from ending up half its design system and half
+ours, and both are enforced by the same suite:
+
+**Every interactive control goes through the registry** — including the ones
+that are easy to write as a plain `button`. The header's sort control and the
+pagination page numbers used to be raw elements, so a MUI table had MUI icon
+buttons sitting beside our own. The test asserts that no built-in primitive
+class (`rtc-button`, `rtc-input`, `rtc-select`, …) survives anywhere in an
+adapted table; the only way to satisfy it is to route everything through the
+registry and override everything in the adapter. Radix has no text input or
+select of its own, and the adapter styles plain elements rather than falling
+back to ours — otherwise the filter panel is half shadcn.
+
+**The stylesheet may only style what the table itself renders.** Class names
+passed to registry components — `rtc-th-sort`, `rtc-page-button`,
+`rtc-filter-operator` — land on whatever the host rendered, so rules on those
+bare classes are limited to geometry. Chrome (background, border, radius,
+shadow) goes on `.rtc-button.<class>`, which only matches the built-in
+primitive. Typography is the deliberate exception for header labels: a header
+is content, not a button caption, and MUI's text button would otherwise render
+it uppercase and primary-blue, overruling the `--rtc-header-*` variables that
+exist to control exactly that.
+
+One consequence worth knowing if you write an adapter: **anything portalled
+needs the `rtc-vars` class**. Radix, MUI, Mantine and React Aria all render
+overlays into `document.body`, outside the table, where `--rtc-*` is not
+defined. An adapter stylesheet written against those variables produces a menu
+with no background; worse, an icon we hand the library as menu-item content
+loses `--rtc-icon-size`, and an SVG whose `width` is an invalid `var()` falls
+back to its intrinsic size — a 16px glyph rendering at 300px. Icons carry a
+literal fallback for that reason, but the class is what keeps everything else
+themed. The class resolves the palette from wherever the portal lands, so in
+dark mode it only works if `data-rtc-theme` is somewhere both the table and
+`document.body` can see it — see [Theming](?path=/docs/docs-07-theming--docs).
+
+The class declares the variables, though; it does not carry your overrides.
+`cssVars` is an inline style on the table root and cannot reach a portal, so an
+adapter that remaps the palette has to apply the same map to its own surfaces —
+otherwise a filter editor in a popover is painted in the stock colours while
+the identical editor docked in the panel is painted in yours. The `@lolmath/ui`
+adapter exports its map for that reason and the story reuses it.
+
+## What the variables cannot carry
+
+`--rtc-*` covers colour, type and metrics, which is most of a design system —
+but not all of one. Two things always need a stylesheet:
+
+- **Shapes that are not values.** A gradient border is two backgrounds painted
+  into different boxes, not a colour, so it cannot be a variable at all. It is
+  `@lolmath/ui`'s signature, and the adapter sets it on a class of its own
+  rather than trying to express it through `--rtc-color-border`.
+- **Anything with no variable.** There is no `--rtc-header-font-family`,
+  because a header is the only part of a table that would want one — and
+  `@lolmath/ui` is the first library here that reserves a separate display face
+  for exactly that.
+
+Everything else should go through `cssVars`, including the parts that look like
+they need CSS. Row states are the case worth knowing: `--rtc-row-bg-hover` and
+`--rtc-row-bg-selected` are applied with the `background` shorthand, so a
+gradient — a wash that fades out to the right, a spine down the leading edge —
+is a variable, not a rule.
+
+## The built-in overlays
+
+The defaults use the platform's [Popover
+API](https://developer.mozilla.org/en-US/docs/Web/API/Popover_API): a
+`popover` attribute, `popovertarget` on the trigger, and the top layer. That is
+worth more than novelty here. The top layer means a filter popover opened from
+a header is not clipped by the table's scroll container and needs no
+`z-index`, so nothing has to be portalled — and because it is *not* portalled,
+a menu opened inside a popover is a real DOM descendant of it. That is how the
+platform decides two popovers are nested, so light dismiss, Escape ordering and
+"closing me closes my children" all come from the browser rather than from a
+hand-maintained overlay stack.
+
+Positioning is still JavaScript: CSS anchor positioning would replace it, but
+it is not yet in Firefox or Safari, and an overlay in the wrong corner is a
+worse failure than a few lines of measurement.
+
+## UI library exports
+
+The MUI, Radix, Mantine and `@lolmath/ui` adapters described above ship
+*with* the package, as separate, optional subpath exports:
+
+| Import | Peer dependencies (all optional) |
+| --- | --- |
+| `@mvd/table/mui` | `@mui/material` |
+| `@mvd/table/mantine` | `@mantine/core`, `@mantine/dates` |
+| `@mvd/table/radix` + `@mvd/table/radix.css` | `@radix-ui/react-checkbox`, `@radix-ui/react-dialog`, `@radix-ui/react-dropdown-menu`, `@radix-ui/react-popover`, `@radix-ui/react-slider`, `@radix-ui/react-switch` |
+| `@mvd/table/lolmath` + `@mvd/table/lolmath.css` | `@lolmath/ui` |
+
+```tsx
+import { DataTable, defaultComponents } from '@mvd/table'
+import { createMuiComponents } from '@mvd/table/mui'
+
+const components = createMuiComponents(defaultComponents)
+
+<DataTable columns={columns} data={data} components={components} />
+```
+
+Each library above is a **peer dependency of its own entry point only**, and
+`peerDependenciesMeta` marks every one of them `optional: true` — installing
+`@mvd/table` installs none of them, and your package manager won't warn about
+a missing peer until you actually import that entry. Nothing about importing
+the root `.` export touches adapter code either way: `dist/index.js` contains
+no reference to any of these libraries, at any size, whether or not their
+adapters exist in the package. The same isolation applies to CSS —
+`@mvd/table/styles.css` is unaffected by `radix.css` or `lolmath.css`
+existing, and neither of those is pulled in unless you import it yourself.
+
+Two consequences follow from "peer, not bundled":
+
+- **You bring the library's own setup.** `createMuiComponents` renders MUI
+  components but does not render a `ThemeProvider`; `createMantineComponents`
+  renders Mantine components but does not import Mantine's stylesheet or
+  render a `MantineProvider`; `createLolmathComponents` renders `@lolmath/ui`
+  components but does not import its stylesheet or fonts. Set those up the
+  same way you would for any other consumer of that library — the *15 UI
+  Libraries* stories are a worked example of each. `radix` is the one
+  exception: Radix ships unstyled, so `radix.css` *is* this package's own
+  visual layer (a shadcn-like default look, written against the same `--rtc-*`
+  variables as the table itself) and is meant to be imported.
+- **Version drift is yours to manage**, same as any peer dependency — this
+  package declares a semver range, your lockfile picks the installed version.
+
+### No shadcn export, on purpose
+
+There is no `@mvd/table/shadcn`, and there will not be one. Every other entry
+in the table above wraps a real npm package: something with a version, a
+`node_modules` install, and a peer-dependency boundary this package can
+declare and stay on the other side of. shadcn/ui has none of that by design —
+its CLI copies component source directly into *your* repository rather than
+installing a package, so there is nothing to depend on and nothing to keep
+optional. Building a `shadcn` adapter the way the other four are built would
+mean vendoring a copy of shadcn's component source into this library instead
+— which is exactly "the whole JS in the codebase" this section exists to
+avoid, and it would defeat `peerDependenciesMeta.optional` for everyone, not
+just shadcn users.
+
+What ships instead is `@mvd/table/radix`: Radix UI, the real package
+shadcn/ui's components are themselves built on, styled by `radix.css` to
+resemble shadcn's own defaults. If your app already uses shadcn/ui, it
+already has Radix installed — use this adapter directly, or copy `radix.css`
+as a starting point for matching your own shadcn theme.

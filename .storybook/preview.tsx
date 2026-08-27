@@ -64,8 +64,8 @@ const repairFocusDescriptor = () => {
 }
 
 // Once at preview boot, for anything that patched `focus` before the stories
-// load, and again per story below — the loader that installs the accessor does
-// not run until the first render.
+// load, and again in the loader and decorator below — the loader that installs
+// the accessor does not run until the first render.
 repairFocusDescriptor()
 
 const preview: Preview = {
@@ -83,14 +83,10 @@ const preview: Preview = {
       codePanel: true,
     },
     options: {
-      storySort: {
-        order: [
-          'Introduction',
-          'DataTable',
-          ['Basic', 'Sorting', 'Filtering', 'Pagination'],
-          'Theming',
-        ],
-      },
+      // The prose docs first, then the story sections. Everything inside each
+      // is numbered in its title, so alphabetical order is already the
+      // intended one.
+      storySort: { order: ['Docs', 'DataTable'] },
     },
   },
   globalTypes: {
@@ -132,7 +128,18 @@ const preview: Preview = {
       return <Story />
     },
   ],
-  loaders: [mswLoader(startWorker)],
+  loaders: [
+    // The accessor is re-installed around each render, so the repair has to
+    // run on every path into the preview — including the docs pages, which
+    // mount a stories chunk without rendering a story of their own and so
+    // never reach the decorator above. Reordering the sidebar was enough to
+    // change which chunk loads first and bring the crash back;
+    // `e2e/preview-environment.spec.ts` is what catches it.
+    async () => {
+      repairFocusDescriptor()
+    },
+    mswLoader(startWorker),
+  ],
 }
 
 export default preview
