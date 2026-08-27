@@ -1,5 +1,26 @@
 import { expect, type Locator, type Page } from '@playwright/test'
 
+/** One entry of Storybook's catalogue: a story, or a documentation page. */
+export interface IndexEntry {
+  id: string
+  type: string
+  title: string
+  tags?: string[]
+}
+
+/**
+ * Everything Storybook publishes, read from the built site.
+ *
+ * Tests that have to cover the whole catalogue derive their list from here so
+ * that a story or documentation page added later is included automatically.
+ */
+export async function catalogueEntries(page: Page): Promise<IndexEntry[]> {
+  const index = await page.request.get('/index.json')
+  expect(index.ok()).toBe(true)
+  const { entries } = (await index.json()) as { entries: Record<string, IndexEntry> }
+  return Object.values(entries)
+}
+
 /**
  * Opens a story in Storybook's isolated iframe and waits for the table to
  * render. Using `iframe.html` avoids the manager UI entirely, which keeps the
