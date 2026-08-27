@@ -1,11 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-interface IndexEntry {
-  id: string
-  type: string
-  title: string
-  tags?: string[]
-}
+import { catalogueEntries } from './helpers'
 
 /**
  * Every autodocs page must show its examples.
@@ -15,17 +10,15 @@ interface IndexEntry {
  * positioned, or one that inherits a rule meant for something else — collapses
  * its `.docs-story` container to nothing. The canvas smoke test cannot see
  * that: the same story renders fine on its own. This measures the container.
+ *
+ * Whether a page renders at all is `catalogue.spec.ts`; this is only layout.
  */
 test.describe('docs pages', () => {
   // One page load per stories file, each mounting every story in it.
   test.setTimeout(600_000)
 
   test('every story example has height on its docs page', async ({ page }) => {
-    const index = await page.request.get('/index.json')
-    expect(index.ok()).toBe(true)
-    const entries = Object.values(
-      ((await index.json()) as { entries: Record<string, IndexEntry> }).entries,
-    )
+    const entries = await catalogueEntries(page)
     // Only the autodocs pages generated from a stories file. The prose pages
     // under `stories/docs/` are standalone MDX with no story to lay out, which
     // Storybook marks `unattached-mdx`.
