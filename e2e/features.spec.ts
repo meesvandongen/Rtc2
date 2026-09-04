@@ -2,8 +2,10 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
 
 import {
   bodyRows,
+  chromeBands,
   columnText,
   dragTo,
+  emptyToolbars,
   filterPopover,
   header,
   headerColumnIds,
@@ -64,6 +66,66 @@ test.describe('rendering and appearance', () => {
   test('RTL flips the writing direction', async ({ page }) => {
     const root = await openStory(page, 'datatable-01-basics--right-to-left')
     await expect(root).toHaveAttribute('dir', 'rtl')
+  })
+})
+
+test.describe('chrome', () => {
+  /**
+   * The bands the `Chrome` story asks for, in its own order. Each table there
+   * turns off exactly one thing, so the expectation is the full set minus the
+   * band that option owns.
+   */
+  const CHROME_CASES: Array<[string, string[]]> = [
+    ['everything on', ['top-toolbar', 'thead', 'tfoot', 'bottom-toolbar']],
+    ['no top toolbar', ['thead', 'tfoot', 'bottom-toolbar']],
+    ['no bottom toolbar', ['top-toolbar', 'thead', 'tfoot']],
+    ['neither toolbar', ['thead', 'tfoot']],
+    ['no column header', ['top-toolbar', 'tfoot', 'bottom-toolbar']],
+    ['no column footer', ['top-toolbar', 'thead', 'bottom-toolbar']],
+    // Pagination is all the bottom bar holds by default, so turning it off
+    // takes the bar with it rather than leaving an empty strip behind.
+    ['no pagination', ['top-toolbar', 'thead', 'tfoot']],
+    // And with nothing left for either bar, neither is drawn — without anyone
+    // having to also pass `enableTopToolbar={false}`.
+    ['nothing left for either bar', ['thead', 'tfoot']],
+  ]
+
+  test('each layout choice removes its own band and nothing else', async ({ page }) => {
+    await openStory(page, 'datatable-01-basics--chrome')
+    const roots = page.locator('.rtc-root')
+    await expect(roots).toHaveCount(CHROME_CASES.length)
+
+    for (const [index, [label, expected]] of CHROME_CASES.entries()) {
+      expect(await chromeBands(roots.nth(index)), label).toEqual(expected)
+    }
+  })
+
+  test('an emptied toolbar leaves no sliver behind', async ({ page }) => {
+    await openStory(page, 'datatable-01-basics--chrome')
+    const roots = page.locator('.rtc-root')
+    const slivers: string[] = []
+    for (let index = 0; index < CHROME_CASES.length; index += 1) {
+      slivers.push(...(await emptyToolbars(roots.nth(index))))
+    }
+    expect(slivers).toEqual([])
+
+    // The same table as a consumer would meet it: `enablePagination={false}`
+    // on its own, with both toolbars left at their defaults.
+    const paging = await openStory(page, 'datatable-04-pagination--no-pagination')
+    expect(await emptyToolbars(paging)).toEqual([])
+    expect(await chromeBands(paging)).toEqual(['top-toolbar', 'thead'])
+  })
+
+  /**
+   * A bar that emptied itself still comes back when it has something to say,
+   * which is the behaviour that makes removing it safe rather than lossy.
+   */
+  test('an emptied top toolbar returns once a selection needs reporting', async ({ page }) => {
+    const root = await openStory(page, 'datatable-01-basics--chrome-selection-summary')
+
+    await expect(root.locator('[data-rtc-toolbar="top"]')).toHaveCount(0)
+    await root.locator('tbody input[type="checkbox"]').first().check()
+    await expect(root.locator('[data-rtc-selection-summary]')).toContainText('1 of 8')
   })
 })
 

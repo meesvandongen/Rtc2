@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import type { RowData } from '@tanstack/react-table'
 
 import { describeFilter } from './FilterEditor'
@@ -12,17 +13,50 @@ import type { DataTableDensity, DataTableInstance } from '../types'
 
 const DENSITY_ORDER: DataTableDensity[] = ['comfortable', 'compact', 'spacious']
 
+/**
+ * Whether a consumer's render slot produced anything to lay out.
+ *
+ * The values React itself renders as nothing are exactly what a slot returns
+ * when it decides not to appear. Anything else counts as content, including an
+ * element whose own component renders nothing: the table cannot see inside it,
+ * and guessing wrong there would hide a toolbar someone deliberately filled.
+ */
+function hasSlotContent(node: ReactNode): boolean {
+  if (node == null || typeof node === 'boolean' || node === '') return false
+  if (Array.isArray(node)) return node.some(hasSlotContent)
+  return true
+}
+
 export function TopToolbar<TData extends RowData>({
   table,
 }: {
   table: DataTableInstance<TData>
 }) {
   const options = table.dataTableOptions
+  const actions = options.renderTopToolbarActions?.({ table })
   const showGroupingChips =
     (options.enableGrouping ?? false) && (options.enableGroupingChips ?? false)
   const showPagination =
     (options.enablePagination ?? true) &&
     (options.paginationPosition === 'top' || options.paginationPosition === 'both')
+  const internalActions = (options.enableToolbarInternalActions ?? true)
+    ? internalActionSlots(table)
+    : null
+
+  // A toolbar with nothing in it is not an empty bar, it is no bar: the
+  // padding and the divider on their own read as a stray sliver of chrome
+  // rather than as a deliberately blank strip. Every child below decides for
+  // itself whether it appears, so this has to ask the same questions they do —
+  // which is why those questions live in shared predicates.
+  const hasContent =
+    hasSlotContent(actions) ||
+    showGroupingChips ||
+    selectedRowCount(table) > 0 ||
+    showsFilterChips(table) ||
+    showsGlobalFilterField(table) ||
+    showPagination ||
+    (internalActions !== null && hasInternalActions(internalActions))
+  if (!hasContent) return null
 
   return (
     <div
@@ -30,14 +64,14 @@ export function TopToolbar<TData extends RowData>({
       data-rtc-position="top"
       data-rtc-toolbar="top"
     >
-      {options.renderTopToolbarActions?.({ table })}
+      {actions}
       {showGroupingChips ? <GroupingChips table={table} /> : null}
       <SelectionSummary table={table} />
       <ActiveFilterChips table={table} />
       <span className="rtc-toolbar-spacer" />
       <GlobalFilterField table={table} />
       {showPagination ? <Pagination table={table} /> : null}
-      {(options.enableToolbarInternalActions ?? true) ? <InternalActions table={table} /> : null}
+      {internalActions ? <InternalActions table={table} slots={internalActions} /> : null}
     </div>
   )
 }
@@ -48,8 +82,15 @@ export function BottomToolbar<TData extends RowData>({
   table: DataTableInstance<TData>
 }) {
   const options = table.dataTableOptions
+  const actions = options.renderBottomToolbarActions?.({ table })
   const showPagination =
     (options.enablePagination ?? true) && (options.paginationPosition ?? 'bottom') !== 'top'
+
+  // Pagination is the bottom bar's only built-in occupant, so turning it off
+  // with nothing in `renderBottomToolbarActions` left the table sitting on a
+  // 17px strip of surface under a full-width border — most visible under a
+  // column footer, where it read as a second, empty footer row.
+  if (!hasSlotContent(actions) && !showPagination) return null
 
   return (
     <div
@@ -57,17 +98,22 @@ export function BottomToolbar<TData extends RowData>({
       data-rtc-position="bottom"
       data-rtc-toolbar="bottom"
     >
-      {options.renderBottomToolbarActions?.({ table })}
+      {actions}
       <span className="rtc-toolbar-spacer" />
       {showPagination ? <Pagination table={table} /> : null}
     </div>
   )
 }
 
+/** How many rows the toolbar would report as selected; `0` when it says nothing. */
+function selectedRowCount<TData extends RowData>(table: DataTableInstance<TData>): number {
+  if (!table.dataTableOptions.enableRowSelection) return 0
+  return Object.values(table.state.rowSelection).filter(Boolean).length
+}
+
 function SelectionSummary<TData extends RowData>({ table }: { table: DataTableInstance<TData> }) {
   const options = table.dataTableOptions
-  if (!options.enableRowSelection) return null
-  const selectedCount = Object.values(table.state.rowSelection).filter(Boolean).length
+  const selectedCount = selectedRowCount(table)
   if (selectedCount === 0) return null
 
   return (
@@ -77,6 +123,16 @@ function SelectionSummary<TData extends RowData>({ table }: { table: DataTableIn
         rowCount: table.getPrePaginatedRowModel().rows.length,
       })}
     </span>
+  )
+}
+
+/** Whether any filter chip would be drawn. */
+function showsFilterChips<TData extends RowData>(table: DataTableInstance<TData>): boolean {
+  const options = table.dataTableOptions
+  return (
+    (options.enableColumnFilters ?? true) &&
+    (options.showActiveFilterChips ?? true) &&
+    table.state.columnFilters.length > 0
   )
 }
 
@@ -90,11 +146,9 @@ function SelectionSummary<TData extends RowData>({ table }: { table: DataTableIn
 function ActiveFilterChips<TData extends RowData>({ table }: { table: DataTableInstance<TData> }) {
   const ui = useComponents()
   const options = table.dataTableOptions
-  if ((options.enableColumnFilters ?? true) === false) return null
-  if ((options.showActiveFilterChips ?? true) === false) return null
+  if (!showsFilterChips(table)) return null
 
   const filters = table.state.columnFilters
-  if (filters.length === 0) return null
 
   return (
     <span className="rtc-filter-chips" data-rtc-active-filters="">
@@ -117,6 +171,18 @@ function ActiveFilterChips<TData extends RowData>({ table }: { table: DataTableI
 }
 
 /**
+ * Whether the search box is on screen.
+ *
+ * Behind a toggle it is off until the button is pressed, which is why this is
+ * a question about `ui` state and not only about the options.
+ */
+function showsGlobalFilterField<TData extends RowData>(table: DataTableInstance<TData>): boolean {
+  const options = table.dataTableOptions
+  if ((options.enableGlobalFilter ?? true) === false) return false
+  return (options.enableGlobalFilterToggle ?? true) === false || table.ui.showGlobalFilter
+}
+
+/**
  * Debounced global search.
  *
  * The input is local state so typing stays responsive; the table's filter is
@@ -126,9 +192,6 @@ function GlobalFilterField<TData extends RowData>({ table }: { table: DataTableI
   const ui = useComponents()
   const options = table.dataTableOptions
   const { localization } = options
-  const enabled = options.enableGlobalFilter ?? true
-  const toggleable = options.enableGlobalFilterToggle ?? true
-  const visible = !toggleable || table.ui.showGlobalFilter
 
   const globalFilter = table.state.globalFilter
   const [draft, setDraft] = useState(globalFilter)
@@ -156,7 +219,7 @@ function GlobalFilterField<TData extends RowData>({ table }: { table: DataTableI
     return () => clearTimeout(timer)
   }, [draft, globalFilter])
 
-  if (!enabled || !visible) return null
+  if (!showsGlobalFilterField(table)) return null
 
   return (
     <div className="rtc-search">
@@ -244,10 +307,29 @@ function SearchModeMenu<TData extends RowData>({ table }: { table: DataTableInst
   )
 }
 
-function InternalActions<TData extends RowData>({ table }: { table: DataTableInstance<TData> }) {
-  const ui = useComponents()
+/**
+ * Which of the toolbar's own actions are switched on.
+ *
+ * Resolved by the toolbar and handed down rather than decided in
+ * `InternalActions`, for two reasons: the toolbar has to know whether it is
+ * about to render an empty row of chrome before it commits to rendering
+ * itself, and `renderToolbarInternalActions` should be called once per render
+ * rather than once to ask the question and once to use the answer.
+ */
+interface InternalActionSlots {
+  custom: ReactNode
+  search: boolean
+  filters: boolean
+  columns: boolean
+  density: boolean
+  fullScreen: boolean
+  error: boolean
+}
+
+function internalActionSlots<TData extends RowData>(
+  table: DataTableInstance<TData>,
+): InternalActionSlots {
   const options = table.dataTableOptions
-  const { localization } = options
   const filterMode = options.filterDisplayMode ?? 'popover'
   // On a narrow viewport the sheet is the only filter surface worth offering,
   // so the funnel appears whatever the display mode — including plain
@@ -256,11 +338,38 @@ function InternalActions<TData extends RowData>({ table }: { table: DataTableIns
   const panelAvailable =
     filterMode === 'panel' || filterMode === 'popover-and-panel' || usesFilterDrawer(table)
 
+  return {
+    custom: options.renderToolbarInternalActions?.({ table }),
+    search: (options.enableGlobalFilter ?? true) && (options.enableGlobalFilterToggle ?? true),
+    filters: (options.enableColumnFilters ?? true) && panelAvailable,
+    columns: options.enableColumnVisibility ?? true,
+    density: options.enableDensityToggle ?? true,
+    fullScreen: options.enableFullScreenToggle ?? true,
+    error: !!options.isLoadingError,
+  }
+}
+
+/** Whether any of them would draw something. */
+function hasInternalActions({ custom, ...flags }: InternalActionSlots): boolean {
+  return hasSlotContent(custom) || Object.values(flags).some(Boolean)
+}
+
+function InternalActions<TData extends RowData>({
+  table,
+  slots,
+}: {
+  table: DataTableInstance<TData>
+  slots: InternalActionSlots
+}) {
+  const ui = useComponents()
+  const options = table.dataTableOptions
+  const { localization } = options
+
   return (
     <div className="rtc-toolbar-actions">
-      {options.renderToolbarInternalActions?.({ table })}
+      {slots.custom}
 
-      {(options.enableGlobalFilter ?? true) && (options.enableGlobalFilterToggle ?? true) ? (
+      {slots.search ? (
         <ui.IconButton
           label={localization.showHideSearch}
           active={table.ui.showGlobalFilter}
@@ -272,7 +381,7 @@ function InternalActions<TData extends RowData>({ table }: { table: DataTableIns
         </ui.IconButton>
       ) : null}
 
-      {(options.enableColumnFilters ?? true) && panelAvailable ? (
+      {slots.filters ? (
         <ui.IconButton
           label={localization.showHideFilters}
           active={table.ui.showFilterPanel}
@@ -284,9 +393,9 @@ function InternalActions<TData extends RowData>({ table }: { table: DataTableIns
         </ui.IconButton>
       ) : null}
 
-      {(options.enableColumnVisibility ?? true) ? <ColumnVisibilityMenu table={table} /> : null}
+      {slots.columns ? <ColumnVisibilityMenu table={table} /> : null}
 
-      {(options.enableDensityToggle ?? true) ? (
+      {slots.density ? (
         <ui.IconButton
           label={localization.toggleDensity}
           onClick={() => {
@@ -300,7 +409,7 @@ function InternalActions<TData extends RowData>({ table }: { table: DataTableIns
         </ui.IconButton>
       ) : null}
 
-      {(options.enableFullScreenToggle ?? true) ? (
+      {slots.fullScreen ? (
         <ui.IconButton
           label={localization.toggleFullScreen}
           active={table.ui.isFullScreen}
@@ -312,7 +421,7 @@ function InternalActions<TData extends RowData>({ table }: { table: DataTableIns
         </ui.IconButton>
       ) : null}
 
-      {options.isLoadingError ? (
+      {slots.error ? (
         // The icon alone announced nothing: an alert with no text content is
         // silent to a screen reader and untranslatable to everyone else.
         <span className="rtc-toolbar-alert" role="alert">
