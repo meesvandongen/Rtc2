@@ -712,11 +712,9 @@ test.describe('expanding', () => {
   test('a nested row steps its chevron across the expand column', async ({ page }) => {
     const root = await openStory(page, 'datatable-08-expanding--expanded-by-default')
 
-    // The slot rather than the button: a leaf's chevron is hidden, and it is
-    // the slot that carries the indentation either way.
-    const slot = (rowId: string) =>
-      root.locator(`tbody tr[data-rtc-row-id="${rowId}"] .rtc-expand-slot`)
-    const boxOf = async (rowId: string) => (await slot(rowId).boundingBox())!
+    const chevron = (rowId: string) =>
+      root.locator(`tbody tr[data-rtc-row-id="${rowId}"] .rtc-expand-button`)
+    const boxOf = async (rowId: string) => (await chevron(rowId).boundingBox())!
 
     // p1 is a root, p4 its child, p13 its grandchild.
     const [level0, level1, level2] = await Promise.all([boxOf('p1'), boxOf('p4'), boxOf('p13')])
@@ -734,6 +732,34 @@ test.describe('expanding', () => {
       .locator('tbody tr td[data-rtc-column-id="firstName"] .rtc-cell-value')
       .evaluateAll((cells) => cells.map((cell) => Math.round(cell.getBoundingClientRect().x)))
     expect(new Set(names).size).toBe(1)
+  })
+
+  /**
+   * A row with nothing to open still draws its chevron, greyed out.
+   *
+   * The chevron is what carries the depth, so hiding it on a leaf — which is
+   * what its `visibility: hidden` did — indented an invisible element and drew
+   * a childless row two levels down exactly like a root. Greyed rather than
+   * gone, it also tells a leaf from a branch that happens to be closed.
+   */
+  test('a childless row keeps a greyed-out chevron at its own depth', async ({ page }) => {
+    const root = await openStory(page, 'datatable-08-expanding--expanded-by-default')
+
+    // p1 is an expandable root; p13 is a leaf two levels under it.
+    const chevron = (rowId: string) =>
+      root.locator(`tbody tr[data-rtc-row-id="${rowId}"] .rtc-expand-button`)
+
+    await expect(chevron('p13')).toBeVisible()
+    await expect(chevron('p13')).toBeDisabled()
+
+    const opacityOf = (rowId: string) =>
+      chevron(rowId).evaluate((button) => Number(getComputedStyle(button).opacity))
+    expect(await opacityOf('p13')).toBeLessThan(0.6)
+    expect(await opacityOf('p1')).toBe(1)
+
+    // Drawn where the row sits, which is the whole point of drawing it.
+    const xOf = async (rowId: string) => (await chevron(rowId).boundingBox())!.x
+    expect(Math.round((await xOf('p13')) - (await xOf('p1')))).toBe(32)
   })
 
   /**

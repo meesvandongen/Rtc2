@@ -1881,8 +1881,28 @@
   background: var(--rtc-row-bg-hover);
 }
 
-.rtc-expand-button:disabled {
-  visibility: hidden;
+/* A chevron with nothing to open is greyed out, not hidden.
+ *
+ * On a row it is the chevron that carries the depth, so hiding it took the
+ * indentation with it: a childless row three levels down was drawn exactly
+ * like a root, and a leaf could not be told from a branch that happened to be
+ * closed. Greyed and left in place, it puts the row at its level and still
+ * reads as nothing to open.
+ *
+ * Both the colour and the fade are stated, and stated from three classes so
+ * they outrank an adapter's own disabled styling. This grey has to stay
+ * legible — it is the only thing marking the row's level — and left to the
+ * adapters it would be the product of two fades instead of a chosen one: MUI
+ * dims a disabled icon button to 26% black, which under a second 0.4 lands at
+ * a tenth of an alpha and disappears.
+ *
+ * `default` rather than the `not-allowed` of every other disabled control:
+ * this one is not a refused action but a marker of where the row sits, and in
+ * a tree most rows have one. */
+.rtc-expand-slot .rtc-expand-button:disabled {
+  color: var(--rtc-color-text-muted);
+  opacity: 0.4;
+  cursor: default;
 }
 
 .rtc-expand-icon {

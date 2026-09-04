@@ -16,6 +16,15 @@ invisible. Where anything came before it — a selection checkbox, a drag grip �
 the spacer landed there instead, indenting the checkboxes while the chevrons
 stayed in a straight line, and clipping those.
 
+A row with nothing to open now keeps its chevron too, greyed out, where it
+used to be hidden outright. The chevron is what carries the depth, so hiding it
+on a leaf indented an invisible element: a childless row three levels down was
+drawn exactly like a root, and there was nothing to tell a leaf from a branch
+that happened to be closed. The grey is stated by the stylesheet rather than
+left to the UI-library adapters, whose own disabled styling would otherwise
+fade it a second time — under MUI's it landed at a tenth of an alpha and
+disappeared.
+
 The chevron now carries its own offset as a logical margin, so an RTL table
 indents to the left, and the expand column's width is derived from the same
 step: a chevron plus one step per level of nesting the data can produce
