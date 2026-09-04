@@ -92,6 +92,7 @@ export interface DataTableLocalization {
   sortedByColumnDesc: string
   thenBy: string
   toggleDensity: string
+  toggleTranspose: string
   toggleFullScreen: string
   toggleSelectAll: string
   toggleSelectRow: string
@@ -217,6 +218,7 @@ export const defaultLocalization: DataTableLocalization = {
   sortedByColumnDesc: 'Sorted by {column} descending',
   thenBy: ', then by ',
   toggleDensity: 'Toggle density',
+  toggleTranspose: 'Flip rows and columns',
   toggleFullScreen: 'Toggle full screen',
   toggleSelectAll: 'Toggle select all',
   toggleSelectRow: 'Toggle select row',

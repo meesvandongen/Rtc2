@@ -1,0 +1,121 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+
+<Meta title="Docs/13 Transposed" />
+
+# Transposed
+
+`transposed` flips the table's axes: one row per column, one column per record.
+Column headers stack down the inline start and each record runs vertically
+beside them — the shape a spec-comparison table wants, and the readable one for
+a handful of records with a great many fields.
+
+```tsx
+<DataTable columns={columns} data={data} transposed />
+```
+
+Nothing is switched off by it. Every option keeps working, acting on the axis it
+now lands on, and the table stays one real `<table>` — a header that labels a
+row is a `<th scope="row">` — so grouped headers, detail panels and
+`position: sticky` all keep the browser's own semantics rather than a second,
+transposed implementation of each.
+
+## What turns with the table
+
+| Feature | Upright | Transposed |
+| --- | --- | --- |
+| Column headers | a row across the top | a column down the side |
+| Column footers | a row at the bottom | a column at the end |
+| `enableStickyHeader` | the header row sticks | the header column sticks |
+| `enableStickyFooter` | the footer row sticks | the footer column sticks |
+| `enableColumnPinning` | sticky start / end | sticky top / bottom |
+| `enableRowPinning` | sticky top / bottom | sticky start / end |
+| `enableColumnDragging` | drag across | drag up and down |
+| `enableRowOrdering` | drag up and down | drag across |
+| `enableColumnResizing` | column width | band height |
+| `renderDetailPanel` | a row under its row | a column beside its record |
+| `skeletonRowCount` | placeholder rows | placeholder record columns |
+| Zebra striping | alternate records | alternate records |
+
+The column menu and the row menu follow: a column offers **Pin to top** and
+**Pin to bottom** where it offered start and end, and a row offers start and end
+where it offered top and bottom. Same state, same command — only the direction
+it will move in has changed.
+
+Row hover is the one thing that does not turn. It highlights the `<tr>`, which
+transposed is a *field* rather than a record: the line a reader is following
+across the records, which is the useful one to mark, and the only one CSS can
+mark without a class per cell.
+
+## Sizing
+
+Both axes are sized by custom properties rather than by each column's `size`,
+which measures the axis a transposed table no longer lays columns out along:
+
+| Property | Default | Sizes |
+| --- | --- | --- |
+| `--rtc-transposed-header-width` | `220px` | the label column, per header level |
+| `--rtc-transposed-record-width` | `200px` | every record column |
+| `--rtc-transposed-detail-width` | `280px` | an open detail panel's column |
+
+```tsx
+<DataTable
+  columns={columns}
+  data={data}
+  transposed
+  cssVars={{ '--rtc-transposed-record-width': '260px' }}
+/>
+```
+
+The widths are exact whenever the records overflow their container, which is
+when it matters: the table is `table-layout: fixed`, so a long email cannot
+widen its column and put every sticky offset out by the difference. A table with
+only a few records stretches to fill the space it was given instead — and a
+table that fits is one that does not scroll, so nothing is stuck anywhere for
+the stretch to disturb.
+
+`enableColumnResizing` still writes `columnSizing`, read as a band height: the
+grip lies along the bottom edge of a label rather than its trailing edge, and
+`resetSize` (double-click, or **Reset size** in the column menu) still clears
+it. A band with no entry keeps the height its density gives it.
+
+## The toggle
+
+The orientation is UI state, like `density`, so it can be seeded, observed,
+driven, or handed to the reader:
+
+```tsx
+<DataTable
+  columns={columns}
+  data={data}
+  enableTransposeToggle
+  initialState={{ transposed: true }}
+  onTransposedChange={(transposed) => save(transposed)}
+/>
+```
+
+`enableTransposeToggle` adds a button beside the density and full-screen ones.
+Passing `transposed` pins the orientation the way passing `density` pins the
+density, and the button then goes — it would have nothing left to change.
+
+Flipping preserves everything else. Sorting, filters, selection, pinning and
+grouping are table state, not properties of the orientation, and survive the
+flip in both directions.
+
+## What it declines
+
+Virtualization, and only that. Both virtualizers window the axis they are named
+for, and neither is built against the axis it lands on once the table is
+flipped: a row virtualizer positions rows absolutely, and transposed those rows
+are the *columns* the browser's own table algorithm is laying out.
+
+Rather than render something misaligned the table draws every record and says
+so — `data-rtc-row-virtual` and `data-rtc-column-virtual` are absent from the
+root even when both options are on, the same way a semantic layout already
+declines column virtualization. `layoutMode` is declined for the same reason and
+reports `semantic`.
+
+So a transposed table is for tables of a size that fits in the DOM: a few dozen
+records against as many fields as you like. Reach for
+[pagination](?path=/docs/datatable-04-pagination--docs) rather than
+virtualization when there are more, or flip back to upright for the bulk view
+and transpose the detail.

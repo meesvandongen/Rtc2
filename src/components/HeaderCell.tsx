@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react'
 import type { RowData } from '@tanstack/react-table'
 
 import { ColumnActionsMenu } from './ColumnActionsMenu'
@@ -7,6 +8,7 @@ import { isDisplayColumnId } from '../displayColumns'
 import { useDrag } from '../dragContext'
 import { resolveLayoutMode } from '../layoutMode'
 import { formatMessage } from '../locale'
+import { labelPinOffset } from '../transpose'
 import { cx, getColumnLabel } from '../utils'
 import type { DataTableHeader, DataTableInstance } from '../types'
 
@@ -37,6 +39,25 @@ export function getCellLayoutProps<TData extends RowData>(
   kind: 'head' | 'body' | 'foot',
 ) {
   const options = table.dataTableOptions
+
+  // Transposed, a column is a *row*: its width belongs to the record axis and
+  // is the same for every cell, so none of the per-column sizing below applies.
+  // Column pinning sticks the whole band instead, which the band's `<tr>`
+  // carries — see `TransposedBody`.
+  if (table.ui.transposed) {
+    // The same keys, so a caller can read one off the result without asking
+    // which way round the table is; the pinning ones are simply never set here.
+    return {
+      'data-rtc-column-id': column.id,
+      'data-rtc-pinned': undefined,
+      'data-rtc-pin-edge': undefined,
+      'data-rtc-align': column.columnDef.meta?.align,
+      'data-rtc-grow': undefined,
+      className: cx(kind === 'body' ? 'rtc-td' : 'rtc-th', column.columnDef.meta?.className),
+      style: {} as React.CSSProperties,
+    }
+  }
+
   const pinned = (options.enableColumnPinning ?? false) ? column.getIsPinned() : false
   // The mode the table renders in, not the option: virtualization switches a
   // table to `grid` without the caller naming it, and a cell sized for a
@@ -81,10 +102,29 @@ export function getCellLayoutProps<TData extends RowData>(
   }
 }
 
+/**
+ * Where a header cell sits in a transposed table, which the upright header
+ * cannot work out for itself: the spans trade places, and the label block is
+ * stuck to the inline start rather than the top.
+ */
+export interface TransposedHeaderPlacement {
+  /** Bands the cell covers, rendered as `rowSpan`. */
+  bandSpan: number
+  /** Header levels it covers, rendered as `colSpan`. */
+  levelSpan: number
+  /** Which level it belongs to, and so its sticky offset and column position. */
+  level: number
+  /** Whether the label block is stuck to the inline start. */
+  sticky: boolean
+  /** Innermost level of a stuck label block: where the shadow goes. */
+  stickyEdge: boolean
+}
+
 export function HeaderCell<TData extends RowData>({
   table,
   header,
   colIndex,
+  transposed,
 }: {
   table: DataTableInstance<TData>
   header: DataTableHeader<TData, any>
@@ -94,6 +134,8 @@ export function HeaderCell<TData extends RowData>({
    * is given has to be stated rather than counted.
    */
   colIndex?: number
+  /** Set only by the transposed body, which lays the header block out itself. */
+  transposed?: TransposedHeaderPlacement
 }) {
   const ui = useComponents()
   const options = table.dataTableOptions
@@ -149,17 +191,47 @@ export function HeaderCell<TData extends RowData>({
 
   const userProps = options.headCellProps?.({ table, header, column })
 
+  // Transposed, the header block runs down the inline start: a header spanning
+  // several columns spans that many *bands*, one spanning several header levels
+  // spans that many cells along the band, and it labels a row rather than a
+  // column. Sticking it is the transposed reading of `enableStickyHeader`, and
+  // it reuses the pinned-column rules — a stuck label block is a pinned column
+  // in every respect but which state put it there.
+  const spans = transposed
+    ? {
+        colSpan: transposed.levelSpan > 1 ? transposed.levelSpan : undefined,
+        rowSpan: transposed.bandSpan > 1 ? transposed.bandSpan : undefined,
+        scope: transposed.bandSpan > 1 ? ('rowgroup' as const) : ('row' as const),
+        'aria-colindex': transposed.level + 1,
+        'data-rtc-pinned': transposed.sticky ? ('start' as const) : undefined,
+        'data-rtc-pin-edge': transposed.sticky && transposed.stickyEdge ? 'true' : undefined,
+        style: transposed.sticky
+          ? ({ '--rtc-pin-offset': labelPinOffset(transposed.level) } as React.CSSProperties)
+          : undefined,
+      }
+    : {
+        colSpan: header.colSpan > 1 ? header.colSpan : undefined,
+        rowSpan: header.rowSpan > 1 ? header.rowSpan : undefined,
+        scope: header.colSpan > 1 ? ('colgroup' as const) : ('col' as const),
+        'aria-colindex': colIndex === undefined ? undefined : colIndex + 1,
+        'data-rtc-pinned': undefined,
+        'data-rtc-pin-edge': undefined,
+        style: undefined,
+      }
+
   return (
     <th
       {...layout}
       {...userProps}
       className={cx(layout.className, userProps?.className)}
-      style={{ ...layout.style, ...userProps?.style }}
-      colSpan={header.colSpan > 1 ? header.colSpan : undefined}
-      rowSpan={header.rowSpan > 1 ? header.rowSpan : undefined}
-      scope={header.colSpan > 1 ? 'colgroup' : 'col'}
-      aria-colindex={colIndex === undefined ? undefined : colIndex + 1}
+      style={{ ...layout.style, ...spans.style, ...userProps?.style }}
+      colSpan={spans.colSpan}
+      rowSpan={spans.rowSpan}
+      scope={spans.scope}
+      aria-colindex={spans['aria-colindex']}
       aria-sort={ariaSort}
+      data-rtc-pinned={spans['data-rtc-pinned'] ?? layout['data-rtc-pinned']}
+      data-rtc-pin-edge={spans['data-rtc-pin-edge'] ?? layout['data-rtc-pin-edge']}
       data-rtc-filtered={column.getIsFiltered() ? 'true' : undefined}
       data-rtc-dragging={drag.kind === 'column' && drag.activeId === column.id ? 'true' : undefined}
       data-rtc-drop-target={isDropTarget ? 'true' : undefined}
@@ -218,7 +290,13 @@ export function HeaderCell<TData extends RowData>({
         </div>
       )}
 
-      {canResize ? <ColumnResizer table={table} header={header} /> : null}
+      {canResize ? (
+        transposed ? (
+          <BandResizer table={table} header={header} />
+        ) : (
+          <ColumnResizer table={table} header={header} />
+        )
+      ) : null}
     </th>
   )
 }
@@ -263,6 +341,101 @@ function ColumnResizer<TData extends RowData>({
           event.preventDefault()
           nudge(-16)
         } else if (event.key === 'ArrowRight') {
+          event.preventDefault()
+          nudge(16)
+        } else if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          column.resetSize()
+        }
+      }}
+    />
+  )
+}
+
+/** Smallest band a drag may leave behind, in pixels. */
+const MIN_BAND_SIZE = 24
+
+/**
+ * The transposed resize grip.
+ *
+ * A column is a band here, so what a resize changes is its height, and the grip
+ * lies along the band's bottom edge rather than its trailing one. TanStack's
+ * own `getResizeHandler` reads `clientX` — it is built for the axis the upright
+ * table lays columns out along — so this drives `columnSizing` directly,
+ * writing the same state under the same column id. `resetSize` therefore still
+ * clears it, and a saved `columnSizing` still restores it.
+ *
+ * The starting height is measured rather than read from `column.getSize()`: a
+ * declared `size` is a width, and seeding a band with one would make every
+ * untouched field jump to 150px the first time it was dragged. A band with no
+ * entry in `columnSizing` keeps whatever height its density gives it.
+ */
+function BandResizer<TData extends RowData>({
+  table,
+  header,
+}: {
+  table: DataTableInstance<TData>
+  header: DataTableHeader<TData, any>
+}) {
+  const { localization } = table.dataTableOptions
+  const column = header.column
+  const gripRef = useRef<HTMLButtonElement>(null)
+  const [resizing, setResizing] = useState(false)
+
+  const measure = () => gripRef.current?.closest('tr')?.getBoundingClientRect().height ?? 0
+
+  const commit = (size: number) =>
+    table.setColumnSizing((old) => ({ ...old, [column.id]: Math.round(size) }))
+
+  const nudge = (delta: number) => commit(Math.max(MIN_BAND_SIZE, measure() + delta))
+
+  const onPointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    const startSize = measure()
+    if (startSize === 0) return
+    const startY = event.clientY
+    // `onEnd` holds the write back until the pointer is released, the same
+    // bargain the upright resizer strikes: a table that recomputes its layout
+    // on every pointer move is the reason the mode exists.
+    const live = (table.dataTableOptions.columnResizeMode ?? 'onChange') === 'onChange'
+    let size = startSize
+    setResizing(true)
+
+    const onMove = (move: PointerEvent) => {
+      size = Math.max(MIN_BAND_SIZE, startSize + (move.clientY - startY))
+      if (live) commit(size)
+    }
+    const onUp = () => {
+      setResizing(false)
+      commit(size)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+    }
+
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+  }
+
+  return (
+    <button
+      ref={gripRef}
+      type="button"
+      className="rtc-resizer"
+      role="separator"
+      aria-orientation="horizontal"
+      aria-label={`${localization.resetColumnSize}: ${getColumnLabel(column, localization)}`}
+      data-rtc-resizing={resizing ? 'true' : undefined}
+      onPointerDown={onPointerDown}
+      onDoubleClick={() => column.resetSize()}
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => {
+        if (event.key === 'ArrowUp') {
+          event.preventDefault()
+          nudge(-16)
+        } else if (event.key === 'ArrowDown') {
           event.preventDefault()
           nudge(16)
         } else if (event.key === 'Enter' || event.key === ' ') {

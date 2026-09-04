@@ -106,11 +106,18 @@ function rowPinItems<TData extends RowData>(
   const canTop = mode !== 'bottom'
   const canBottom = mode !== 'top'
 
+  // A pinned row sticks to the top or bottom upright, and to the start or end
+  // of the record axis once it *is* a column. Same state, same command, and the
+  // menu has to say which of the two it will do.
+  const transposed = table.ui.transposed
+  const topLabel = transposed ? localization.pinToStart : localization.pinToTop
+  const bottomLabel = transposed ? localization.pinToEnd : localization.pinToBottom
+
   const items: RtcMenuItem[] = []
   if (canTop) {
     items.push({
       id: 'rtc-pin-top',
-      label: pinned === 'top' ? localization.unpin : localization.pinToTop,
+      label: pinned === 'top' ? localization.unpin : topLabel,
       icon: <ui.Icon name={pinned === 'top' ? 'pinOff' : 'pin'} />,
       active: pinned === 'top',
       onSelect: () => row.pin(pinned === 'top' ? false : 'top'),
@@ -119,7 +126,7 @@ function rowPinItems<TData extends RowData>(
   if (canBottom) {
     items.push({
       id: 'rtc-pin-bottom',
-      label: pinned === 'bottom' ? localization.unpin : localization.pinToBottom,
+      label: pinned === 'bottom' ? localization.unpin : bottomLabel,
       icon: <ui.Icon name={pinned === 'bottom' ? 'pinOff' : 'pin'} />,
       active: pinned === 'bottom',
       onSelect: () => row.pin(pinned === 'bottom' ? false : 'bottom'),
