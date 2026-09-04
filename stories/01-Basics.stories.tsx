@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 
-import { DataTable } from '../src'
-import { appearanceArgTypes, loadingArgTypes } from './controls'
-import { makePeople, personColumns } from './fixtures'
+import { DataTable, type DataTableOptions } from '../src'
+import { appearanceArgTypes, chromeArgTypes, loadingArgTypes } from './controls'
+import { makePeople, personColumns, type Person } from './fixtures'
 
 const data = makePeople(25)
 
@@ -86,6 +86,115 @@ export const LayoutModes: Story = {
         </div>
       ))}
     </>
+  ),
+}
+
+/**
+ * Six columns, one of which declares a `footer` — otherwise there is no
+ * `<tfoot>` for `enableTableFooter` to take away.
+ */
+const chromeColumns = personColumns
+  .slice(0, 6)
+  .map((column, index) => (index === 5 ? { ...column, footer: 'Total ages' } : column))
+
+/** Each layout choice, as the one option that produces it. */
+const chromeCases: Array<{ label: string; options: Partial<DataTableOptions<Person>> }> = [
+  { label: 'everything on', options: {} },
+  { label: 'enableTopToolbar={false}', options: { enableTopToolbar: false } },
+  { label: 'enableBottomToolbar={false}', options: { enableBottomToolbar: false } },
+  { label: 'enableToolbar={false} — neither bar', options: { enableToolbar: false } },
+  { label: 'enableTableHead={false} — no column header', options: { enableTableHead: false } },
+  { label: 'enableTableFooter={false} — no column footer', options: { enableTableFooter: false } },
+  {
+    // The bottom bar had nothing left to hold and used to stay behind as a
+    // 17px strip of surface under a full-width border, which read as a second,
+    // empty footer row. It now goes with the pagination.
+    label: 'enablePagination={false} — the bottom bar goes too',
+    options: { enablePagination: false },
+  },
+  {
+    // Same again for the top bar: emptying it of every occupant removes it,
+    // without anyone having to also pass `enableTopToolbar={false}`.
+    label: 'nothing left for either bar — no chrome at all',
+    options: {
+      enablePagination: false,
+      enableGlobalFilter: false,
+      enableColumnFilters: false,
+      enableToolbarInternalActions: false,
+    },
+  },
+]
+
+/**
+ * Every band of chrome is optional, and switching one off leaves nothing
+ * behind — no empty bar, no stray divider.
+ *
+ * The two toolbars are the ones worth knowing about, because they can also
+ * empty out without being switched off. Pagination is the bottom bar's only
+ * built-in occupant, so `enablePagination={false}` removes the bar itself
+ * rather than leaving a sliver of surface under the last row; the top bar goes
+ * the same way once the search box, the internal actions and every chip are
+ * gone. Either bar comes back on its own the moment it has something to say —
+ * a selection count, an active filter chip — so keep that in mind if a table
+ * of yours must not change height.
+ */
+export const Chrome: Story = {
+  render: () => (
+    <>
+      {chromeCases.map(({ label, options }) => (
+        <div key={label} style={{ marginBottom: 16 }}>
+          <DataTable
+            columns={chromeColumns}
+            data={data.slice(0, 4)}
+            getRowId={(row) => row.id}
+            caption={label}
+            {...options}
+          />
+        </div>
+      ))}
+    </>
+  ),
+}
+
+/**
+ * The other half of an emptied toolbar: it comes back the moment it has
+ * something to say.
+ *
+ * Nothing here asks for a top bar — no search, no internal actions, no
+ * pagination — so the table starts without one. Select a row and the bar
+ * appears to report the count; clear the selection and it goes again. Pass
+ * `enableTopToolbar={false}` when a table of yours must keep its height no
+ * matter what the rows are doing.
+ */
+export const ChromeSelectionSummary: Story = {
+  render: () => (
+    <DataTable
+      columns={chromeColumns}
+      data={data.slice(0, 8)}
+      getRowId={(row) => row.id}
+      enableRowSelection
+      enablePagination={false}
+      enableGlobalFilter={false}
+      enableColumnFilters={false}
+      enableToolbarInternalActions={false}
+    />
+  ),
+}
+
+/** The same choices as controls, for the combinations `Chrome` does not cover. */
+export const ChromeControls: Story = {
+  args: {
+    enableTopToolbar: true,
+    enableBottomToolbar: true,
+    enableToolbarInternalActions: true,
+    enableTableHead: true,
+    enableTableFooter: true,
+    enablePagination: true,
+    enableGlobalFilter: true,
+  },
+  argTypes: chromeArgTypes,
+  render: (args) => (
+    <DataTable columns={chromeColumns} data={data.slice(0, 8)} getRowId={(row) => row.id} {...args} />
   ),
 }
 

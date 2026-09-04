@@ -80,6 +80,51 @@ export async function headerLabelOverlaps(root: Locator): Promise<string[]> {
   })
 }
 
+/**
+ * The bands of chrome a table is drawing, top to bottom.
+ *
+ * Named rather than counted, so a failure says which band went missing or was
+ * left behind instead of which selector came back one short.
+ */
+export async function chromeBands(root: Locator): Promise<string[]> {
+  return root.evaluate((element) => {
+    const bands: Array<[string, string]> = [
+      ['top-toolbar', ':scope > [data-rtc-toolbar="top"]'],
+      ['thead', 'thead.rtc-thead'],
+      ['tfoot', 'tfoot.rtc-tfoot'],
+      ['bottom-toolbar', ':scope > [data-rtc-toolbar="bottom"]'],
+    ]
+    return bands.filter(([, selector]) => element.querySelector(selector)).map(([name]) => name)
+  })
+}
+
+/**
+ * Every toolbar that takes up height without showing anything.
+ *
+ * A toolbar is padding, a divider and a full-width band of surface, so one with
+ * no occupant is a sliver of chrome the table has no reason to draw — most
+ * visible under a column footer, where it reads as a second, empty footer row.
+ * The spacer does not count as an occupant: it is always present, and stretching
+ * to fill the row is its whole job.
+ *
+ * Returns a description per sliver, so a failure names the bar and its height.
+ */
+export async function emptyToolbars(root: Locator): Promise<string[]> {
+  return root.evaluate((element) =>
+    Array.from(element.querySelectorAll('.rtc-toolbar')).flatMap((toolbar) => {
+      const occupied =
+        (toolbar.textContent ?? '').trim().length > 0 ||
+        Array.from(toolbar.querySelectorAll('*:not(.rtc-toolbar-spacer)')).some((node) => {
+          const box = node.getBoundingClientRect()
+          return box.width > 0 && box.height > 0
+        })
+      if (occupied) return []
+      const height = Math.round(toolbar.getBoundingClientRect().height)
+      return [`${toolbar.getAttribute('data-rtc-toolbar')} toolbar: ${height}px of nothing`]
+    }),
+  )
+}
+
 /** Whether a column's header label is drawn truncated. */
 export function headerLabelIsTruncated(root: Locator, columnId: string): Promise<boolean> {
   return header(root, columnId)

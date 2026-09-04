@@ -28,10 +28,28 @@ Each of these has a dedicated story section in the sidebar.
 | Virtualization | `enableRowVirtualization`, `enableColumnVirtualization`, `rowVirtualizerOptions`, `columnVirtualizerOptions` — see [Virtualization](?path=/docs/docs-08-virtualization--docs) |
 | Layout | `layoutMode` (`semantic` \| `grid` \| `grid-no-grow`), `density`, `height`, `maxHeight`, `direction` (LTR/RTL) |
 | Header sizing | `enableHeaderContentFit`¹ — a column is never narrower than its own header |
-| Chrome | `enableTopToolbar`¹, `enableBottomToolbar`¹, `enableToolbarInternalActions`¹, `enableDensityToggle`¹, `enableFullScreenToggle`¹, `enableColumnActions`, `enableStickyHeader`, `enableStickyFooter`, `enableStripes`, `enableRowHover`¹, `enableBorders` |
+| Chrome | `enableTopToolbar`¹, `enableBottomToolbar`¹, `enableToolbarInternalActions`¹, `enableTableHead`¹, `enableTableFooter`¹, `enableDensityToggle`¹, `enableFullScreenToggle`¹, `enableColumnActions`, `enableStickyHeader`, `enableStickyFooter`, `enableStripes`, `enableRowHover`¹, `enableBorders` |
 | States | `isLoading`, `showProgressBars`, `isSaving`, `isLoadingError`, `errorMessage`, `skeletonRowCount`, `renderEmptyState` |
 | i18n | [`localization`](?path=/docs/docs-11-localization--docs) — every string, including filter operator names, per data type where they differ |
 | Clipboard | `enableClickToCopy`, or `meta.enableClickToCopy` per column |
 | Escape hatches | `components`, `classNames`, `cssVars`, `tableProps`, `containerProps`, `rowProps`, `cellProps`, `headCellProps`, `renderTopToolbarActions`, `renderBottomToolbarActions`, `renderToolbarInternalActions`, `renderCaption` |
 
 ¹ on by default; everything else is opt-in.
+
+## Chrome that removes itself
+
+The four bands around the rows — the top toolbar, the column header, the
+column footer and the bottom toolbar — each leave nothing behind when they are
+switched off, and the two toolbars go one step further: a toolbar with no
+occupant is not drawn at all, since padding and a divider on their own are just
+a stray sliver of chrome. Pagination is all the bottom bar holds by default, so
+`enablePagination={false}` clears the bar with it; the top bar goes the same way
+once the search box, the internal actions and every chip are gone.
+
+Either bar reappears the moment it has something to say — a selection count, an
+active filter chip — so pass `enableTopToolbar={false}` when a table must keep
+its height whatever the rows are doing. `enableTableFooter` only ever has
+anything to hide when a column declares a `footer`; with none, there is no
+`<tfoot>` to begin with. The
+[Chrome story](?path=/story/datatable-01-basics--chrome) shows each choice on
+its own table.

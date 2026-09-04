@@ -69,3 +69,36 @@ export const appearanceArgTypes = {
     table: { category: 'Appearance' },
   },
 } as const
+
+/**
+ * The bands of chrome around the rows, each of which can be switched off.
+ *
+ * A band that is off leaves nothing behind, and the two toolbars go further
+ * than that: either one removes itself once nothing is left to put in it, so
+ * `enablePagination: false` alone is enough to clear the bottom bar.
+ */
+export const chromeArgTypes = {
+  enableTopToolbar: { control: 'boolean', table: { category: 'Chrome' } },
+  enableBottomToolbar: { control: 'boolean', table: { category: 'Chrome' } },
+  enableToolbarInternalActions: {
+    control: 'boolean',
+    description: 'The search, filter, columns, density and full-screen buttons at the end of the top bar.',
+    table: { category: 'Chrome' },
+  },
+  enableTableHead: {
+    control: 'boolean',
+    description: 'The `<thead>` row of column headers.',
+    table: { category: 'Chrome' },
+  },
+  enableTableFooter: {
+    control: 'boolean',
+    description: 'The `<tfoot>` row. Only ever rendered when a column declares a `footer`.',
+    table: { category: 'Chrome' },
+  },
+  enablePagination: {
+    control: 'boolean',
+    description: 'Also decides whether the bottom bar exists, since pagination is all it holds by default.',
+    table: { category: 'Chrome' },
+  },
+  enableGlobalFilter: { control: 'boolean', table: { category: 'Chrome' } },
+} as const
