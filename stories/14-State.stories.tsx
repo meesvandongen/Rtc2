@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useLayoutEffect, useMemo, useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 
 import { DataTable, toCsv, useDataTable, type DataTableInitialState } from '../src'
 import { loadingArgTypes } from './controls'
-import { makePeople, personColumns, type Person } from './fixtures'
+import { makePeople, makeTree, personColumns, type Person } from './fixtures'
 
 const data = makePeople(40)
 
@@ -104,6 +104,41 @@ export const ObserveAllState: Story = {
         </pre>
       </>
     )
+  },
+}
+
+/**
+ * Reproduces the consumer pattern from app routes that pre-expand roots in a
+ * layout effect keyed on the table instance.
+ */
+export const ExpandRootsInLayoutEffect: Story = {
+  args: {
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  render: function ExpandRootsInLayoutEffect(args) {
+    const tree = useMemo(() => makeTree(), [])
+    const table = useDataTable<Person>({
+      columns: personColumns.slice(0, 6),
+      data: tree,
+      getRowId: (row) => row.id,
+      getSubRows: (row) => row.subRows ?? [],
+      enableExpanding: true,
+      enablePagination: false,
+      ...args,
+    })
+
+    useLayoutEffect(() => {
+      const rootId = tree[0]?.id
+      if (!rootId) return
+      table.setExpanded(() => ({ [rootId]: true }))
+    }, [table])
+
+    return <DataTable table={table} />
   },
 }
 

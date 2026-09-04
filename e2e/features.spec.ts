@@ -1381,6 +1381,16 @@ test.describe('state and composition', () => {
     await expect(page.getByTestId('state-snapshot')).toContainText('"density": "compact"')
   })
 
+  test('layout-effect expansion keyed on table does not loop', async ({ page }) => {
+    const errors: string[] = []
+    page.on('pageerror', (error) => errors.push(error.message))
+
+    const root = await openStory(page, 'datatable-14-state-composition--expand-roots-in-layout-effect')
+
+    await expect.poll(async () => await bodyRows(root).count()).toBeGreaterThan(3)
+    expect(errors).toEqual([])
+  })
+
   test('initialState restores a saved layout', async ({ page }) => {
     const root = await openStory(page, 'datatable-14-state-composition--restored-initial-state')
 

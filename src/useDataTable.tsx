@@ -416,14 +416,20 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
     columnResizeDirection: options.columnResizeDirection ?? options.direction ?? 'ltr',
   })
 
-  const instance = table as unknown as DataTableInstance<TData>
+  if (!tableRef.current) {
+    tableRef.current = table as unknown as DataTableInstance<TData>
+  } else {
+    Object.assign(tableRef.current, table)
+  }
+  const instance = tableRef.current
   tableRef.current = instance
 
   instance.dataTableOptions = { ...options, localization }
   instance.ui = ui
   instance.isMobile = isMobile
-  // Assigned every render, not from an effect: `useTable` hands back a fresh
-  // shallow copy each time, so anything written to the previous one is gone.
+  // `useTable` returns a fresh shallow copy each render. The stable instance
+  // above is patched with those fields so consumers can safely depend on
+  // `[table]` without render-looping.
   instance.headerMinSizes = headerMinSizes
   instance.setHeaderMinSizes = setHeaderMinSizes
   instance.editValues = editValues
