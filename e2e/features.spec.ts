@@ -903,12 +903,163 @@ test.describe('rows', () => {
     await expect(openMenu(page).getByRole('menuitem', { name: 'Duplicate' })).toBeVisible()
   })
 
-  test('pinned rows are sticky', async ({ page }) => {
-    const root = await openStory(page, 'datatable-09-rows--row-pinning-sticky')
+  /**
+   * Pinning promises that a row stays where it can be seen, and every offset
+   * that promise rests on has to be measured: the height of a sticky header the
+   * row has to clear, and the heights of the rows already pinned ahead of it.
+   * Neither used to be applied — every pinned row was handed `top: 0` — so the
+   * first pinned row sat behind the header and the rest sat behind each other,
+   * and a table with three pinned rows showed one.
+   */
+  test.describe('row pinning', () => {
+    const stickyStory = 'datatable-09-rows--row-pinning-sticky'
+    const sectionsStory = 'datatable-09-rows--row-pinning-sections'
 
-    const pinned = root.locator('tr[data-rtc-row-pinned="top"]')
-    await expect(pinned).toHaveCount(1)
-    await expect(pinned).toHaveCSS('position', 'sticky')
+    /** Header, footer, pinned rows and pinned sections, in container coordinates. */
+    function pinnedGeometry(root: Locator) {
+      return root.evaluate((element) => {
+        const container = element.querySelector('.rtc-container')!
+        const origin = container.getBoundingClientRect()
+        const box = (node: Element) => {
+          const rect = node.getBoundingClientRect()
+          return { top: rect.top - origin.top, bottom: rect.bottom - origin.top }
+        }
+        const optional = (selector: string) => {
+          const node = element.querySelector(selector)
+          return node ? box(node) : null
+        }
+        return {
+          height: origin.height,
+          head: optional('.rtc-thead'),
+          foot: optional('.rtc-tfoot'),
+          rows: [...element.querySelectorAll('tr[data-rtc-row-pinned]')].map((row) => ({
+            id: row.getAttribute('data-rtc-row-id'),
+            pinned: row.getAttribute('data-rtc-row-pinned'),
+            ...box(row),
+          })),
+          sections: [...element.querySelectorAll('tbody[data-rtc-pinned-section]')].map(
+            (section) => ({ position: section.getAttribute('data-rtc-pinned-section'), ...box(section) }),
+          ),
+        }
+      })
+    }
+
+    const scrollBody = (root: Locator, top: number) =>
+      root.locator('.rtc-container').evaluate((element, y) => {
+        element.scrollTop = y
+      }, top)
+
+    test('sticky pinned rows stack below the header instead of behind it', async ({ page }) => {
+      const root = await openStory(page, stickyStory)
+      await expect(root.locator('tr[data-rtc-row-pinned="top"]')).toHaveCount(2)
+      await expect(root.locator('tr[data-rtc-row-pinned="top"]').first()).toHaveCSS(
+        'position',
+        'sticky',
+      )
+
+      // Far enough that both pinned rows have been scrolled past and are held
+      // where they are by the stickiness alone.
+      await scrollBody(root, 600)
+
+      // The offsets are measured after the rows are mounted, so the first
+      // reading can predate them.
+      await expect
+        .poll(async () => {
+          const { head, rows } = await pinnedGeometry(root)
+          const [first, second] = rows.filter((row) => row.pinned === 'top')
+          if (!head || !first || !second) return null
+          return {
+            clearsHeader: first.top >= head.bottom - 1,
+            clearsFirst: second.top >= first.bottom - 1,
+          }
+        })
+        .toEqual({ clearsHeader: true, clearsFirst: true })
+    })
+
+    test('a bottom-pinned row sits on the bottom edge of the body', async ({ page }) => {
+      const root = await openStory(page, stickyStory)
+
+      await expect
+        .poll(async () => {
+          const { height, rows } = await pinnedGeometry(root)
+          const bottom = rows.find((row) => row.pinned === 'bottom')
+          return bottom ? Math.abs(bottom.bottom - height) < 2 : null
+        })
+        .toBe(true)
+    })
+
+    test('pinned sections sit between the header and the footer', async ({ page }) => {
+      const root = await openStory(page, sectionsStory)
+      await scrollBody(root, 300)
+
+      await expect
+        .poll(async () => {
+          const { head, foot, sections } = await pinnedGeometry(root)
+          const top = sections.find((section) => section.position === 'top')
+          const bottom = sections.find((section) => section.position === 'bottom')
+          if (!head || !foot || !top || !bottom) return null
+          return {
+            belowHeader: Math.abs(top.top - head.bottom) < 2,
+            aboveFooter: Math.abs(bottom.bottom - foot.top) < 2,
+          }
+        })
+        .toEqual({ belowHeader: true, aboveFooter: true })
+    })
+
+    /**
+     * `keepPinnedRows` is what makes pinning worth doing while you search for
+     * something else, and it is on by default — but the sticky mode renders the
+     * row model as it stands, so a row the filter dropped has to be put back
+     * into it. It used to vanish instead, taking the empty state with it: the
+     * body was left with no rows and no message.
+     */
+    test('a pinned row survives a filter that excludes it', async ({ page }) => {
+      const root = await openStory(page, stickyStory)
+      await toolbarAction(root, 'toggle-search').click()
+      await root.locator('[data-rtc-global-filter]').fill('Turing')
+
+      await expect.poll(async () => (await rowIds(root)).slice(0, 2)).toEqual(['p2', 'p5'])
+      expect((await rowIds(root)).at(-1)).toBe('p9')
+    })
+
+    test('a pinned section survives a filter that matches nothing', async ({ page }) => {
+      const root = await openStory(page, sectionsStory)
+      await toolbarAction(root, 'toggle-search').click()
+      await root.locator('[data-rtc-global-filter]').fill('nothing-matches-this')
+
+      await expect(root.locator('.rtc-empty')).toHaveText('No results found')
+      await expect(root.locator('tbody[data-rtc-pinned-section] tr[data-rtc-row-id]')).toHaveCount(4)
+    })
+
+    /**
+     * A virtualized row is positioned absolutely against a spacer the height of
+     * the whole scroll range, and an absolutely positioned row cannot also be a
+     * sticky one — pinning did nothing at all there. The sections sit outside
+     * the virtualized body, so `sticky` renders them instead.
+     */
+    test('a virtualized table pins into sections', async ({ page }) => {
+      const root = await openStory(page, 'datatable-09-rows--row-pinning-virtualized')
+      // The pinned row is rendered by its section, not by the window, so it is
+      // still the first row after the window has moved a long way past it.
+      await expect.poll(async () => (await rowIds(root))[0]).toBe('p3')
+
+      await scrollBody(root, 4000)
+      await expect.poll(async () => (await rowIds(root))[1]).not.toBe('p1')
+
+      await expect
+        .poll(async () => {
+          const { head, height, sections } = await pinnedGeometry(root)
+          const top = sections.find((section) => section.position === 'top')
+          const bottom = sections.find((section) => section.position === 'bottom')
+          if (!head || !top || !bottom) return null
+          return {
+            belowHeader: Math.abs(top.top - head.bottom) < 2,
+            onTheFloor: Math.abs(bottom.bottom - height) < 2,
+          }
+        })
+        .toEqual({ belowHeader: true, onTheFloor: true })
+      await expect(root.locator('tbody[data-rtc-pinned-section="top"] tr')).toHaveText(/Dijkstra/)
+    })
   })
 
   test('the row drag handle reorders with the keyboard', async ({ page }) => {

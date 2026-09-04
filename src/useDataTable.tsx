@@ -7,6 +7,7 @@ import { GLOBAL_MODE_FILTER_FN, STRUCTURED_FILTER_FN } from './filters/filterFn'
 import type { DataTableTableMeta } from './filters/registry'
 import { dataTableFeatures } from './features'
 import { mergeLocalization, type DataTableLocalization } from './locale'
+import { usesPinnedRowSections, withKeptPinnedRows } from './pinnedRows'
 import { filterDrawerApplies, useIsMobile } from './responsive'
 import { maxSubRowDepth } from './treeIndent'
 import type {
@@ -433,7 +434,11 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
 
     enableHiding: options.enableHiding ?? options.enableColumnVisibility ?? true,
     enableColumnPinning: options.enableColumnPinning ?? false,
-    enableRowPinning: options.enableRowPinning ?? false,
+    enableRowPinning: (options.enableRowPinning ?? false) as never,
+    // TanStack's own default, stated because the component leans on it: a
+    // pinned row a filter or a page has dropped is still rendered, and where
+    // it is rendered depends on this being true.
+    keepPinnedRows: options.keepPinnedRows ?? true,
     enableColumnResizing: options.enableColumnResizing ?? false,
     columnResizeMode: options.columnResizeMode ?? 'onChange',
     columnResizeDirection: options.columnResizeDirection ?? options.direction ?? 'ltr',
@@ -524,8 +529,13 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
         .sort((a, b) => (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER))
     }
 
-    if (opts.enableRowPinning && (opts.rowPinningDisplayMode ?? 'sticky') !== 'sticky') {
-      rows = rows.filter((row) => !row.getIsPinned())
+    if (opts.enableRowPinning) {
+      // Lifted into sections, a pinned row is rendered by the section and must
+      // not also be rendered here; left in the body, it stays where it is and
+      // only the ones filtering or pagination dropped have to be put back.
+      rows = usesPinnedRowSections(opts)
+        ? rows.filter((row) => !row.getIsPinned())
+        : withKeptPinnedRows(current, rows)
     }
 
     return rows

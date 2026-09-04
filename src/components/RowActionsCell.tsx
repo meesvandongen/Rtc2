@@ -101,10 +101,11 @@ function rowPinItems<TData extends RowData>(
 
   const pinned = row.getIsPinned()
   const mode = table.dataTableOptions.rowPinningDisplayMode ?? 'sticky'
-  // `top`/`bottom` lift pinned rows into a section of their own, so offering
-  // the direction the table has no section for would pin a row out of sight.
-  const canTop = mode !== 'bottom'
-  const canBottom = mode !== 'top'
+  // `top`/`bottom` name the one direction that table pins in, so the other is
+  // not offered — except to a row already pinned to it, from `initialState` or
+  // from `row.pin()`, which would otherwise have no way back.
+  const canTop = mode !== 'bottom' || pinned === 'top'
+  const canBottom = mode !== 'top' || pinned === 'bottom'
 
   const items: RtcMenuItem[] = []
   if (canTop) {

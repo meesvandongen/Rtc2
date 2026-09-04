@@ -18,7 +18,7 @@ Each of these has a dedicated story section in the sidebar.
 | Column visibility | `enableColumnVisibility`¹, `enableHiding`¹ |
 | Column ordering | `enableColumnOrdering`, `enableColumnDragging` |
 | Column pinning | `enableColumnPinning` — start/end, sticky with an edge shadow |
-| Row pinning | `enableRowPinning` — pin/unpin from each row's overflow menu, `rowPinningDisplayMode` (`sticky` \| `top` \| `bottom` \| `top-and-bottom`) |
+| Row pinning | `enableRowPinning` (bool or predicate) — pin/unpin from each row's overflow menu, `rowPinningDisplayMode` (`sticky` \| `top` \| `bottom` \| `top-and-bottom`), `keepPinnedRows`¹ — a pinned row survives the filter or page that drops it |
 | Column resizing | `enableColumnResizing`, `columnResizeMode`, `columnResizeDirection`, keyboard-operable grips |
 | Grouping | `enableGrouping`, `enableGroupingChips` (drag-to-group), `groupedColumnMode` |
 | Aggregation | `enableAggregation`¹, per-column `aggregationFn` + `aggregatedCell` |

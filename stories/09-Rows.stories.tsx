@@ -166,7 +166,9 @@ export const RowPinningSticky: Story = {
   render: (args) => (
     <>
       <p className="rtc-sb-note">
-        Pinned rows are sticky within the scroll container. `enableRowPinning` puts pin/unpin in
+        Pinned rows keep their place in the order and stick to the edge of the scroll container
+        once they would have scrolled away — below the sticky header, and stacked behind one
+        another when several are pinned to the same edge. `enableRowPinning` puts pin/unpin in
         each row&apos;s overflow menu; <code>row.pin(&apos;top&apos;)</code> is still there if you
         would rather drive it from your own control.
       </p>
@@ -175,9 +177,10 @@ export const RowPinningSticky: Story = {
         data={makePeople(40)}
         getRowId={(row) => row.id}
         enablePagination={false}
+        enableGlobalFilter
         height={420}
         enableStickyHeader
-        initialState={{ rowPinning: { top: ['p2'], bottom: [] } }}
+        initialState={{ rowPinning: { top: ['p2', 'p5'], bottom: ['p9'] } }}
         {...args}
       />
     </>
@@ -205,13 +208,65 @@ export const RowPinningSections: Story = {
     },
   },
   render: (args) => (
+    <>
+      <p className="rtc-sb-note">
+        Each section is sticky as a block: the top one below the header, the bottom one at the
+        foot of the scroll container. Rows a filter or a page has dropped stay pinned —
+        <code>keepPinnedRows</code> is what makes pinning worth doing while you search for
+        something else.
+      </p>
+      <DataTable
+        columns={personColumns
+          .slice(0, 5)
+          .map((column, index) => (index === 4 ? { ...column, footer: 'City' } : column))}
+        data={makePeople(20)}
+        getRowId={(row) => row.id}
+        enablePagination={false}
+        enableGlobalFilter
+        enableStickyHeader
+        enableStickyFooter
+        height={420}
+        initialState={{ rowPinning: { top: ['p1', 'p4'], bottom: ['p19', 'p20'] } }}
+        {...args}
+      />
+    </>
+  ),
+}
+
+/**
+ * Row pinning over a virtualized body. A virtualized row is positioned
+ * absolutely and cannot also be sticky, so `sticky` renders the top and bottom
+ * sections here — they sit outside the virtualized body and stay put.
+ */
+export const RowPinningVirtualized: Story = {
+  args: {
+    enableRowPinning: true,
+    rowPinningDisplayMode: 'sticky',
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  argTypes: {
+    enableRowPinning: { control: 'boolean', table: { category: 'Rows' } },
+    rowPinningDisplayMode: {
+      control: 'select',
+      options: ['sticky', 'top', 'bottom', 'top-and-bottom'],
+      table: { category: 'Rows' },
+    },
+  },
+  render: (args) => (
     <DataTable
       columns={personColumns.slice(0, 5)}
-      data={makePeople(20)}
+      data={makePeople(2000)}
       getRowId={(row) => row.id}
       enablePagination={false}
+      enableRowVirtualization
+      enableStickyHeader
       height={420}
-      initialState={{ rowPinning: { top: ['p1'], bottom: ['p20'] } }}
+      initialState={{ rowPinning: { top: ['p3'], bottom: ['p1500'] } }}
       {...args}
     />
   ),

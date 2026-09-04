@@ -600,23 +600,61 @@
   z-index: 3;
 }
 
-/* Pinned rows ride above the body but below pinned headers. */
-.rtc-tr[data-rtc-row-pinned="top"] {
+/* Pinned rows ride above the body but below pinned headers.
+ *
+ * Both offsets come from `useStickyPinnedRows`, which measures them: the
+ * heights of a sticky header and footer, which the pinned row has to clear or
+ * it lands underneath them, and — for rows still in the body, which each stick
+ * on their own — the heights of the pinned rows already stuck ahead of it. A
+ * pinned section stacks its rows in flow, so it needs only the first. */
+.rtc-tbody:not([data-rtc-pinned-section]) > .rtc-tr[data-rtc-row-pinned="top"] {
   position: sticky;
   z-index: 2;
-  top: var(--rtc-pinned-row-offset, 0px);
+  top: calc(var(--rtc-sticky-head-height, 0px) + var(--rtc-pinned-row-offset, 0px));
+}
+
+.rtc-tbody:not([data-rtc-pinned-section]) > .rtc-tr[data-rtc-row-pinned="bottom"] {
+  position: sticky;
+  z-index: 2;
+  bottom: calc(var(--rtc-sticky-foot-height, 0px) + var(--rtc-pinned-row-offset, 0px));
+}
+
+.rtc-tbody[data-rtc-pinned-section] {
+  position: sticky;
+  z-index: 2;
+}
+
+.rtc-tbody[data-rtc-pinned-section="top"] {
+  top: var(--rtc-sticky-head-height, 0px);
+}
+
+.rtc-tbody[data-rtc-pinned-section="bottom"] {
+  bottom: var(--rtc-sticky-foot-height, 0px);
+}
+
+.rtc-tr[data-rtc-row-pinned] {
   background: var(--rtc-row-bg-pinned);
 }
 
-.rtc-tr[data-rtc-row-pinned="bottom"] {
-  position: sticky;
-  z-index: 2;
-  bottom: var(--rtc-pinned-row-offset, 0px);
-  background: var(--rtc-row-bg-pinned);
-}
-
+/* Opaque, and stated on the cells as well as the row: the rows the table
+   scrolls under a pinned one would otherwise show through it. */
 .rtc-tr[data-rtc-row-pinned] .rtc-td {
   background: var(--rtc-row-bg-pinned);
+}
+
+/* The edge of the pinned block that faces the body is drawn in the same
+   stronger border the header's last row uses, and for the same reason: what is
+   on one side of that line scrolls, what is on the other does not. Only that
+   edge — a hairline under every pinned row would double the border the row
+   already has, and say nothing about where the block ends. */
+.rtc-tbody[data-rtc-pinned-section="top"] > .rtc-tr:last-child .rtc-td,
+.rtc-tbody:not([data-rtc-pinned-section]) > .rtc-tr[data-rtc-row-pinned="top"] .rtc-td {
+  border-bottom: var(--rtc-border-width) solid var(--rtc-color-border-strong);
+}
+
+.rtc-tbody[data-rtc-pinned-section="bottom"] > .rtc-tr:first-child .rtc-td,
+.rtc-tbody:not([data-rtc-pinned-section]) > .rtc-tr[data-rtc-row-pinned="bottom"] .rtc-td {
+  border-top: var(--rtc-border-width) solid var(--rtc-color-border-strong);
 }
 
 /* ------------------------------------------------------ pinned columns --- */

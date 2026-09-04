@@ -47,3 +47,11 @@ misaligned table — for an explicit `layoutMode="semantic"` and for grouped
 headers, where a window over the *leaf* columns says nothing about the header
 spanning several of them. `data-rtc-column-virtual` on the root reports whether
 the option was honoured.
+
+**Pinned rows** move for the row window. A virtualized row is positioned
+absolutely against a spacer the height of the whole scroll range, and an
+absolutely positioned row cannot also be a sticky one, so
+`rowPinningDisplayMode: 'sticky'` — which otherwise leaves a pinned row where
+the sort put it — renders the top and bottom sections here instead. They sit
+outside the virtualized body and hold their own position, which is the same
+place the other three modes would have put them.
