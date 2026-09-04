@@ -1893,11 +1893,6 @@
   transform: rotate(90deg);
 }
 
-.rtc-expand-slot {
-  display: inline-flex;
-  flex: 0 0 auto;
-}
-
 [dir="rtl"] .rtc-expand-button .rtc-expand-icon {
   transform: rotate(180deg);
 }
@@ -1906,9 +1901,21 @@
   transform: rotate(90deg);
 }
 
+/* Tree depth.
+ *
+ * A nested row is shown by its own chevron stepping to the right, one indent
+ * per level, inside the expand column — the data columns stay in line, which
+ * is what keeps a deep tree readable as columns of values.
+ *
+ * The step arrives already multiplied (`--rtc-row-indent`, from
+ * `RowExpandToggle`) because the same number decides how much room the expand
+ * column reserves, and a step set here could drift from it — body cells clip,
+ * so the drift would show as a missing chevron. A logical margin puts the
+ * indentation on the right-hand side in an RTL table. */
 .rtc-expand-slot {
   display: inline-flex;
   flex: 0 0 auto;
+  margin-inline-start: var(--rtc-row-indent, 0);
 }
 
 .rtc-cell-inner {
@@ -1922,10 +1929,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.rtc-cell-indent {
-  flex: 0 0 auto;
 }
 
 /* Click-to-copy.

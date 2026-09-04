@@ -490,11 +490,12 @@ test.describe('columns', () => {
       const widthOf = async (columnId: string) =>
         (await header(root, columnId).boundingBox())!.width
 
-      // Their declared sizes are 44, 40, 56 and 72; the expand and actions
-      // columns are also held open by their own headers. None of them is
+      // Their declared sizes are 44, 80, 56 and 72 — the expand column being a
+      // chevron plus the two indent steps this three-level tree needs — and the
+      // actions column is also held open by its own header. None of them is
       // anywhere near a data column's share.
       expect(await widthOf('rtc-select')).toBeLessThan(64)
-      expect(await widthOf('rtc-expand')).toBeLessThan(72)
+      expect(await widthOf('rtc-expand')).toBeLessThan(96)
       expect(await widthOf('rtc-row-number')).toBeLessThan(76)
       expect(await widthOf('rtc-row-actions')).toBeLessThan(100)
 
@@ -695,6 +696,60 @@ test.describe('expanding', () => {
     ])
     await expect(root.locator('tbody tr[data-rtc-depth="2"]')).toHaveCount(3)
     await expect(root.locator('thead .rtc-expand-slot')).toHaveAttribute('data-rtc-expanded', 'true')
+  })
+
+  /**
+   * Depth is drawn by the chevron, one indent step per level, inside the
+   * expand column — and the column is wide enough to hold the deepest one.
+   *
+   * It used to be drawn by a spacer in whichever cell came first, which was
+   * the wrong cell in both directions: the expand column is sized for a single
+   * chevron and body cells clip, so an indented chevron was cut off rather
+   * than held; and with a checkbox or a drag grip in front of it the spacer
+   * landed there instead, indenting the checkboxes and leaving every chevron
+   * flush.
+   */
+  test('a nested row steps its chevron across the expand column', async ({ page }) => {
+    const root = await openStory(page, 'datatable-08-expanding--expanded-by-default')
+
+    // The slot rather than the button: a leaf's chevron is hidden, and it is
+    // the slot that carries the indentation either way.
+    const slot = (rowId: string) =>
+      root.locator(`tbody tr[data-rtc-row-id="${rowId}"] .rtc-expand-slot`)
+    const boxOf = async (rowId: string) => (await slot(rowId).boundingBox())!
+
+    // p1 is a root, p4 its child, p13 its grandchild.
+    const [level0, level1, level2] = await Promise.all([boxOf('p1'), boxOf('p4'), boxOf('p13')])
+    expect(Math.round(level1.x - level0.x)).toBe(16)
+    expect(Math.round(level2.x - level1.x)).toBe(16)
+
+    // The deepest chevron is inside its own cell rather than clipped by it.
+    const cell = (await root
+      .locator('tbody tr[data-rtc-row-id="p13"] td[data-rtc-column-id="rtc-expand"]')
+      .boundingBox())!
+    expect(level2.x + level2.width).toBeLessThanOrEqual(cell.x + cell.width + 0.5)
+
+    // And nothing but the chevron moved: the data columns stay in line.
+    const names = await root
+      .locator('tbody tr td[data-rtc-column-id="firstName"] .rtc-cell-value')
+      .evaluateAll((cells) => cells.map((cell) => Math.round(cell.getBoundingClientRect().x)))
+    expect(new Set(names).size).toBe(1)
+  })
+
+  /**
+   * The tree lives in the expand column, so a leading checkbox column is not
+   * part of it — indenting the checkboxes moved the control that selects a row
+   * away from the column heading that names it, and clipped it besides.
+   */
+  test('a leading checkbox column is not indented by depth', async ({ page }) => {
+    const root = await openStory(page, 'datatable-05-selection--sub-row-selection')
+    await expect(bodyRows(root)).toHaveCount(15)
+
+    const boxes = await root
+      .locator('tbody tr td[data-rtc-column-id="rtc-select"] input.rtc-checkbox')
+      .evaluateAll((inputs) => inputs.map((input) => Math.round(input.getBoundingClientRect().x)))
+    expect(boxes).toHaveLength(15)
+    expect(new Set(boxes).size).toBe(1)
   })
 
   test('an initially expanded tree collapses back to its roots', async ({ page }) => {

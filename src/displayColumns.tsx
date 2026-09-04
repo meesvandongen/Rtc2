@@ -8,6 +8,7 @@ import { SelectAllCheckbox, SelectRowCheckbox } from './components/SelectionCell
 import { DISPLAY_COLUMN_IDS } from './displayColumnIds'
 import type { DataTableFeatures } from './features'
 import type { DataTableLocalization } from './locale'
+import { treeIndentReserve } from './treeIndent'
 import { getColumnLabel } from './utils'
 import type { DataTableColumn, DataTableInstance, DataTableOptions, DataTableRow } from './types'
 
@@ -57,6 +58,13 @@ export function resolveEnableExpanding<TData extends RowData>(
 const GROUP_LABEL_COLUMN_SIZE = 180
 
 /**
+ * Width of the expand column at the root level: the chevron plus the cell's
+ * own gutters. Every level of nesting adds an indent step on top of this —
+ * see `treeIndent.ts`.
+ */
+const EXPAND_COLUMN_SIZE = 48
+
+/**
  * The value a `remove`-mode group row shows in place of its grouped column.
  *
  * Booleans go through the localization rather than `String(value)`: grouping a
@@ -90,6 +98,12 @@ export interface BuildDisplayColumnsArgs<TData extends RowData> {
   options: DataTableOptions<TData>
   /** Active grouping. Grouping alone brings the expand column into the table. */
   grouping: string[]
+  /**
+   * Depth of the deepest row the table can render, counting roots as 0. The
+   * expand column reserves an indent step per level so the chevron of a nested
+   * row still fits inside it.
+   */
+  maxRowDepth: number
   getTable: () => DataTableInstance<TData>
 }
 
@@ -103,6 +117,7 @@ export interface BuildDisplayColumnsArgs<TData extends RowData> {
 export function buildDisplayColumns<TData extends RowData>({
   options,
   grouping,
+  maxRowDepth,
   getTable,
 }: BuildDisplayColumnsArgs<TData>): {
   leading: Array<DataTableColumn<TData, any>>
@@ -149,11 +164,21 @@ export function buildDisplayColumns<TData extends RowData>({
   if (hasExpanding) {
     const showExpandAll = options.enableExpandAll !== false && !options.renderDetailPanel
 
+    // The chevron is indented inside this column, so the column has to be wide
+    // enough for the deepest one. Reserved from the whole tree's depth rather
+    // than the part of it that happens to be open: a column that widened as
+    // branches expanded would shift every column after it sideways on a click.
+    const indentReserve = treeIndentReserve(maxRowDepth)
+    const chevronSize = EXPAND_COLUMN_SIZE + indentReserve
+
     leading.push(
       helper.display({
         ...inertColumnDef,
         id: DISPLAY_COLUMN_IDS.expand,
-        size: carriesGroupLabel ? GROUP_LABEL_COLUMN_SIZE : 40,
+        size: (carriesGroupLabel ? GROUP_LABEL_COLUMN_SIZE : EXPAND_COLUMN_SIZE) + indentReserve,
+        // A column standing in for the grouped columns can be narrowed to the
+        // label it carries, but never past the chevron in front of it.
+        minSize: chevronSize,
         header: () => {
           const table = getTable()
           const expandAll = showExpandAll ? <RowExpandToggle table={table} /> : null
