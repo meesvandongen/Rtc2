@@ -31,7 +31,13 @@ const meta: Meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-/** Hierarchical data via `getSubRows`; depth is shown by cell indentation. */
+/**
+ * Hierarchical data via `getSubRows`. Depth is shown by the row's own chevron,
+ * indented one step per level inside the expand column — the data columns stay
+ * in line, so the values are still read down a column rather than a staircase.
+ * A row with nothing to open keeps a greyed-out chevron, so its level is drawn
+ * too and a leaf reads differently from a branch that happens to be closed.
+ */
 export const SubRows: Story = {
   args: {
     enableExpanding: true,

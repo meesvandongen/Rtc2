@@ -8,6 +8,7 @@ import type { DataTableTableMeta } from './filters/registry'
 import { dataTableFeatures } from './features'
 import { mergeLocalization, type DataTableLocalization } from './locale'
 import { filterDrawerApplies, useIsMobile } from './responsive'
+import { maxSubRowDepth } from './treeIndent'
 import type {
   DataTableDensity,
   DataTableInstance,
@@ -283,16 +284,37 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
   const stableUserColumns = useStableArray(options.columns) as typeof options.columns
   const stableData = useStableArray(options.data) as typeof options.data
 
-  // Only whether anything is grouped changes the display columns; which
-  // columns are grouped is read at render time by the expand column.
+  // Which columns are grouped is read at render time by the expand column; of
+  // the grouping state, only whether anything is grouped and how deep it
+  // nests change the display columns themselves.
   const hasGrouping = tanStackState.grouping.length > 0
   const groupingRef = useRef(tanStackState.grouping)
   groupingRef.current = tanStackState.grouping
+
+  const enableExpanding = resolveEnableExpanding(options)
+  const hasSubRows = !!options.getSubRows
+
+  /**
+   * How deep the rows nest, which is what the expand column reserves room for.
+   *
+   * Memoized on the data rather than on `getSubRows` — the accessor is
+   * routinely an inline arrow, and TanStack's own row model keys on the data
+   * alone for the same reason. Grouping nests one level per grouped column;
+   * sub-rows nest as deep as the tree goes, and only that walk costs anything.
+   */
+  const treeDepth = useMemo(() => {
+    const getSubRows = optionsRef.current.getSubRows
+    if (!enableExpanding || !getSubRows) return 0
+    return maxSubRowDepth(stableData, getSubRows)
+  }, [stableData, enableExpanding, hasSubRows])
+  const groupingDepth = options.enableGrouping ? tanStackState.grouping.length : 0
+  const maxRowDepth = Math.max(treeDepth, groupingDepth)
 
   const columns = useMemo(() => {
     const { leading, trailing } = buildDisplayColumns({
       options: optionsRef.current,
       grouping: groupingRef.current,
+      maxRowDepth,
       getTable,
     })
     // Every column routes through the one structured filter fn, which reads
@@ -316,6 +338,7 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
     options.enableGrouping,
     options.groupedColumnMode,
     hasGrouping,
+    maxRowDepth,
     options.enableRowNumbers,
     options.rowNumberDisplayMode,
     options.enableRowActions,
@@ -380,7 +403,7 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
     manualGrouping: options.manualGrouping ?? false,
     manualAggregation: !(options.enableAggregation ?? true),
 
-    enableExpanding: resolveEnableExpanding(options),
+    enableExpanding,
     manualExpanding: options.manualExpanding ?? false,
     paginateExpandedRows: options.paginateExpandedRows ?? true,
     ...(hasDetailPanel && !options.getRowCanExpand

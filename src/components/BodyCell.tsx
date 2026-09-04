@@ -3,7 +3,7 @@ import { CellEditor } from './CellEditor'
 import { CopyCell, clickToCopyEnabled } from './CopyCell'
 import { getCellLayoutProps } from './HeaderCell'
 import { DISPLAY_COLUMN_IDS, rendersOnGroupedRow } from '../displayColumnIds'
-import { resolveEnableExpanding, resolveGroupingLayout } from '../displayColumns'
+import { resolveGroupingLayout } from '../displayColumns'
 import { cellEditId, isCellEditing } from '../editing'
 import { cx, stringifyValue } from '../utils'
 import type { DataTableCell, DataTableInstance, DataTableRow } from '../types'
@@ -15,7 +15,7 @@ export interface BodyCellProps<TData extends RowData> {
   /**
    * Position in the full column order — not the position among the cells this
    * row happens to render, which under column virtualization is a window.
-   * Drives the tree indentation and the cell's reported column position.
+   * Drives the cell's reported column position.
    */
   columnIndex: number
 }
@@ -38,7 +38,8 @@ export function BodyCell<TData extends RowData>({ table, row, cell, columnIndex 
 
   // Under `groupedColumnMode: 'remove'` the grouped columns are gone from the
   // table and the expand column carries their value in its place, so it gets
-  // the group cell's styling and the tree indentation.
+  // the group cell's styling. (The depth is carried by the chevron in that
+  // same cell — see `RowExpandToggle`.)
   const isExpandColumn = column.id === DISPLAY_COLUMN_IDS.expand
   const grouped = resolveGroupingLayout(options, table.state.grouping)
   const carriesGroupLabel = grouped.carriesGroupLabel && isExpandColumn && !!row.groupingColumnId
@@ -52,13 +53,6 @@ export function BodyCell<TData extends RowData>({ table, row, cell, columnIndex 
   const edges = cellSelectionEnabled ? cell.getSelectionEdges() : undefined
 
   const userProps = options.cellProps?.({ table, row, cell, column })
-
-  // Tree indentation goes on the cell that carries the row's identity — the
-  // expand column when it holds the group label, the leading cell otherwise —
-  // so nested rows read as a hierarchy rather than a flat list.
-  const indentTarget = grouped.active ? isExpandColumn : columnIndex === 0
-  const indent =
-    resolveEnableExpanding(options) && row.depth > 0 && indentTarget ? row.depth * 16 : 0
 
   const canActivateEditor =
     !!options.enableEditing && options.editMode === 'cell' && !editing && !isGrouped && !isAggregated
@@ -108,8 +102,6 @@ export function BodyCell<TData extends RowData>({ table, row, cell, columnIndex 
       }
     >
       <div className="rtc-cell-inner">
-        {indent > 0 ? <span className="rtc-cell-indent" style={{ width: indent }} /> : null}
-
         {isInertOnGroupRow ? null : isGrouped ? (
           // The chevron lives in the expand column, which grouping always adds.
           <>
