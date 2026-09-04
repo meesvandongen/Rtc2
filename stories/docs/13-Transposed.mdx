@@ -14,10 +14,10 @@ a handful of records with a great many fields.
 ```
 
 Nothing is switched off by it. Every option keeps working, acting on the axis it
-now lands on, and the table stays one real `<table>` — a header that labels a
-row is a `<th scope="row">` — so grouped headers, detail panels and
-`position: sticky` all keep the browser's own semantics rather than a second,
-transposed implementation of each.
+now lands on — virtualization included — and the table stays one real `<table>`
+— a header that labels a row is a `<th scope="row">` — so grouped headers,
+detail panels and `position: sticky` all keep the browser's own semantics rather
+than a second, transposed implementation of each.
 
 ## What turns with the table
 
@@ -32,6 +32,8 @@ transposed implementation of each.
 | `enableColumnDragging` | drag across | drag up and down |
 | `enableRowOrdering` | drag up and down | drag across |
 | `enableColumnResizing` | column width | band height |
+| `enableRowVirtualization` | a vertical window | a horizontal one |
+| `enableColumnVirtualization` | a horizontal window | a vertical one |
 | `renderDetailPanel` | a row under its row | a column beside its record |
 | `skeletonRowCount` | placeholder rows | placeholder record columns |
 | Zebra striping | alternate records | alternate records |
@@ -78,6 +80,14 @@ grip lies along the bottom edge of a label rather than its trailing edge, and
 `resetSize` (double-click, or **Reset size** in the column menu) still clears
 it. A band with no entry keeps the height its density gives it.
 
+`enableStickyHeader` defaults to **on** here, where upright it is off. Upright
+the header row sits at the near edge of the axis the records run along, so
+scrolling across never takes it away — every column you can see brings its own
+header with it. Transposed the labels are at that edge, and without sticking
+them a scroll to the right leaves a screen of values with nothing saying what
+any of them are. Pass `enableStickyHeader={false}` to let the labels scroll away
+with everything else.
+
 ## The toggle
 
 The orientation is UI state, like `density`, so it can be seeded, observed,
@@ -101,21 +111,51 @@ Flipping preserves everything else. Sorting, filters, selection, pinning and
 grouping are table state, not properties of the orientation, and survive the
 flip in both directions.
 
-## What it declines
+## Virtualization
 
-Virtualization, and only that. Both virtualizers window the axis they are named
-for, and neither is built against the axis it lands on once the table is
-flipped: a row virtualizer positions rows absolutely, and transposed those rows
-are the *columns* the browser's own table algorithm is laying out.
+Both virtualizers still window the thing they are named for, on whichever axis
+it now runs: `enableRowVirtualization` windows the records, which run across,
+and `enableColumnVirtualization` windows the columns, which run down.
 
-Rather than render something misaligned the table draws every record and says
-so — `data-rtc-row-virtual` and `data-rtc-column-virtual` are absent from the
-root even when both options are on, the same way a semantic layout already
-declines column virtualization. `layoutMode` is declined for the same reason and
-reports `semantic`.
+```tsx
+<DataTable
+  columns={columns}
+  data={data}
+  transposed
+  enableRowVirtualization
+  enableColumnVirtualization
+  enablePagination={false}
+  height={520}
+/>
+```
 
-So a transposed table is for tables of a size that fits in the DOM: a few dozen
-records against as many fields as you like. Reach for
-[pagination](?path=/docs/datatable-04-pagination--docs) rather than
-virtualization when there are more, or flip back to upright for the bulk view
-and transpose the detail.
+`height` (or `maxHeight`) is required, for the reason it is upright: a window is
+measured against a scroll container, and a container that grows with its content
+has none.
+
+The window is held open by **spacers** — a cell as wide as the records it
+skipped, a row as tall as the bands — rather than by taking anything out of
+flow. That is what lets a virtualized transposed table stay a real `<table>`,
+and with it keep the `rowSpan` that grouped headers and detail panels are built
+on. The spacers are exact rather than measured: both axes are already definite
+lengths, so each one is the same sum the cells it replaced would have added up
+to. The virtualizers only choose *which* items to render.
+
+What survives a window:
+
+- **The label column.** It is never part of one — every band brings its own
+  label, exactly as the upright `<thead>` stays put whichever rows are mounted.
+- **Pinned bands and pinned records**, which are force-mounted at any scroll
+  offset. A sticky item that unmounted would leave its edge of the table blank.
+- **The item being dragged**, whose pointer handlers live on an element that
+  would otherwise unmount under the pointer.
+
+The **column** window is declined for a grouped header or a detail panel: both
+span the whole band order, and a window that dropped some of the bands would
+have no span left to give them. The records are windowed either way, and
+`data-rtc-column-virtual` on the root reports whether the option was honoured —
+the same way it does for an upright semantic layout.
+
+`layoutMode` is declined outright and reports `semantic`: the grid modes are
+about the axis the transposed table no longer lays columns out along, and it
+does not need them.

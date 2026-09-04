@@ -7,6 +7,7 @@ import {
   groupedHeaderColumns,
   makePeople,
   makeTree,
+  makeWideColumns,
   personColumns,
   type Person,
 } from './fixtures'
@@ -235,30 +236,65 @@ export const Reordering: Story = {
 }
 
 /**
- * Virtualization is the one thing a transposed table declines.
+ * Both virtualizers, on their new axes.
  *
- * Both virtualizers window the axis they are named for, and neither is built
- * against the axis it lands on once the table is flipped — a row virtualizer
- * positions rows absolutely, which is the transposed table's record axis, and
- * the browser's own table algorithm is what lays that out. Rather than render
- * something misaligned the table draws every record, and says so:
- * `data-rtc-row-virtual` and `data-rtc-column-virtual` are absent from the root
- * even though both options are on.
+ * Each option still windows the thing it names — `enableRowVirtualization` the
+ * records, `enableColumnVirtualization` the columns — which transposed means
+ * they have swapped axes: the records run across, so their window is the
+ * horizontal one, and the columns run down.
+ *
+ * The window is held open by spacers rather than by taking anything out of
+ * flow, which is what lets a virtualized transposed table stay a real
+ * `<table>`. And like the upright `<thead>`, the label column is never part of
+ * a window: every band brings its own label, whichever records are on screen.
  */
-export const DeclinesVirtualization: Story = {
+export const Virtualized: Story = {
   render: () => (
     <>
       <p className="rtc-sb-note">
-        Both options are on. Flip the table with the toolbar button: upright the root reports{' '}
-        <code>data-rtc-row-virtual</code>, transposed it does not.
+        5,000 records across and 40 fields down, with a bounded height. Scroll either way — the
+        label column stays at the side, and only what is in view is mounted.
       </p>
       <DataTable
-        columns={personColumns.slice(0, 6)}
-        data={makePeople(400)}
+        columns={makeWideColumns(40)}
+        data={makePeople(5000)}
         getRowId={(row) => row.id}
+        transposed
         enableRowVirtualization
         enableColumnVirtualization
-        enableTransposeToggle
+        enableColumnPinning
+        enablePagination={false}
+        enableBorders="all"
+        density="compact"
+        initialState={{ columnPinning: { start: ['firstName'], end: [] } }}
+        height={420}
+      />
+    </>
+  ),
+}
+
+/**
+ * A grouped header still declines the column window.
+ *
+ * A window over the bands is a range of *leaf* columns, and a header spanning
+ * several of them has no span to be given when only some are rendered — the
+ * same reason the upright table declines it. The records are still windowed;
+ * `data-rtc-column-virtual` is absent from the root and
+ * `data-rtc-row-virtual` is not.
+ */
+export const GroupedHeadersDeclineTheColumnWindow: Story = {
+  render: () => (
+    <>
+      <p className="rtc-sb-note">
+        Both options are on. Every band is mounted; the records are still a window.
+      </p>
+      <DataTable
+        columns={groupedHeaderColumns}
+        data={makePeople(2000)}
+        getRowId={(row) => row.id}
+        transposed
+        enableRowVirtualization
+        enableColumnVirtualization
         enablePagination={false}
         enableBorders="all"
         height={360}

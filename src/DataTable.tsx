@@ -14,10 +14,11 @@ import { TableFoot } from './components/TableFoot'
 import { TableHead } from './components/TableHead'
 import { BottomToolbar, TopToolbar } from './components/Toolbar'
 import { TransposedBody } from './components/TransposedBody'
+import { WithTransposedWindows } from './components/transposedVirtualizer'
 import { DragProvider, type DropEdge } from './dragContext'
 import { resolveLayoutMode } from './layoutMode'
 import { usesFilterDrawer } from './responsive'
-import { transposedLayout } from './transpose'
+import { transposedLayout, type TransposedLayout, type TransposedPlan } from './transpose'
 import { cx, moveItem, toCssSize } from './utils'
 import { useDataTable } from './useDataTable'
 import type { DataTableInstance, DataTableOptions } from './types'
@@ -66,12 +67,12 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
    * Which way round the table is.
    *
    * Transposed, a column is a row and a record is a column — see `transpose.ts`
-   * — and the two things that read the axes most directly, the layout mode and
-   * the virtualizers, both decline rather than reinterpret it.
+   * — so the two things that read the axes most directly, the layout mode and
+   * the virtualizers, both have to be told which axis they are on.
    */
   const transposed = table.ui.transposed
   // Resolved here rather than inside the body, because the `<table>` is sized
-  // from the same numbers — see `transposedLayout`.
+  // and its `<colgroup>` written from the same numbers — see `transposedLayout`.
   const transposedLayoutData = transposed ? transposedLayout(table) : null
 
   // The render order is resolved here so the virtualizer and the body agree
@@ -88,13 +89,21 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
   // size themselves for the mode the table actually renders in.
   const layoutMode = resolveLayoutMode(options, transposed)
 
+  const singleHeaderRow = table.getHeaderGroups().length === 1
+
   /**
-   * Row virtualization needs the grid layout, which a transposed table declines
-   * — the window would have to run along the record axis, which is the one the
-   * browser's table algorithm is laying out. Reported on the root, so a table
-   * that asked for it can be told it did not get it.
+   * Both options still window the thing they name; transposed, that thing is on
+   * the other axis. Records run across there and columns run down, so the
+   * *record* window is the horizontal one and the *band* window the vertical
+   * one — the two virtualizers have swapped places, not stood down.
+   *
+   * Upright, both need one of the grid layout modes, since a window is held
+   * open by absolute positioning and by padding on a row, and the browser's
+   * table algorithm honours neither. Transposed the window is held open by
+   * spacers instead, which a real table understands — and which is what keeps
+   * the `rowSpan` that grouped headers and detail panels are built on.
    */
-  const virtualizeRows = (options.enableRowVirtualization ?? false) && !transposed
+  const virtualizeRows = options.enableRowVirtualization ?? false
 
   /**
    * Column virtualization needs two things the option alone cannot promise.
@@ -107,13 +116,16 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
    * with grouped headers renders all of its columns rather than a misaligned
    * subset.
    *
-   * Transposed it is declined for the first of those reasons, since the layout
-   * is always the semantic one there.
+   * Transposed only the second applies, and it applies twice over: a grouped
+   * header spans bands, and so does a detail panel — both are `rowSpan`s over
+   * the whole band order, and a window that dropped some of them would have no
+   * span left to give. The records are windowed either way.
    */
   const virtualizeColumns =
     (options.enableColumnVirtualization ?? false) &&
-    layoutMode !== 'semantic' &&
-    table.getHeaderGroups().length === 1
+    (transposed || layoutMode !== 'semantic') &&
+    singleHeaderRow &&
+    !(transposed && options.renderDetailPanel)
 
   const showTopToolbar = (options.enableToolbar ?? true) && (options.enableTopToolbar ?? true)
   const showBottomToolbar = (options.enableToolbar ?? true) && (options.enableBottomToolbar ?? true)
@@ -225,6 +237,8 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
   const renderScrollArea = (
     rowVirtualizer: RowVirtualizer | null,
     columnWindow: ColumnWindow | null,
+    transposedPlan: TransposedPlan<TData> | null,
+    measureBand?: (node: HTMLTableRowElement | null) => void,
   ) => (
     <div
       ref={containerRef}
@@ -240,13 +254,15 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
         // the automatic algorithm and sizes every column from its content,
         // which is exactly what the transposed layout is not allowed to do.
         style={
-          transposedLayoutData
-            ? { width: transposedLayoutData.width, ...options.tableProps?.style }
+          transposedPlan
+            ? { width: transposedPlan.width, ...options.tableProps?.style }
             : options.tableProps?.style
         }
         // Both counts follow the axes: transposed there is one row per column
         // and one column per record, and a reader told otherwise would be given
-        // the table's dimensions the wrong way round.
+        // the table's dimensions the wrong way round. Both are the *whole*
+        // table's, windowed or not — a window is not something a reader is
+        // meant to be told about.
         aria-rowcount={(transposed ? columnCount : table.getRowCount()) || undefined}
         aria-colcount={(transposed ? table.getRowCount() : columnCount) || undefined}
         aria-busy={showProgress || undefined}
@@ -255,8 +271,18 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
           <caption>{options.renderCaption?.({ table }) ?? options.caption}</caption>
         ) : null}
 
-        {transposedLayoutData ? (
-          <TransposedBody table={table} layout={transposedLayoutData} />
+        {transposedPlan ? (
+          <>
+            {/* Column widths, stated where the rows cannot state them: under a
+                band window the first row is a spacer, and `table-layout: fixed`
+                would take every column's width from that one wide cell. */}
+            <colgroup>
+              {transposedPlan.colWidths.map((width, index) => (
+                <col key={index} style={{ width }} />
+              ))}
+            </colgroup>
+            <TransposedBody table={table} plan={transposedPlan} measureBand={measureBand} />
+          </>
         ) : (
           <>
             {(options.enableTableHead ?? true) ? (
@@ -284,11 +310,27 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
   const renderBody = (columnWindow: ColumnWindow | null) =>
     virtualizeRows ? (
       <WithRowVirtualizer table={table} containerRef={containerRef} count={items.length}>
-        {(rowVirtualizer) => renderScrollArea(rowVirtualizer, columnWindow)}
+        {(rowVirtualizer) => renderScrollArea(rowVirtualizer, columnWindow, null)}
       </WithRowVirtualizer>
     ) : (
-      renderScrollArea(null, columnWindow)
+      renderScrollArea(null, columnWindow, null)
     )
+
+  /**
+   * Transposed, one component owns both windows: they share a container, and
+   * the plan they produce decides the `<colgroup>` as well as the body.
+   */
+  const renderTransposedBody = (layout: TransposedLayout<TData>) => (
+    <WithTransposedWindows
+      table={table}
+      containerRef={containerRef}
+      layout={layout}
+      virtualizeBands={virtualizeColumns}
+      virtualizeRecords={virtualizeRows}
+    >
+      {(plan, measureBand) => renderScrollArea(null, null, plan, measureBand)}
+    </WithTransposedWindows>
+  )
 
   return (
     <DragProvider
@@ -307,8 +349,8 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
         data-rtc-cell-selection={(options.enableCellSelection ?? false) ? 'true' : undefined}
         data-rtc-fullscreen={table.ui.isFullScreen ? 'true' : undefined}
         /* Report whether each option was honoured: column virtualization is
-           declined for a semantic layout or a grouped header, and both are
-           declined by a transposed table. */
+           declined for an upright semantic layout, and for a grouped header
+           whichever way round the table is. */
         data-rtc-row-virtual={virtualizeRows ? 'true' : undefined}
         data-rtc-column-virtual={virtualizeColumns ? 'true' : undefined}
         data-rtc-sticky-header={(options.enableStickyHeader ?? false) ? 'true' : undefined}
@@ -335,10 +377,12 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
             <DataTableFilterPanel table={table} className="rtc-filter-panel-docked" />
           ) : null}
 
-          {/* Both virtualizers are created above the container they measure and
+          {/* Every virtualizer is created above the container it measures and
               below `DragProvider`, whose state decides which columns the
               window is not allowed to drop. */}
-          {virtualizeColumns ? (
+          {transposedLayoutData ? (
+            renderTransposedBody(transposedLayoutData)
+          ) : virtualizeColumns ? (
             <WithColumnVirtualizer table={table} containerRef={containerRef}>
               {(columnWindow) => renderBody(columnWindow)}
             </WithColumnVirtualizer>

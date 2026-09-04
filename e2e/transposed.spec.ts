@@ -323,19 +323,6 @@ test.describe('transposed chrome', () => {
     await expect(root.locator('thead th')).toHaveCount(7)
   })
 
-  test('virtualization is declined, and says so', async ({ page }) => {
-    const root = await openStory(page, 'datatable-18-transposed--declines-virtualization')
-
-    await expect(root).toHaveAttribute('data-rtc-row-virtual', 'true')
-    await toolbarAction(root, 'toggle-transpose').click()
-
-    await expect(root).toHaveAttribute('data-rtc-transposed', 'true')
-    await expect(root).not.toHaveAttribute('data-rtc-row-virtual', 'true')
-    await expect(root).not.toHaveAttribute('data-rtc-column-virtual', 'true')
-    // Every record is in the DOM, which is the whole of what declining means.
-    await expect(band(root, 'firstName').locator('td.rtc-td')).toHaveCount(400)
-  })
-
   test('the empty state keeps the fields on screen', async ({ page }) => {
     const root = await openStory(page, 'datatable-18-transposed--states')
     const empty = page.locator('.rtc-root').nth(1)
@@ -352,5 +339,81 @@ test.describe('transposed chrome', () => {
     await expect(loading.locator('tbody[aria-busy="true"]')).toBeVisible()
     await expect(band(loading, 'firstName').locator('td.rtc-td')).toHaveCount(4)
     expect(root).toBeTruthy()
+  })
+})
+
+test.describe('transposed virtualization', () => {
+  /** What is mounted, and how big the table says it is. */
+  async function survey(root: Locator) {
+    return root.evaluate((element) => {
+      const container = element.querySelector('.rtc-container')!
+      const bands = [...element.querySelectorAll('tbody tr[data-rtc-column-id]')]
+      const first = bands[0]
+      return {
+        scrollWidth: container.scrollWidth,
+        scrollHeight: container.scrollHeight,
+        bands: bands.map((row) => row.getAttribute('data-rtc-column-id') ?? ''),
+        recordsPerBand: first ? first.querySelectorAll('td.rtc-td:not(.rtc-transposed-spacer)').length : 0,
+        cells: element.querySelectorAll('td.rtc-td:not(.rtc-transposed-spacer)').length,
+        // Every rendered band's label, and where it sits: the label column is
+        // never part of a window, and it stays stuck to the inline start.
+        labels: bands.map((row) =>
+          Math.round(
+            row.querySelector('th')!.getBoundingClientRect().left -
+              container.getBoundingClientRect().left,
+          ),
+        ),
+      }
+    })
+  }
+
+  test('both axes are windowed, and the table keeps its full size', async ({ page }) => {
+    const root = await openStory(page, 'datatable-18-transposed--virtualized')
+
+    await expect(root).toHaveAttribute('data-rtc-row-virtual', 'true')
+    await expect(root).toHaveAttribute('data-rtc-column-virtual', 'true')
+
+    const before = await survey(root)
+    // 5,000 records at 200px behind a 220px label column; 40 bands.
+    expect(before.scrollWidth).toBe(220 + 5000 * 200)
+    expect(before.bands.length).toBeLessThan(40)
+    expect(before.recordsPerBand).toBeLessThan(80)
+    // A window is the whole point: 40 × 5,000 is 200,000 cells unwindowed.
+    expect(before.cells).toBeLessThan(2000)
+  })
+
+  test('scrolling either way brings different items in', async ({ page }) => {
+    const root = await openStory(page, 'datatable-18-transposed--virtualized')
+    const before = await survey(root)
+
+    await scrollTable(root, 20_000, 400)
+    await expect.poll(async () => (await survey(root)).bands.at(-1)).not.toBe(before.bands.at(-1))
+
+    const after = await survey(root)
+    // Different bands and different records, and the table has not changed size
+    // underneath the scrollbar — the spacers stand in for exactly what is gone.
+    expect(after.bands).not.toEqual(before.bands)
+    expect(after.scrollWidth).toBe(before.scrollWidth)
+    expect(after.scrollHeight).toBe(before.scrollHeight)
+    // The pinned band is force-mounted, so it is still the first one.
+    expect(after.bands[0]).toBe('firstName')
+    // And every band on screen still has its label, at the inline start.
+    expect(after.labels.every((left) => left === 0)).toBe(true)
+  })
+
+  test('a grouped header declines the column window but not the record one', async ({ page }) => {
+    const root = await openStory(
+      page,
+      'datatable-18-transposed--grouped-headers-decline-the-column-window',
+    )
+
+    await expect(root).toHaveAttribute('data-rtc-row-virtual', 'true')
+    await expect(root).not.toHaveAttribute('data-rtc-column-virtual', 'true')
+
+    const survey_ = await survey(root)
+    // Every band is mounted; the records are not.
+    expect(survey_.bands.length).toBe(6)
+    expect(survey_.recordsPerBand).toBeLessThan(2000)
+    await expect(root.locator('th[rowspan="3"]').first()).toBeVisible()
   })
 })

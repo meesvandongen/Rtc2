@@ -524,19 +524,21 @@ export interface DataTableOptions<TData extends RowData> {
    * it acts on flipped, and the table stays one real `<table>` so grouped
    * headers, detail panels and sticky cells keep the browser's own semantics:
    *
-   * | Feature                | Upright              | Transposed             |
-   * | ---------------------- | -------------------- | ---------------------- |
-   * | Column headers         | a row across the top | a column down the side |
-   * | Column footers         | a row at the bottom  | a column at the end    |
-   * | `enableStickyHeader`   | header row sticks    | header column sticks   |
-   * | `enableStickyFooter`   | footer row sticks    | footer column sticks   |
-   * | Column pinning         | sticky start/end     | sticky top/bottom      |
-   * | Row pinning            | sticky top/bottom    | sticky start/end       |
-   * | Column drag / reorder  | horizontal           | vertical               |
-   * | Row drag / reorder     | vertical             | horizontal             |
-   * | `enableColumnResizing` | column width         | row height             |
-   * | Zebra striping         | alternate records    | alternate records      |
-   * | Detail panel           | a row under its row  | a column beside it     |
+   * | Feature                     | Upright              | Transposed             |
+   * | --------------------------- | -------------------- | ---------------------- |
+   * | Column headers              | a row across the top | a column down the side |
+   * | Column footers              | a row at the bottom  | a column at the end    |
+   * | `enableStickyHeader`        | header row sticks    | header column sticks   |
+   * | `enableStickyFooter`        | footer row sticks    | footer column sticks   |
+   * | Column pinning              | sticky start/end     | sticky top/bottom      |
+   * | Row pinning                 | sticky top/bottom    | sticky start/end       |
+   * | Column drag / reorder       | horizontal           | vertical               |
+   * | Row drag / reorder          | vertical             | horizontal             |
+   * | `enableColumnResizing`      | column width         | row height             |
+   * | `enableRowVirtualization`   | a vertical window    | a horizontal one       |
+   * | `enableColumnVirtualization`| a horizontal window  | a vertical one         |
+   * | Zebra striping              | alternate records    | alternate records      |
+   * | Detail panel                | a row under its row  | a column beside it     |
    *
    * Column and row sizing come from `--rtc-transposed-header-width` and
    * `--rtc-transposed-record-width` rather than from each column's `size`,
@@ -544,12 +546,21 @@ export interface DataTableOptions<TData extends RowData> {
    * along; `enableColumnResizing` writes the same `columnSizing` state, read as
    * a row height.
    *
-   * The one thing it declines is virtualization: both virtualizers window the
-   * axis they are named for, and neither is built against the axis it lands on
-   * once the table is flipped. `data-rtc-row-virtual` and
-   * `data-rtc-column-virtual` on the root report that the option was not
-   * honoured, the same way a semantic layout already declines column
-   * virtualization.
+   * Both virtualizers still window the thing they are named for, on whichever
+   * axis it now runs, and the window is held open by spacers rather than by
+   * taking anything out of flow — which is what lets a virtualized transposed
+   * table stay a real `<table>`. The label column is never part of a window:
+   * every band brings its own label, exactly as an upright `<thead>` stays put
+   * whichever rows are mounted. The column window is declined for a grouped
+   * header or a detail panel, both of which span the whole band order and have
+   * no span left to give when only some bands are rendered;
+   * `data-rtc-column-virtual` on the root reports it either way.
+   *
+   * `enableStickyHeader` defaults to *on* here. Upright the header row sits at
+   * the near edge of the axis the records run along, so scrolling across never
+   * takes it away; transposed the labels are at that edge, and without sticking
+   * them a scroll to the right leaves a screen of values with nothing saying
+   * what any of them are.
    *
    * Leave it unset to keep `enableTransposeToggle` live; setting it pins the
    * orientation the same way `density` does.

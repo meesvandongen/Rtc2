@@ -28,16 +28,33 @@ Both axes are sized by `--rtc-transposed-header-width` (`220px`) and
 `--rtc-transposed-record-width` (`200px`) rather than by each column's `size`,
 which measures an axis the transposed table no longer lays columns out along.
 
+Both virtualizers still window the thing they are named for, on whichever axis
+it now runs: `enableRowVirtualization` windows the records, which run across,
+and `enableColumnVirtualization` the columns, which run down. The window is held
+open by spacers rather than by taking anything out of flow, which is what lets a
+virtualized transposed table stay a real `<table>` — and so keep the `rowSpan`
+that grouped headers and detail panels are built on. Both of those decline the
+*column* window for the same reason they would have to: each spans the whole
+band order, and a window that dropped some of the bands would have no span left
+to give. The label column is never part of a window; every band brings its own
+label, exactly as an upright `<thead>` stays put whichever rows are mounted.
+
+`enableStickyHeader` defaults to **on** in a transposed table, where upright it
+is off. Upright the header row sits at the near edge of the axis the records run
+along, so scrolling across never takes it away; transposed the labels are at
+that edge, and without sticking them a scroll to the right leaves a screen of
+values with nothing saying what any of them are.
+
 The orientation is UI state, like `density`: seed it with
 `initialState.transposed`, observe it with `onTransposedChange`, drive it
 through `state`, or hand it to the reader with `enableTransposeToggle` — a
 toolbar button beside the density and full-screen ones. Passing the `transposed`
 option pins the orientation and removes the button, the same way `density` does.
 
-Virtualization is the one thing a transposed table declines: both virtualizers
-window the axis they are named for, and neither is built against the axis it
-lands on once the table is flipped. The root reports what was honoured:
-`data-rtc-column-virtual` as before, and a new `data-rtc-row-virtual` beside it
-for the other half.
+The root reports what each virtualizer was allowed to do: `data-rtc-column-virtual`
+as before, and a new `data-rtc-row-virtual` beside it for the other half.
+`layoutMode` is declined in a transposed table and reports `semantic` — the grid
+modes describe the axis it no longer lays columns out along, and it does not
+need them.
 
 New localization key: `toggleTranspose`. New registry icon name: `transpose`.

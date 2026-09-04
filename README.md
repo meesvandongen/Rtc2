@@ -70,10 +70,11 @@ and the readable one for a few records with a great many fields.
 ![A transposed table: field names down the left, one column per person](https://raw.githubusercontent.com/meesvandongen/Rtc2/main/docs/media/transposed.png)
 
 Nothing is switched off by it. Sorting, filters, pinning, grouping, detail
-panels, editing and the rest all keep working on the axis they now land on: a
-pinned column sticks to the top instead of the start, a detail panel opens
-beside its record instead of under its row, and `enableTransposeToggle` hands
-the flip to the reader.
+panels, editing, virtualization and the rest all keep working on the axis they
+now land on: a pinned column sticks to the top instead of the start, a detail
+panel opens beside its record instead of under its row, the row virtualizer's
+window runs across instead of down, and `enableTransposeToggle` hands the flip
+to the reader.
 
 ## Restyled by variables, not overrides
 
@@ -104,7 +105,7 @@ runs against all four.
 | **Filtering** | per column, global search, faceted options, multiple conditions with and/or |
 | **Selection** | rows, sub-rows, cells and cell ranges; checkbox, radio or switch |
 | **Columns** | reorder by drag, resize, pin, hide, group headers, footers |
-| **Orientation** | `transposed` — flip the axes so columns run down the side and each record runs across |
+| **Orientation** | `transposed` — flip the axes so columns run down the side and each record runs across; every feature turns with it |
 | **Grouping** | drag-to-group chips, multi-level, per-column aggregation |
 | **Rows** | expanding sub-rows, detail panels, pinning, drag reordering, row actions |
 | **Editing** | cell, row, table or modal, with five editor variants |

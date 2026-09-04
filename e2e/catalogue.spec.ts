@@ -48,12 +48,29 @@ async function renderFailure(page: Page, entry: IndexEntry): Promise<string | un
       .first()
       .waitFor({ state: 'attached', timeout: 15_000 })
       .catch(() => undefined)
-    const failure = await page.evaluate((selector) => {
-      if (document.body.classList.contains('sb-show-errordisplay'))
-        return document.querySelector('#error-message')?.textContent?.trim() || 'error display shown'
-      if ((document.querySelector(selector)?.childElementCount ?? 0) === 0) return 'nothing rendered'
-      return undefined
-    }, mount)
+    const probe = () =>
+      page.evaluate((selector) => {
+        if (document.body.classList.contains('sb-show-errordisplay'))
+          return (
+            document.querySelector('#error-message')?.textContent?.trim() || 'error display shown'
+          )
+        if ((document.querySelector(selector)?.childElementCount ?? 0) === 0) return 'nothing rendered'
+        return undefined
+      }, mount)
+
+    // Storybook navigates the iframe again after `load` often enough to catch
+    // this mid-flight, and a probe interrupted that way reports nothing about
+    // the page — only that the harness raced itself. Waiting for the document
+    // it navigated to and asking again is the answer; a page that is genuinely
+    // broken is still broken on the second look.
+    let failure: string | undefined
+    try {
+      failure = await probe()
+    } catch (error) {
+      if (!String(error).includes('Execution context was destroyed')) throw error
+      await page.waitForLoadState('load')
+      failure = await probe()
+    }
     return failure ?? errors[0]
   } finally {
     page.removeAllListeners('pageerror')

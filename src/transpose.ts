@@ -210,6 +210,20 @@ export interface TransposedLayout<TData extends RowData> {
   width: string
   /** Custom properties the pinned-record offsets are counted from. */
   blockVars: Record<string, string>
+  /**
+   * The height each band was resized to, by band position, or `undefined` for
+   * one still at the density's row height. Read by the windows, which count in
+   * pixels, and by the body, which sets it on the row.
+   */
+  bandSizes: Array<number | undefined>
+  /** Bands pinned to the top, which are the first of the order. */
+  pinnedBands: number
+  /** …and to the bottom, which are the last. */
+  pinnedBandsEnd: number
+  /** Records pinned to the inline start, which are the first of the order. */
+  pinnedRecords: number
+  /** …and to the inline end, which are the last. */
+  pinnedRecordsEnd: number
 }
 
 export function transposedLayout<TData extends RowData>(
@@ -276,8 +290,19 @@ export function transposedLayout<TData extends RowData>(
     .map(([count, name]) => `var(${name}) * ${count}`)
     .join(' + ')
 
-  const stickyHead = showHead && (options.enableStickyHeader ?? false)
+  // The label block sticks by default, which upright it does not. Upright the
+  // header row is the near edge of the axis the records run along, so scrolling
+  // *across* never takes it away — every column you can see brings its own
+  // header with it. Transposed, the labels are at the near edge of the axis the
+  // records run along, and without this a scroll to the right leaves a screen
+  // of values with nothing saying what any of them are.
+  const stickyHead = showHead && (options.enableStickyHeader ?? true)
   const stickyFoot = showFoot && (options.enableStickyFooter ?? false)
+
+  const pinningColumns = options.enableColumnPinning ?? false
+  const bandSizes = bands.map(
+    (leaf) => table.state.columnSizing[leaf.column.id] as number | undefined,
+  )
 
   return {
     mode,
@@ -292,6 +317,11 @@ export function transposedLayout<TData extends RowData>(
     recordColumns,
     skeletonCount,
     columnCount,
+    bandSizes,
+    pinnedBands: pinningColumns ? table.getStartVisibleLeafColumns().length : 0,
+    pinnedBandsEnd: pinningColumns ? table.getEndVisibleLeafColumns().length : 0,
+    pinnedRecords: records.filter((record) => record.pinned === 'start').length,
+    pinnedRecordsEnd: records.filter((record) => record.pinned === 'end').length,
     // The empty and error states have no width of their own to state: their one
     // cell fills whatever is left, so the container sizes the table instead.
     width: recordCount > 0 && sum ? `calc(${sum})` : '100%',
@@ -307,6 +337,197 @@ export function transposedLayout<TData extends RowData>(
         : '0px',
     },
   }
+}
+
+/**
+ * A window over the records, which run across.
+ *
+ * Produced by the virtualizers in `transposedVirtualizer.ts`; `null` means the
+ * axis is not windowed and everything on it is rendered. It carries indexes
+ * only: a record column is exactly one `--rtc-transposed-record-width`, since
+ * the `<colgroup>` says so, and the extent a spacer has to hold open is
+ * therefore that same length times the records it stands in for.
+ */
+export interface TransposedWindow {
+  /** Positions in the full order, ascending, force-mounted pins included. */
+  indexes: number[]
+}
+
+/**
+ * A window over the bands, which run down.
+ *
+ * A band's *height* is not fixed the way a record's width is — a label cell
+ * holding a button is as tall as the button — so the spacers come from the
+ * virtualizer's own measured offsets rather than from a sum of custom
+ * properties. Measuring is what makes the scroll extent hold still: heights
+ * computed as `--rtc-row-height` times a count were out by a couple of pixels
+ * over forty bands, and a scroll extent that changes as you scroll is a
+ * scrollbar that will not settle.
+ */
+export interface TransposedBandWindow extends TransposedWindow {
+  /** Height of the run before the first free band, in pixels. */
+  leading: number
+  trailing: number
+}
+
+/** One axis of the render order, with the runs it is standing in for. */
+export interface TransposedAxisPlan {
+  /** Positions to render, ascending. */
+  indexes: number[]
+  /** Entries of `indexes` that come before the leading spacer. */
+  pinnedStart: number
+  /** Entries of `indexes` that come after the trailing spacer. */
+  pinnedEnd: number
+  /** Extent of the run the leading spacer stands in for, as CSS, or null. */
+  leading: string | null
+  trailing: string | null
+}
+
+/**
+ * What the transposed body renders, once the windows have had their say.
+ *
+ * A windowed axis is drawn with spacers rather than by taking its items out of
+ * flow: a spacer cell holds open the width of the records it skipped, a spacer
+ * row the height of the bands. That is what lets the table stay a real
+ * `<table>` while being virtualized — absolute positioning is what forces the
+ * upright virtualizers into the grid layout, and with it out of `rowSpan`, out
+ * of grouped headers and out of detail panels.
+ *
+ * A record spacer is stated rather than measured: the `<colgroup>` gives every
+ * record column exactly one `--rtc-transposed-record-width`, so the extent of
+ * the ones left out is that same length times how many there were, and the
+ * column widths and the table's own width cannot drift apart. A band spacer
+ * cannot be, because a band's height is whatever its tallest cell makes it, so
+ * that one comes from the virtualizer's measured offsets. See
+ * `TransposedBandWindow`.
+ */
+export interface TransposedPlan<TData extends RowData> extends TransposedLayout<TData> {
+  bandPlan: TransposedAxisPlan
+  recordPlan: TransposedAxisPlan
+  /** One width per rendered column, in order: the table's `<colgroup>`. */
+  colWidths: string[]
+  /** Columns actually in the DOM, which is what a spacer row has to span. */
+  domColumnCount: number
+}
+
+/** The whole axis, unwindowed. */
+function wholeAxis(count: number): TransposedAxisPlan {
+  return {
+    indexes: Array.from({ length: count }, (_, index) => index),
+    pinnedStart: 0,
+    pinnedEnd: 0,
+    leading: null,
+    trailing: null,
+  }
+}
+
+/**
+ * The runs a window left out, as the positions they occupy.
+ *
+ * Pinned items sit at the two ends of the order — column pinning puts them
+ * there, and `transposedRecords` lifts pinned rows there — so a window is
+ * always `[start pins…, one contiguous run, …end pins]` and what it skipped is
+ * the two gaps either side of that run.
+ */
+function skippedRuns(
+  indexes: number[],
+  count: number,
+  pinnedStart: number,
+  pinnedEnd: number,
+): { before: number[]; after: number[] } {
+  const range = (from: number, to: number) =>
+    from < to ? Array.from({ length: to - from }, (_, offset) => from + offset) : []
+
+  const free = indexes.slice(pinnedStart, indexes.length - pinnedEnd)
+  // Nothing free is mounted at all — the whole middle is one gap.
+  if (free.length === 0) return { before: range(pinnedStart, count - pinnedEnd), after: [] }
+  return {
+    before: range(pinnedStart, free[0]!),
+    after: range(free[free.length - 1]! + 1, count - pinnedEnd),
+  }
+}
+
+/** Total width of a run of records, the columns their panels occupy included. */
+function recordExtent<TData extends RowData>(
+  indexes: number[],
+  records: Array<TransposedRecord<TData>>,
+): string {
+  const panels = indexes.filter((index) => records[index]?.hasDetail).length
+  const terms: string[] = []
+  if (indexes.length > 0) terms.push(`var(--rtc-transposed-record-width) * ${indexes.length}`)
+  if (panels > 0) terms.push(`var(--rtc-transposed-detail-width) * ${panels}`)
+  return terms.length > 0 ? `calc(${terms.join(' + ')})` : '0px'
+}
+
+export function transposedPlan<TData extends RowData>(
+  layout: TransposedLayout<TData>,
+  bandWindow: TransposedBandWindow | null,
+  recordWindow: TransposedWindow | null,
+): TransposedPlan<TData> {
+  const bandCount = layout.bands.length
+  const recordCount = layout.records.length
+
+  // Only the record body is ever windowed: the empty, loading and error states
+  // are a handful of cells whichever way round the table is.
+  const windowed = layout.mode === 'records'
+
+  let bandPlan = wholeAxis(bandCount)
+  if (windowed && bandWindow) {
+    bandPlan = {
+      indexes: bandWindow.indexes,
+      pinnedStart: layout.pinnedBands,
+      pinnedEnd: layout.pinnedBandsEnd,
+      leading: bandWindow.leading > 0 ? `${bandWindow.leading}px` : null,
+      trailing: bandWindow.trailing > 0 ? `${bandWindow.trailing}px` : null,
+    }
+  }
+
+  let recordPlan = wholeAxis(recordCount)
+  if (windowed && recordWindow) {
+    const { pinnedRecords, pinnedRecordsEnd, records } = layout
+    const runs = skippedRuns(recordWindow.indexes, recordCount, pinnedRecords, pinnedRecordsEnd)
+    recordPlan = {
+      indexes: recordWindow.indexes,
+      pinnedStart: pinnedRecords,
+      pinnedEnd: pinnedRecordsEnd,
+      leading: runs.before.length > 0 ? recordExtent(runs.before, records) : null,
+      trailing: runs.after.length > 0 ? recordExtent(runs.after, records) : null,
+    }
+  }
+
+  // The `<colgroup>`. With `table-layout: fixed` a table takes its widths from
+  // its first row unless there is one of these, and under a band window the
+  // first row is a spacer — one wide cell that would then decide every column.
+  const label = 'var(--rtc-transposed-header-width)'
+  const colWidths: string[] = []
+  for (let level = 0; level < layout.headerLevels; level++) colWidths.push(label)
+
+  const recordCols = (indexes: number[]) => {
+    for (const index of indexes) {
+      colWidths.push('var(--rtc-transposed-record-width)')
+      if (layout.records[index]?.hasDetail) colWidths.push('var(--rtc-transposed-detail-width)')
+    }
+  }
+  if (layout.mode === 'records') {
+    const { indexes, pinnedStart, pinnedEnd, leading, trailing } = recordPlan
+    recordCols(indexes.slice(0, pinnedStart))
+    if (leading) colWidths.push(leading)
+    recordCols(indexes.slice(pinnedStart, indexes.length - pinnedEnd))
+    if (trailing) colWidths.push(trailing)
+    recordCols(indexes.slice(indexes.length - pinnedEnd))
+  } else if (layout.mode === 'loading') {
+    for (let index = 0; index < layout.skeletonCount; index++) {
+      colWidths.push('var(--rtc-transposed-record-width)')
+    }
+  } else {
+    // The empty and error states have one cell where the records would be, and
+    // it takes whatever is left over.
+    colWidths.push('auto')
+  }
+
+  for (let level = 0; level < layout.footerLevels; level++) colWidths.push(label)
+
+  return { ...layout, bandPlan, recordPlan, colWidths, domColumnCount: colWidths.length }
 }
 
 /**

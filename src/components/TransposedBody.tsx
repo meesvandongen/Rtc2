@@ -5,7 +5,7 @@ import { BodyCell, type TransposedRecordState } from './BodyCell'
 import { getCellLayoutProps, HeaderCell } from './HeaderCell'
 import { useComponents } from './registry'
 import { useDrag } from '../dragContext'
-import { bandPinOffset, labelPinOffset, recordPinOffset, type TransposedLayout } from '../transpose'
+import { bandPinOffset, labelPinOffset, recordPinOffset, type TransposedPlan } from '../transpose'
 import { cx } from '../utils'
 import type { DataTableColumnInstance, DataTableInstance } from '../types'
 
@@ -28,11 +28,14 @@ import type { DataTableColumnInstance, DataTableInstance } from '../types'
  */
 export function TransposedBody<TData extends RowData>({
   table,
-  layout,
+  plan,
+  measureBand,
 }: {
   table: DataTableInstance<TData>
   /** Resolved by the shell, which sizes the `<table>` from the same numbers. */
-  layout: TransposedLayout<TData>
+  plan: TransposedPlan<TData>
+  /** The band virtualizer's measurement hook; a no-op when it is not running. */
+  measureBand?: (node: HTMLTableRowElement | null) => void
 }) {
   const ui = useComponents()
   const drag = useDrag()
@@ -50,12 +53,20 @@ export function TransposedBody<TData extends RowData>({
     records,
     recordColumns,
     columnCount,
+    domColumnCount,
     blockVars,
-  } = layout
+    bandPlan,
+    recordPlan,
+    bandSizes,
+  } = plan
   const bandCount = bands.length
 
   const bandPins = resolveBandPins(table)
-  const cellsByRecord = records.map((record) => record.row.getVisibleCells())
+  // Only the records actually rendered: with a window over a large table this
+  // is a handful of them, and `getVisibleCells` is not free.
+  const cellsByRecord = new Map(
+    recordPlan.indexes.map((index) => [index, records[index]!.row.getVisibleCells()]),
+  )
 
   const headCells = (band: number) =>
     headers?.byBand[band]?.map((entry) => (
@@ -113,19 +124,23 @@ export function TransposedBody<TData extends RowData>({
     // `columnSizing` is a width upright and a band height here; only an explicit
     // entry counts, so an untouched band keeps the height its density gives it
     // rather than inheriting a column's declared `size` as a height.
-    const size = table.state.columnSizing[column.id]
+    const size = bandSizes[index]
     const isDropTarget =
       drag.kind === 'column' && drag.overId === column.id && drag.activeId !== column.id
 
     return (
       <tr
         key={leaf.id}
+        ref={measureBand}
         className={cx('rtc-tr', options.classNames?.bodyRow)}
         style={{
           ...(size ? { height: size } : {}),
           ...(pin ? ({ '--rtc-pinned-row-offset': pin.offset } as React.CSSProperties) : {}),
         }}
         aria-rowindex={index + 1}
+        // Read by `virtualizer.measureElement`, which is what keeps the band
+        // spacers honest about heights it cannot compute.
+        data-index={index}
         data-rtc-column-id={column.id}
         data-rtc-row-pinned={pin?.edge}
         data-rtc-dragging={
@@ -141,12 +156,39 @@ export function TransposedBody<TData extends RowData>({
     )
   }
 
+  /**
+   * Bands, with a spacer row standing in for each run the window left out.
+   *
+   * A spacer is one cell as wide as the table and as tall as the bands it
+   * replaced, so the rows around it land exactly where they would have with the
+   * whole table in the DOM — and, unlike taking rows out of flow, it leaves
+   * `rowSpan` alone.
+   */
+  const bandRows = (children: (index: number) => React.ReactNode) => {
+    const { indexes, pinnedStart, pinnedEnd, leading, trailing } = bandPlan
+    const spacer = (edge: string, size: string) => (
+      <tr key={`spacer-${edge}`} className="rtc-tr rtc-transposed-spacer" aria-hidden="true">
+        <td className="rtc-td" colSpan={Math.max(1, domColumnCount)} style={{ height: size }} />
+      </tr>
+    )
+    const run = (from: number, to: number) =>
+      indexes.slice(from, to).map((index) => band(index, children(index)))
+
+    return [
+      ...run(0, pinnedStart),
+      ...(leading ? [spacer('leading', leading)] : []),
+      ...run(pinnedStart, indexes.length - pinnedEnd),
+      ...(trailing ? [spacer('trailing', trailing)] : []),
+      ...run(indexes.length - pinnedEnd, indexes.length),
+    ]
+  }
+
   const bodyProps = {
     className: cx('rtc-tbody', options.classNames?.body),
     style: blockVars as React.CSSProperties,
   }
 
-  if (layout.mode === 'error') {
+  if (plan.mode === 'error') {
     return (
       <tbody {...bodyProps}>
         <tr className="rtc-tr">
@@ -163,27 +205,24 @@ export function TransposedBody<TData extends RowData>({
   // A placeholder record is a placeholder *column*, so `skeletonRowCount` reads
   // across rather than down — it still means "how many records are being stood
   // in for", which is the number that matters.
-  if (layout.mode === 'loading') {
+  if (plan.mode === 'loading') {
     return (
       <tbody {...bodyProps} aria-busy="true">
-        {bands.map((_, index) =>
-          band(
-            index,
-            Array.from({ length: layout.skeletonCount }, (_, record) => (
-              <td className="rtc-td" key={record}>
-                <ui.Skeleton width={`${50 + ((index * 7 + record * 13) % 45)}%`} />
-              </td>
-            )),
-          ),
+        {bandRows((index) =>
+          Array.from({ length: plan.skeletonCount }, (_, record) => (
+            <td className="rtc-td" key={record}>
+              <ui.Skeleton width={`${50 + ((index * 7 + record * 13) % 45)}%`} />
+            </td>
+          )),
         )}
         <tr className="rtc-visually-hidden">
-          <td colSpan={Math.max(1, columnCount)}>{localization.loading}</td>
+          <td colSpan={Math.max(1, domColumnCount)}>{localization.loading}</td>
         </tr>
       </tbody>
     )
   }
 
-  if (layout.mode === 'empty') {
+  if (plan.mode === 'empty') {
     const message = options.renderEmptyState?.({ table }) ?? (
       <div className="rtc-empty">
         {table.getPreFilteredRowModel().rows.length > 0
@@ -199,7 +238,7 @@ export function TransposedBody<TData extends RowData>({
       return (
         <tbody {...bodyProps}>
           <tr className="rtc-tr">
-            <td className="rtc-td rtc-transposed-empty" colSpan={Math.max(1, columnCount)}>
+            <td className="rtc-td rtc-transposed-empty" colSpan={Math.max(1, domColumnCount)}>
               {message}
             </td>
           </tr>
@@ -222,63 +261,83 @@ export function TransposedBody<TData extends RowData>({
     )
   }
 
-  return (
-    <tbody {...bodyProps}>
-      {bands.map((_, index) =>
-        band(
-          index,
-          records.map((record, position) => {
-            const cell = cellsByRecord[position]?.[index]
-            if (!cell) return null
-            const row = record.row
-            const state: TransposedRecordState = {
-              parity: record.index % 2 === 0 ? 'odd' : 'even',
-              selected: !!table.state.rowSelection[row.id],
-              pinned: record.pinned,
-              ...(record.pinned
-                ? { pinOffset: recordPinOffset(record.pinIndex, record.pinned) }
-                : {}),
-              pinEdge: record.pinEdge,
-              clickable: !!options.enableClickToSelect && row.getCanSelect(),
-              dragging: drag.kind === 'row' && drag.activeId === row.id,
-              ...(drag.kind === 'row' && drag.overId === row.id && drag.activeId !== row.id
-                ? { dropEdge: drag.overEdge }
-                : {}),
-              // `rowProps` describes a record, and a record here is a column:
-              // the closest thing to "the row's element" is every cell of it.
-              // The cast is the element type in the slot's own signature, which
-              // names the `<tr>` a transposed record does not have.
-              attributes: options.rowProps?.({ table, row }) as
-                | React.HTMLAttributes<HTMLTableCellElement>
-                | undefined,
-            }
-            return (
-              <Fragment key={row.id}>
-                <BodyCell
-                  table={table}
-                  row={row}
-                  cell={cell as never}
-                  columnIndex={recordColumns[position]!}
-                  record={state}
-                />
-                {index === 0 && record.hasDetail ? (
-                  <td
-                    className="rtc-td rtc-detail-cell"
-                    rowSpan={bandCount}
-                    data-rtc-detail-for={row.id}
-                  >
-                    <div className="rtc-detail-content">
-                      {options.renderDetailPanel?.({ table, row })}
-                    </div>
-                  </td>
-                ) : null}
-              </Fragment>
-            )
-          }),
-        ),
-      )}
-    </tbody>
-  )
+  // A detail panel is a column spanning every band, which is why a table with
+  // one declines the band window — the shell says so, so these two are the
+  // whole band order and the first of it. Written from the plan rather than
+  // assumed, so they stay right if that ever stops being true.
+  const leadBand = bandPlan.indexes[0]
+  const detailSpan =
+    bandPlan.indexes.length + (bandPlan.leading ? 1 : 0) + (bandPlan.trailing ? 1 : 0)
+
+  const recordCell = (position: number, index: number) => {
+    const record = records[position]
+    const cell = cellsByRecord.get(position)?.[index]
+    if (!record || !cell) return null
+    const row = record.row
+    const state: TransposedRecordState = {
+      parity: record.index % 2 === 0 ? 'odd' : 'even',
+      selected: !!table.state.rowSelection[row.id],
+      pinned: record.pinned,
+      ...(record.pinned ? { pinOffset: recordPinOffset(record.pinIndex, record.pinned) } : {}),
+      pinEdge: record.pinEdge,
+      clickable: !!options.enableClickToSelect && row.getCanSelect(),
+      dragging: drag.kind === 'row' && drag.activeId === row.id,
+      ...(drag.kind === 'row' && drag.overId === row.id && drag.activeId !== row.id
+        ? { dropEdge: drag.overEdge }
+        : {}),
+      // `rowProps` describes a record, and a record here is a column: the
+      // closest thing to "the row's element" is every cell of it. The cast is
+      // the element type in the slot's own signature, which names the `<tr>` a
+      // transposed record does not have.
+      attributes: options.rowProps?.({ table, row }) as
+        | React.HTMLAttributes<HTMLTableCellElement>
+        | undefined,
+    }
+    return (
+      <Fragment key={row.id}>
+        <BodyCell
+          table={table}
+          row={row}
+          cell={cell as never}
+          columnIndex={recordColumns[position]!}
+          record={state}
+        />
+        {index === leadBand && record.hasDetail ? (
+          <td className="rtc-td rtc-detail-cell" rowSpan={detailSpan} data-rtc-detail-for={row.id}>
+            <div className="rtc-detail-content">{options.renderDetailPanel?.({ table, row })}</div>
+          </td>
+        ) : null}
+      </Fragment>
+    )
+  }
+
+  /**
+   * A band's record cells, with a spacer holding open each run the window left
+   * out — the same trick as the spacer rows, along the other axis.
+   */
+  const recordCells = (index: number) => {
+    const { indexes, pinnedStart, pinnedEnd, leading, trailing } = recordPlan
+    const spacer = (edge: string, size: string) => (
+      <td
+        key={`spacer-${edge}`}
+        className="rtc-td rtc-transposed-spacer"
+        aria-hidden="true"
+        style={{ width: size }}
+      />
+    )
+    const run = (from: number, to: number) =>
+      indexes.slice(from, to).map((position) => recordCell(position, index))
+
+    return [
+      ...run(0, pinnedStart),
+      ...(leading ? [spacer('leading', leading)] : []),
+      ...run(pinnedStart, indexes.length - pinnedEnd),
+      ...(trailing ? [spacer('trailing', trailing)] : []),
+      ...run(indexes.length - pinnedEnd, indexes.length),
+    ]
+  }
+
+  return <tbody {...bodyProps}>{bandRows(recordCells)}</tbody>
 }
 
 /**

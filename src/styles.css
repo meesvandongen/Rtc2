@@ -2344,6 +2344,24 @@
   text-align: center;
 }
 
+/* What a window leaves out is held open by a spacer rather than by taking the
+   rows out of flow — which is what lets a transposed table be virtualized while
+   staying a real `<table>`, `rowSpan` and all. A spacer stands for cells that
+   are not there, so it draws nothing: no padding, no border, no background, and
+   none of the row states below. `height: 0` on the row hands the height to the
+   cell, which carries the exact extent of the run it replaced. */
+.rtc-root[data-rtc-transposed="true"] tr.rtc-transposed-spacer {
+  height: 0;
+  background: none;
+}
+
+.rtc-root[data-rtc-transposed="true"] .rtc-transposed-spacer,
+.rtc-root[data-rtc-transposed="true"] tr.rtc-transposed-spacer > .rtc-td {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
 /* Zebra striping, selection and hover all belong to a record, and a record is a
    column here: what the upright table states once on the `<tr>` has to be
    carried by every cell of it. Hovering still highlights the band, which is the
@@ -2360,7 +2378,10 @@
   background: var(--rtc-row-bg-selected);
 }
 
-.rtc-root[data-rtc-transposed="true"][data-rtc-hover="true"] .rtc-tbody .rtc-tr:hover .rtc-td {
+.rtc-root[data-rtc-transposed="true"][data-rtc-hover="true"]
+  .rtc-tbody
+  .rtc-tr:not(.rtc-transposed-spacer):hover
+  .rtc-td:not(.rtc-transposed-spacer) {
   background: var(--rtc-row-bg-hover);
 }
 
