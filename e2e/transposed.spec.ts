@@ -253,6 +253,37 @@ test.describe('transposed pinning', () => {
     expect(geometry.topRecord).toBe('firstName')
   })
 
+  /**
+   * Anything stuck is opaque, hovered or not.
+   *
+   * Every row state the table paints — the stripe, the selection, the hover
+   * tint — is a translucent colour, and painting one *instead of* a stuck
+   * cell's own background let the rows it is stuck over show straight through
+   * it: on a hovered bottom-pinned band that came out as two rows of text
+   * printed on top of each other.
+   */
+  test('a pinned cell stays opaque while it is hovered', async ({ page }) => {
+    const root = await openStory(page, 'datatable-18-transposed--pinning')
+
+    const opacity = (cell: Locator) =>
+      cell.evaluate((element) => {
+        const colour = getComputedStyle(element).backgroundColor
+        const alpha = colour.startsWith('rgba') ? Number(colour.split(',')[3]) : 1
+        return { colour, alpha }
+      })
+
+    for (const [what, cell] of [
+      ['a pinned band', root.locator('tr[data-rtc-row-pinned="bottom"] td.rtc-td').first()],
+      ['a pinned record', root.locator('td[data-rtc-pinned="start"]').first()],
+    ] as const) {
+      expect((await opacity(cell)).alpha, `${what}, at rest`).toBe(1)
+      await cell.hover()
+      await expect.poll(async () => (await opacity(cell)).alpha, { message: `${what}, hovered` }).toBe(1)
+      // The hover is still shown — as a layer over that opaque colour.
+      await expect(cell).toHaveCSS('background-image', /linear-gradient/)
+    }
+  })
+
   test('the column menu offers the direction the table will pin in', async ({ page }) => {
     const root = await openStory(page, 'datatable-18-transposed--every-feature')
 

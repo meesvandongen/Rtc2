@@ -2363,53 +2363,64 @@
 }
 
 /* Zebra striping, selection and hover all belong to a record, and a record is a
-   column here: what the upright table states once on the `<tr>` has to be
-   carried by every cell of it. Hovering still highlights the band, which is the
-   line a reader is following across the records. */
-.rtc-root[data-rtc-transposed="true"][data-rtc-stripes="true"] .rtc-td[data-rtc-parity="odd"] {
-  background: var(--rtc-row-bg-odd);
+ * column here: what the upright table states once on the `<tr>` has to be
+ * carried by every cell of it. Hovering still highlights the band, which is the
+ * line a reader is following across the records.
+ *
+ * Every one of them is painted as a background *image* over whatever colour the
+ * cell already has, never as a `background` that replaces it — the same
+ * two-layer trick `.rtc-th` uses, and here for the same reason. All four
+ * colours are translucent, and some of these cells are stuck: a pinned record,
+ * a pinned band. Replacing the colour of one of those with a 4%-alpha tint let
+ * the rows it is stuck over show straight through it, which on a hovered
+ * bottom-pinned band read as two rows of text printed on top of each other.
+ *
+ * Keeping the two properties apart is also what keeps this out of a specificity
+ * argument with the pinning rules below: the states own `background-image`, the
+ * pins own `background-color`, and neither can take the other's away. */
+.rtc-root[data-rtc-transposed="true"][data-rtc-stripes="true"]
+  .rtc-tbody
+  .rtc-td[data-rtc-parity="odd"] {
+  background-image: linear-gradient(var(--rtc-row-bg-odd), var(--rtc-row-bg-odd));
 }
 
-.rtc-root[data-rtc-transposed="true"][data-rtc-stripes="true"] .rtc-td[data-rtc-parity="even"] {
-  background: var(--rtc-row-bg-even);
+.rtc-root[data-rtc-transposed="true"][data-rtc-stripes="true"]
+  .rtc-tbody
+  .rtc-td[data-rtc-parity="even"] {
+  background-image: linear-gradient(var(--rtc-row-bg-even), var(--rtc-row-bg-even));
 }
 
-.rtc-root[data-rtc-transposed="true"] .rtc-td[data-rtc-selected="true"] {
-  background: var(--rtc-row-bg-selected);
+/* `.rtc-tr` earns this one the specificity to beat the stripe above it, which
+   carries an extra attribute for `data-rtc-stripes`: a selected record has to
+   read as selected whether or not the table is striped. */
+.rtc-root[data-rtc-transposed="true"] .rtc-tbody .rtc-tr .rtc-td[data-rtc-selected="true"] {
+  background-image: linear-gradient(var(--rtc-row-bg-selected), var(--rtc-row-bg-selected));
 }
 
 .rtc-root[data-rtc-transposed="true"][data-rtc-hover="true"]
   .rtc-tbody
   .rtc-tr:not(.rtc-transposed-spacer):hover
   .rtc-td:not(.rtc-transposed-spacer) {
-  background: var(--rtc-row-bg-hover);
+  background-image: linear-gradient(var(--rtc-row-bg-hover), var(--rtc-row-bg-hover));
 }
 
 .rtc-root[data-rtc-transposed="true"][data-rtc-hover="true"]
   .rtc-tbody
-  .rtc-tr:hover
+  .rtc-tr:not(.rtc-transposed-spacer):hover
   .rtc-td[data-rtc-selected="true"] {
-  background: var(--rtc-row-bg-selected-hover);
+  background-image: linear-gradient(
+    var(--rtc-row-bg-selected-hover),
+    var(--rtc-row-bg-selected-hover)
+  );
 }
 
-/* Re-asserted after the states above, in the order the upright rules take them:
-   a pinned cell is opaque or it is not pinned, and a stripe declared later in
-   the file would have taken that away. */
-.rtc-root[data-rtc-transposed="true"] .rtc-td[data-rtc-pinned] {
-  /* `--rtc-row-bg-pinned` rather than the surface an upright pinned *column*
-     takes: these cells are a pinned row, and a theme that marks pinned rows
-     should keep marking them when they stand on end. */
-  background-color: var(--rtc-row-bg-pinned);
-  background-image: none;
-}
-
-.rtc-root[data-rtc-transposed="true"] .rtc-td[data-rtc-pinned][data-rtc-selected="true"] {
-  background-color: color-mix(in srgb, var(--rtc-row-bg-selected), var(--rtc-color-surface));
-}
-
+/* The opaque base every stuck cell needs, under whichever state was painted
+   above. `--rtc-row-bg-pinned` rather than the surface an upright pinned
+   *column* takes: these are a pinned row, and a theme that marks pinned rows
+   should keep marking them when they stand on end. */
+.rtc-root[data-rtc-transposed="true"] .rtc-td[data-rtc-pinned],
 .rtc-root[data-rtc-transposed="true"] .rtc-tr[data-rtc-row-pinned] .rtc-td {
   background-color: var(--rtc-row-bg-pinned);
-  background-image: none;
 }
 
 /* A pinned band has to outrank the label block that runs through it. The label
