@@ -101,10 +101,28 @@ function rowPinItems<TData extends RowData>(
 
   const pinned = row.getIsPinned()
   const mode = table.dataTableOptions.rowPinningDisplayMode ?? 'sticky'
-  // `top`/`bottom` lift pinned rows into a section of their own, so offering
-  // the direction the table has no section for would pin a row out of sight.
-  const canTop = mode !== 'bottom'
-  const canBottom = mode !== 'top'
+
+  // A sticky row keeps its place and is held against both edges, so there is no
+  // direction to choose: one entry pins and unpins. (The pinning state still
+  // takes a side — `top`, arbitrarily — because that is the shape TanStack
+  // stores, and it decides only where a row a filter has dropped is put back.)
+  if (mode === 'sticky') {
+    return [
+      {
+        id: 'rtc-pin',
+        label: pinned ? localization.unpin : localization.pin,
+        icon: <ui.Icon name={pinned ? 'pinOff' : 'pin'} />,
+        active: !!pinned,
+        onSelect: () => row.pin(pinned ? false : 'top'),
+      },
+    ]
+  }
+
+  // `top`/`bottom` name the one direction that table pins in, so the other is
+  // not offered — except to a row already pinned to it, from `initialState` or
+  // from `row.pin()`, which would otherwise have no way back.
+  const canTop = mode !== 'bottom' || pinned === 'top'
+  const canBottom = mode !== 'top' || pinned === 'bottom'
 
   // A pinned row sticks to the top or bottom upright, and to the start or end
   // of the record axis once it *is* a column. Same state, same command, and the

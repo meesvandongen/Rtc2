@@ -67,6 +67,7 @@ export interface DataTableLocalization {
   of: string
   pagination: string
   or: string
+  pin: string
   pinToEnd: string
   pinToStart: string
   pinToTop: string
@@ -193,6 +194,7 @@ export const defaultLocalization: DataTableLocalization = {
   of: 'of',
   pagination: 'Pagination',
   or: 'or',
+  pin: 'Pin',
   pinToEnd: 'Pin to end',
   pinToStart: 'Pin to start',
   pinToTop: 'Pin to top',

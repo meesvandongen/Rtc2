@@ -6,6 +6,7 @@ import type { ColumnWindow } from './columnVirtualizer'
 import { DetailRow } from './DetailRow'
 import { useComponents } from './registry'
 import type { RowVirtualizer } from './rowVirtualizer'
+import { usesPinnedRowSections } from '../pinnedRows'
 import { cx } from '../utils'
 import type { DataTableInstance, DataTableRow } from '../types'
 
@@ -71,45 +72,14 @@ export function TableBody<TData extends RowData>({
     )
   }
 
-  const topRows = (options.enableRowPinning ?? false) ? (table.getTopRows() as Array<DataTableRow<TData>>) : []
-  const bottomRows = (options.enableRowPinning ?? false)
-    ? (table.getBottomRows() as Array<DataTableRow<TData>>)
-    : []
-  const pinnedMode = options.rowPinningDisplayMode ?? 'sticky'
-  const showPinnedSections = (options.enableRowPinning ?? false) && pinnedMode !== 'sticky'
-
-  if (items.length === 0 && topRows.length === 0) {
-    return (
-      <tbody className={cx('rtc-tbody', options.classNames?.body)}>
-        <tr className="rtc-tr">
-          <td className="rtc-td" colSpan={columnCount}>
-            {options.renderEmptyState?.({ table }) ?? (
-              <div className="rtc-empty">
-                {table.getPreFilteredRowModel().rows.length > 0
-                  ? localization.noResultsFound
-                  : localization.noRecordsToDisplay}
-              </div>
-            )}
-          </td>
-        </tr>
-      </tbody>
-    )
-  }
-
-  if (rowVirtualizer) {
-    return (
-      <VirtualBody
-        table={table}
-        items={items}
-        virtualizer={rowVirtualizer}
-        columnWindow={columnWindow}
-        columnCount={columnCount}
-      />
-    )
-  }
-
-  const showTop = showPinnedSections && (pinnedMode === 'top' || pinnedMode === 'top-and-bottom')
-  const showBottom = showPinnedSections && (pinnedMode === 'bottom' || pinnedMode === 'top-and-bottom')
+  // Sections are rendered for whichever direction has rows pinned to it, not
+  // for the directions the display mode offers: a row pinned to a direction the
+  // mode has no control for — from `initialState`, or from `row.pin()` — is
+  // still a pinned row, and leaving it out would drop it from the table
+  // altogether, since `getRenderRows` has already taken it out of the body.
+  const sections = usesPinnedRowSections(options)
+  const topRows = sections ? (table.getTopRows() as Array<DataTableRow<TData>>) : []
+  const bottomRows = sections ? (table.getBottomRows() as Array<DataTableRow<TData>>) : []
 
   // A pinned section renders the same rows the body would, so its keys are
   // prefixed to stay unique against the rows still in the main list.
@@ -131,18 +101,60 @@ export function TableBody<TData extends RowData>({
       />
     )
 
+  /**
+   * Pinned rows, in a `<tbody>` of their own.
+   *
+   * The section is the sticky element, not its rows: a sticky row can only
+   * travel as far as its own parent's box, so rows in a section two rows tall
+   * would scroll away with it. The section's parent is the table, which spans
+   * the whole scroll range — and one sticky element per section also means the
+   * rows inside it stack in flow rather than each needing an offset.
+   */
+  const renderSection = (position: 'top' | 'bottom', rows: Array<DataTableRow<TData>>) =>
+    rows.length === 0 ? null : (
+      <tbody
+        className={cx('rtc-tbody', options.classNames?.body)}
+        data-rtc-pinned-section={position}
+      >
+        {getBodyItems(table, rows).map((item) => renderItem(item, `pinned-${position}-`))}
+      </tbody>
+    )
+
+  const body =
+    items.length === 0 ? (
+      <tbody className={cx('rtc-tbody', options.classNames?.body)}>
+        <tr className="rtc-tr">
+          <td className="rtc-td" colSpan={columnCount}>
+            {options.renderEmptyState?.({ table }) ?? (
+              <div className="rtc-empty">
+                {table.getPreFilteredRowModel().rows.length > 0
+                  ? localization.noResultsFound
+                  : localization.noRecordsToDisplay}
+              </div>
+            )}
+          </td>
+        </tr>
+      </tbody>
+    ) : rowVirtualizer ? (
+      <VirtualBody
+        table={table}
+        items={items}
+        virtualizer={rowVirtualizer}
+        columnWindow={columnWindow}
+        columnCount={columnCount}
+      />
+    ) : (
+      <tbody className={cx('rtc-tbody', options.classNames?.body)}>
+        {items.map((item) => renderItem(item))}
+      </tbody>
+    )
+
   return (
-    <tbody className={cx('rtc-tbody', options.classNames?.body)}>
-      {showTop
-        ? getBodyItems(table, topRows).map((item) => renderItem(item, 'pinned-top-'))
-        : null}
-
-      {items.map((item) => renderItem(item))}
-
-      {showBottom
-        ? getBodyItems(table, bottomRows).map((item) => renderItem(item, 'pinned-bottom-'))
-        : null}
-    </tbody>
+    <>
+      {renderSection('top', topRows)}
+      {body}
+      {renderSection('bottom', bottomRows)}
+    </>
   )
 }
 

@@ -19,8 +19,6 @@ export interface BodyRowProps<TData extends RowData> {
    * every row through `memo`.
    */
   columnWindow?: ColumnWindow | null
-  /** Sticky offset for pinned rows, in pixels. */
-  pinnedOffset?: number
   /** Virtualization: measured by the row virtualizer. */
   virtualRef?: (node: HTMLTableRowElement | null) => void
   virtualStart?: number
@@ -33,7 +31,6 @@ function BodyRowImpl<TData extends RowData>({
   row,
   renderIndex,
   columnWindow,
-  pinnedOffset,
   virtualRef,
   virtualStart,
   virtualIndex,
@@ -68,9 +65,6 @@ function BodyRowImpl<TData extends RowData>({
             // it down with no sign of where the offset came from.
             ...(virtualStart !== undefined
               ? { transform: `translateY(${virtualStart}px)`, position: 'absolute', top: 0, width: '100%' }
-              : {}),
-            ...(pinnedOffset !== undefined
-              ? ({ '--rtc-pinned-row-offset': `${pinnedOffset}px` } as React.CSSProperties)
               : {}),
             ...userProps?.style,
           }}

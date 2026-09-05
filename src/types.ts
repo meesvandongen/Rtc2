@@ -411,8 +411,38 @@ export interface DataTableOptions<TData extends RowData> {
   enableColumnOrdering?: boolean
   enableColumnDragging?: boolean
   enableColumnPinning?: boolean
-  enableRowPinning?: boolean
+  /**
+   * Pin/unpin in each row's overflow menu, and the sticky rendering that goes
+   * with it. A predicate decides per row, as `enableRowSelection` does.
+   */
+  enableRowPinning?: boolean | ((row: DataTableRow<TData>) => boolean)
+  /**
+   * Where pinned rows go.
+   *
+   * `sticky` (the default) leaves a pinned row exactly where the sort put it
+   * and holds it against *both* edges of the scroll container: it sits among
+   * its neighbours while that place is on screen, docks under the header once
+   * the scroll goes past it, and waits on the floor while the scroll is above
+   * it. Pinning is a single choice there — the row is pinned, not pinned to a
+   * side — so the control offers one Pin and `rowPinning.top` / `.bottom`
+   * decide only where a row a filter has dropped is put back.
+   *
+   * The other three lift pinned rows out of the body into a section of their
+   * own, a block with its own boundary, and choose which directions the pin
+   * control offers — a row already pinned to a direction the mode does not
+   * offer can always be unpinned, and is still rendered in that section.
+   *
+   * A virtualized body positions its rows absolutely, which a sticky row
+   * cannot be, so `sticky` there renders the sections instead.
+   */
   rowPinningDisplayMode?: 'sticky' | 'top' | 'bottom' | 'top-and-bottom'
+  /**
+   * Keep a pinned row on screen after a filter or a page has dropped it.
+   * Defaults to `true`, which is what makes pinning a row worth doing while
+   * you search for something else. `false` pins only within what the current
+   * filter and page already show.
+   */
+  keepPinnedRows?: boolean
   enableColumnResizing?: boolean
   columnResizeMode?: 'onChange' | 'onEnd'
   columnResizeDirection?: 'ltr' | 'rtl'

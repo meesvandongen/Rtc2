@@ -17,6 +17,7 @@ import { TransposedBody } from './components/TransposedBody'
 import { WithTransposedWindows } from './components/transposedVirtualizer'
 import { DragProvider, type DropEdge } from './dragContext'
 import { resolveLayoutMode } from './layoutMode'
+import { useStickyPinnedRows } from './pinnedRows'
 import { usesFilterDrawer } from './responsive'
 import { transposedLayout, type TransposedLayout, type TransposedPlan } from './transpose'
 import { cx, moveItem, toCssSize } from './utils'
@@ -81,6 +82,11 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
   // transposed body has its own order, and lays panels out beside their record
   // rather than as items in a single list.
   const items = transposed ? [] : getBodyItems(table, table.getRenderRows())
+
+  // Where pinned rows and sections stick, measured from the header, the footer
+  // and the pinned rows themselves. Owned here because the offsets are read
+  // from the scroll container this component owns the ref to.
+  useStickyPinnedRows(table, containerRef)
 
   // Virtualization positions rows absolutely and offsets columns by an exact
   // number of pixels, neither of which the browser's native table layout can

@@ -166,18 +166,84 @@ export const RowPinningSticky: Story = {
   render: (args) => (
     <>
       <p className="rtc-sb-note">
-        Pinned rows are sticky within the scroll container. `enableRowPinning` puts pin/unpin in
-        each row&apos;s overflow menu; <code>row.pin(&apos;top&apos;)</code> is still there if you
-        would rather drive it from your own control.
+        A sticky row keeps its place in the order and is held against both edges: it sits among
+        its neighbours while that place is on screen, docks under the header once you scroll past
+        it, and waits on the floor while you are still above it. Three rows are pinned here —
+        scroll and watch them move between the two edges and their own positions. There is no
+        top or bottom to pick in this mode, so the menu offers one Pin;{' '}
+        <code>row.pin(&apos;top&apos;)</code> is still there if you would rather drive it from your
+        own control.
       </p>
       <DataTable
         columns={personColumns.slice(0, 5)}
         data={makePeople(40)}
         getRowId={(row) => row.id}
         enablePagination={false}
+        enableGlobalFilter
         height={420}
         enableStickyHeader
-        initialState={{ rowPinning: { top: ['p2'], bottom: [] } }}
+        initialState={{ rowPinning: { top: ['p2', 'p14', 'p31'], bottom: [] } }}
+        {...args}
+      />
+    </>
+  ),
+}
+
+/**
+ * The pin as a row action of its own, rather than an entry in the overflow
+ * menu — which is how Material React Table offers it, in a generated column of
+ * pin buttons. `renderRowActions` and `row.pin()` are the whole of it.
+ */
+export const RowPinningRowAction: Story = {
+  args: {
+    enableRowPinning: true,
+    rowPinningDisplayMode: 'sticky',
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  argTypes: {
+    enableRowPinning: { control: 'boolean', table: { category: 'Rows' } },
+    rowPinningDisplayMode: {
+      control: 'select',
+      options: ['sticky', 'top', 'bottom', 'top-and-bottom'],
+      table: { category: 'Rows' },
+    },
+  },
+  render: (args) => (
+    <>
+      <p className="rtc-sb-note">
+        The pin sits in the row rather than behind the overflow menu, so the state of every row is
+        readable without opening anything. The generated actions column hosts it — the built-in
+        menu entry is still there beside it, driving the same <code>row.pin()</code>.
+      </p>
+      <DataTable
+        columns={personColumns.slice(0, 4)}
+        data={makePeople(40)}
+        getRowId={(row) => row.id}
+        enablePagination={false}
+        height={420}
+        enableStickyHeader
+        renderRowActions={({ row }) => {
+          const pinned = !!row.getIsPinned()
+          return (
+            <button
+              type="button"
+              className="rtc-button"
+              style={{ height: 24, padding: '0 8px' }}
+              aria-pressed={pinned}
+              onClick={(event) => {
+                event.stopPropagation()
+                row.pin(pinned ? false : 'top')
+              }}
+            >
+              {pinned ? 'Unpin' : 'Pin'}
+            </button>
+          )
+        }}
         {...args}
       />
     </>
@@ -205,13 +271,65 @@ export const RowPinningSections: Story = {
     },
   },
   render: (args) => (
+    <>
+      <p className="rtc-sb-note">
+        Each section is sticky as a block: the top one below the header, the bottom one at the
+        foot of the scroll container. Rows a filter or a page has dropped stay pinned —
+        <code>keepPinnedRows</code> is what makes pinning worth doing while you search for
+        something else.
+      </p>
+      <DataTable
+        columns={personColumns
+          .slice(0, 5)
+          .map((column, index) => (index === 4 ? { ...column, footer: 'City' } : column))}
+        data={makePeople(20)}
+        getRowId={(row) => row.id}
+        enablePagination={false}
+        enableGlobalFilter
+        enableStickyHeader
+        enableStickyFooter
+        height={420}
+        initialState={{ rowPinning: { top: ['p1', 'p4'], bottom: ['p19', 'p20'] } }}
+        {...args}
+      />
+    </>
+  ),
+}
+
+/**
+ * Row pinning over a virtualized body. A virtualized row is positioned
+ * absolutely and cannot also be sticky, so `sticky` renders the top and bottom
+ * sections here — they sit outside the virtualized body and stay put.
+ */
+export const RowPinningVirtualized: Story = {
+  args: {
+    enableRowPinning: true,
+    rowPinningDisplayMode: 'sticky',
+    isLoading: false,
+    showProgressBars: false,
+    isSaving: false,
+    isLoadingError: false,
+    errorMessage: '',
+    skeletonRowCount: 5,
+  },
+  argTypes: {
+    enableRowPinning: { control: 'boolean', table: { category: 'Rows' } },
+    rowPinningDisplayMode: {
+      control: 'select',
+      options: ['sticky', 'top', 'bottom', 'top-and-bottom'],
+      table: { category: 'Rows' },
+    },
+  },
+  render: (args) => (
     <DataTable
       columns={personColumns.slice(0, 5)}
-      data={makePeople(20)}
+      data={makePeople(2000)}
       getRowId={(row) => row.id}
       enablePagination={false}
+      enableRowVirtualization
+      enableStickyHeader
       height={420}
-      initialState={{ rowPinning: { top: ['p1'], bottom: ['p20'] } }}
+      initialState={{ rowPinning: { top: ['p3'], bottom: ['p1500'] } }}
       {...args}
     />
   ),
