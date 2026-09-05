@@ -6,10 +6,16 @@ import type { DataTableInstance, DataTableOptions, DataTableRow } from './types'
 /**
  * Where pinned rows are rendered.
  *
- * `sticky` keeps pinned rows in the body's own `<tbody>`, at its two ends,
- * where each sticks to its edge of the scroll container on its own. The other
- * three lift them out into a section of their own, above or below the rows that
- * remain — a block with its own boundary, which stacks and scrolls as one.
+ * `sticky` leaves a pinned row exactly where the sort put it and holds it
+ * against *both* edges of the scroll container — see `stickTo`, which is what
+ * makes that work. The row keeps its place among its neighbours, so you can
+ * still see where it ranks, and it is on screen the whole time either way. In
+ * that mode a pinned row is simply pinned: the direction in `rowPinning` picks
+ * no side, since both are held.
+ *
+ * The other three modes lift pinned rows out into a section of their own, above
+ * or below the rows that remain — a block with its own boundary, which stacks
+ * and scrolls as one, and which is where the direction does decide something.
  *
  * The mode chooses which directions the pin control offers; it does not decide
  * which sections exist. A table in `top` mode that is handed
@@ -30,31 +36,18 @@ export function usesPinnedRowSections<TData extends RowData>(
 }
 
 /**
- * The rows to render in the sticky mode: pinned rows moved to the ends of the
- * body, in the order they were pinned, around the rows that stay put.
+ * The rows to render in the sticky mode: the row model as it stands, with the
+ * pinned rows it has dropped folded back in.
  *
- * A sticky row is only held at an edge while its position in the flow is past
- * that edge; scroll beyond that position and it travels with the flow like any
- * other row. Where a row sits in the order therefore decides whether pinning it
- * means anything, and only the ends of the order work for the whole scroll
- * range: a bottom-pinned row left in the middle is glued to the floor until you
- * reach it and comes loose from there on — it drifts up the screen and off the
- * top, which is precisely what pinning it was meant to prevent. Moved to the
- * end, nothing follows it, so nothing can scroll it away. The same in reverse at
- * the top, where the failure is quieter but no less real: a row pinned to the
- * top is not on screen at all until the scroll reaches it.
- *
- * Material React Table leaves pinned rows in place here and inherits that
- * asymmetry — it prepends the top rows a filter has dropped, and nothing else.
- * Sections are what its other modes lift rows into, so nothing was lost by
- * having this mode also put them where they can be seen.
- *
- * Which rows count is TanStack's answer, not the row model's: with
- * `keepPinnedRows` (on by default) `getTopRows()` still returns a row after a
- * filter has excluded it or a page has moved past it, which is what keeps a
- * pinned row in view while you look for something else.
+ * Pinned rows keep their place — that is the mode — so the only ones that have
+ * to be placed are the ones the model no longer contains. `keepPinnedRows`
+ * (TanStack's, on by default) is what keeps them alive: `getTopRows()` still
+ * returns a row after a filter has excluded it or a page has moved past it,
+ * which is what makes pinning a row worth doing while you look for something
+ * else. A row with no place left in the order is put at the end it was pinned
+ * to, which is the one thing the direction still decides here.
  */
-export function withPinnedRowsAtTheEdges<TData extends RowData>(
+export function withKeptPinnedRows<TData extends RowData>(
   table: DataTableInstance<TData>,
   rows: Array<DataTableRow<TData>>,
 ): Array<DataTableRow<TData>> {
@@ -62,8 +55,12 @@ export function withPinnedRowsAtTheEdges<TData extends RowData>(
   const bottom = table.getBottomRows() as Array<DataTableRow<TData>>
   if (top.length === 0 && bottom.length === 0) return rows
 
-  const pinned = new Set([...top, ...bottom].map((row) => row.id))
-  return [...top, ...rows.filter((row) => !pinned.has(row.id)), ...bottom]
+  const rendered = new Set(rows.map((row) => row.id))
+  const missingTop = top.filter((row) => !rendered.has(row.id))
+  const missingBottom = bottom.filter((row) => !rendered.has(row.id))
+  if (missingTop.length === 0 && missingBottom.length === 0) return rows
+
+  return [...missingTop, ...rows, ...missingBottom]
 }
 
 /** Sub-pixel differences are rounding, not layout. */
@@ -78,24 +75,36 @@ function setPixels(element: HTMLElement, property: string, value: number) {
 /**
  * Publishes the offsets a pinned row sticks at.
  *
- * A pinned row is `position: sticky`, and sticky wants a `top` — an offset from
- * the edge of the scroll container, which is not where a pinned row belongs.
- * Two things are already parked at that edge:
+ * A pinned row in the body is `position: sticky` with **both** a `top` and a
+ * `bottom`, which is what lets it keep its place in the order and still never
+ * leave the screen. One offset holds an element in one direction only: given a
+ * `top` alone, a row is held under the header once the scroll passes it and is
+ * simply not on screen before that; given a `bottom` alone, it is held on the
+ * floor until the scroll reaches it and comes loose from there on. With both,
+ * the row sits where the sort put it while that place is on screen, docks under
+ * the header once the scroll goes past it, and docks on the floor while the
+ * scroll is still above it. Which is also why the direction it was pinned to
+ * does not choose a side in this mode: both sides are held.
  *
- * - **The sticky header**, which sits above the body and is opaque. A pinned
- *   row given `top: 0` slides underneath it and disappears; the reason to pin
- *   the row was to keep it visible.
- * - **The rows pinned before it.** Sticky offsets do not stack on their own,
- *   so every top-pinned row given the same `top` lands in exactly the same
- *   place — pin three rows and you see one, with two more hidden behind it.
+ * Neither offset is 0, because two things are already parked at each edge:
  *
- * So each row's offset is the height of the sticky header plus the heights of
- * the pinned rows that come before it, and the mirror of that for the bottom.
- * None of those heights is knowable up front: a header wraps at narrow widths,
- * a row grows with its content, and both change with density. They are measured
+ * - **A sticky header or footer**, which is opaque and sits over the body. A
+ *   row docked at `top: 0` slides underneath the header and disappears; the
+ *   reason to pin it was to keep it visible.
+ * - **The rows pinned before it**, or after it at the other edge. Sticky
+ *   offsets do not stack on their own, so pinned rows given the same `top` all
+ *   land in exactly the same place — pin three rows and you see one, with two
+ *   more hidden behind it. The rows dock in the order they appear in, so a row's
+ *   top offset clears the pinned rows above it and its bottom offset clears the
+ *   pinned rows below it.
+ *
+ * None of those heights is knowable up front: a header wraps at narrow widths, a
+ * row grows with its content, and both change with density. They are measured
  * from the DOM and published as custom properties — `--rtc-sticky-head-height`
  * and `--rtc-sticky-foot-height` on the scroll container, which the pinned
- * sections read too, and `--rtc-pinned-row-offset` per row.
+ * sections read too, and `--rtc-pinned-row-offset-top` / `-bottom` per row.
+ * Material React Table computes the same two offsets from a fixed row height per
+ * density; measuring holds up when a row is not that height.
  *
  * Written straight to the elements rather than round-tripped through state:
  * this is layout output, not something anyone chose, and a re-render per
@@ -128,19 +137,25 @@ export function useStickyPinnedRows<TData extends RowData>(
     const body = container.querySelector('.rtc-tbody:not([data-rtc-pinned-section])')
     if (!body) return
 
-    for (const position of ['top', 'bottom'] as const) {
-      const rows = [
-        ...body.querySelectorAll<HTMLElement>(`:scope > .rtc-tr[data-rtc-row-pinned="${position}"]`),
-      ]
-      if (position === 'bottom') rows.reverse()
-      // Every height is read before the first offset is written: interleaving
-      // them would make the browser re-layout the table once per pinned row.
-      const heights = rows.map((row) => row.getBoundingClientRect().height)
-      let offset = 0
-      rows.forEach((row, index) => {
-        setPixels(row, '--rtc-pinned-row-offset', offset)
-        offset += heights[index] ?? 0
-      })
+    // One list, in the order the rows are rendered in, however each of them was
+    // pinned: a row's top offset is what the pinned rows before it take up, and
+    // its bottom offset what the pinned rows after it take up, so the same set
+    // of rows stacks correctly at whichever edge each of them is docked to.
+    const rows = [...body.querySelectorAll<HTMLElement>(':scope > .rtc-tr[data-rtc-row-pinned]')]
+    // Every height is read before the first offset is written: interleaving
+    // them would make the browser re-layout the table once per pinned row.
+    const heights = rows.map((row) => row.getBoundingClientRect().height)
+
+    let above = 0
+    rows.forEach((row, index) => {
+      setPixels(row, '--rtc-pinned-row-offset-top', above)
+      above += heights[index] ?? 0
+    })
+
+    let below = 0
+    for (let index = rows.length - 1; index >= 0; index--) {
+      setPixels(rows[index]!, '--rtc-pinned-row-offset-bottom', below)
+      below += heights[index] ?? 0
     }
   }, [containerRef, stickyHeader, stickyFooter])
 

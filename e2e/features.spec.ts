@@ -949,62 +949,68 @@ test.describe('rows', () => {
         element.scrollTop = y
       }, top)
 
-    test('sticky pinned rows stack below the header instead of behind it', async ({ page }) => {
-      const root = await openStory(page, stickyStory)
-      await expect(root.locator('tr[data-rtc-row-pinned="top"]')).toHaveCount(2)
-      await expect(root.locator('tr[data-rtc-row-pinned="top"]').first()).toHaveCSS(
-        'position',
-        'sticky',
-      )
-
-      const stacked = async () => {
-        const { head, rows } = await pinnedGeometry(root)
-        const [first, second] = rows.filter((row) => row.pinned === 'top')
-        if (!head || !first || !second) return null
-        return {
-          clearsHeader: first.top >= head.bottom - 1,
-          clearsFirst: second.top >= first.bottom - 1,
-        }
-      }
-
-      // At rest as well as scrolled: the rows are pinned to the top of the
-      // order, so they are against the header from the first paint. The offsets
-      // are measured after the rows mount, so the first reading can predate them.
-      await expect.poll(stacked).toEqual({ clearsHeader: true, clearsFirst: true })
-
-      await scrollBody(root, 600)
-      expect(await stacked()).toEqual({ clearsHeader: true, clearsFirst: true })
-    })
-
     /**
-     * A sticky row holds its edge only while the flow has not carried it past,
-     * so where it sits in the order is what decides whether pinning it means
-     * anything. A bottom-pinned row left in the middle of the order — which is
-     * where Material React Table leaves it, and where this table used to — is
-     * glued to the floor until you scroll as far as it, and comes loose from
-     * there on: it drifts up the screen and off the top, gone for the rest of
-     * the scroll. Hence the whole range, not one position.
+     * The whole of the sticky mode in one invariant. A row held against one
+     * edge is only held while the flow has not carried it past: given a `top`
+     * alone it is off screen until the scroll reaches it, given a `bottom`
+     * alone it comes loose the moment the scroll passes it and drifts off the
+     * screen for good. Held against both, it is never anywhere else — which is
+     * what every pinned row here has to satisfy at every scroll position, from
+     * the first paint to the end of the range.
      */
-    test('a bottom-pinned row holds the floor at every scroll position', async ({ page }) => {
+    test('a sticky pinned row is on screen at every scroll position', async ({ page }) => {
       const root = await openStory(page, stickyStory)
+      await expect(root.locator('tr[data-rtc-row-pinned]')).toHaveCount(3)
+      await expect(root.locator('tr[data-rtc-row-pinned]').first()).toHaveCSS('position', 'sticky')
 
-      const onTheFloor = async () => {
-        const { height, rows } = await pinnedGeometry(root)
-        const bottom = rows.find((row) => row.pinned === 'bottom')
-        return bottom ? Math.abs(bottom.bottom - height) < 2 : null
+      /** Every pinned row, described by where it is not allowed to be. */
+      const misplaced = async () => {
+        const { head, height, rows } = await pinnedGeometry(root)
+        if (!head || rows.length === 0) return null
+        return rows
+          .filter((row) => row.top < head.bottom - 1 || row.bottom > height + 1)
+          .map((row) => `${row.id} at ${Math.round(row.top)}..${Math.round(row.bottom)}`)
       }
 
-      await expect.poll(onTheFloor).toBe(true)
+      // The offsets are measured after the rows mount, so the first reading can
+      // predate them.
+      await expect.poll(misplaced).toEqual([])
 
       const end = await root
         .locator('.rtc-container')
         .evaluate((element) => element.scrollHeight - element.clientHeight)
-      expect(end).toBeGreaterThan(600)
+      expect(end).toBeGreaterThan(1000)
 
-      for (const top of [300, 600, Math.round(end / 2), end]) {
+      for (const top of [200, 400, 700, 1000, Math.round(end / 2), end]) {
         await scrollBody(root, top)
-        expect(await onTheFloor(), `bottom-pinned row came loose at scrollTop ${top}`).toBe(true)
+        expect(await misplaced(), `at scrollTop ${top}`).toEqual([])
       }
+    })
+
+    /**
+     * Docking is not enough on its own: sticky offsets do not stack, so rows
+     * docked at the same edge would land in exactly the same place — pin three
+     * and you would see one, with two behind it.
+     */
+    test('sticky pinned rows stack against the edge they dock to', async ({ page }) => {
+      const root = await openStory(page, stickyStory)
+
+      // Far enough down that the first two are docked under the header and the
+      // third is still waiting on the floor.
+      await scrollBody(root, 700)
+
+      await expect
+        .poll(async () => {
+          const { head, height, rows } = await pinnedGeometry(root)
+          if (!head || rows.length !== 3) return null
+          const [first, second, third] = rows
+          return {
+            underHeader: Math.abs(first!.top - head.bottom) < 2,
+            behindTheFirst: Math.abs(second!.top - first!.bottom) < 2,
+            onTheFloor: Math.abs(third!.bottom - height) < 2,
+          }
+        })
+        .toEqual({ underHeader: true, behindTheFirst: true, onTheFloor: true })
     })
 
     test('pinned sections sit between the header and the footer', async ({ page }) => {
@@ -1037,8 +1043,37 @@ test.describe('rows', () => {
       await toolbarAction(root, 'toggle-search').click()
       await root.locator('[data-rtc-global-filter]').fill('Turing')
 
-      await expect.poll(async () => (await rowIds(root)).slice(0, 2)).toEqual(['p2', 'p5'])
-      expect((await rowIds(root)).at(-1)).toBe('p9')
+      // A row with no place left in the order goes to the end it was pinned to;
+      // these three were pinned to the top, in this order.
+      await expect
+        .poll(async () => (await rowIds(root)).slice(0, 3))
+        .toEqual(['p2', 'p14', 'p31'])
+      expect(await root.locator('tr[data-rtc-row-pinned]').count()).toBe(3)
+    })
+
+    /**
+     * `renderRowActions` + `row.pin()` is the affordance Material React Table
+     * generates a column for: the pin in the row, so the state of every row
+     * reads without opening anything.
+     */
+    test('a pin rendered as a row action pins the row', async ({ page }) => {
+      const root = await openStory(page, 'datatable-09-rows--row-pinning-row-action')
+      const row = root.locator('tbody tr[data-rtc-row-id="p6"]')
+
+      await row.getByRole('button', { name: 'Pin', exact: true }).click()
+      await expect(row).toHaveAttribute('data-rtc-row-pinned', 'top')
+      await expect(row.getByRole('button', { name: 'Unpin', exact: true })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      )
+
+      await scrollBody(root, 600)
+      await expect
+        .poll(async () => {
+          const { head, rows } = await pinnedGeometry(root)
+          return head && rows[0] ? Math.abs(rows[0].top - head.bottom) < 2 : null
+        })
+        .toBe(true)
     })
 
     test('a pinned section survives a filter that matches nothing', async ({ page }) => {
@@ -1780,8 +1815,13 @@ test.describe('column and row controls', () => {
     const first = root.locator('tbody tr[data-rtc-row-id]:not([data-rtc-row-pinned])').first()
     const target = await first.getAttribute('data-rtc-row-id')
 
+    const before = await rowIds(root)
+
     await first.getByRole('button', { name: 'Row actions' }).click()
-    await openMenu(page).getByRole('menuitem', { name: 'Pin to top' }).click()
+    // One entry, named for the whole of what it does: a sticky row is held
+    // against both edges, so there is no direction to offer.
+    await expect(openMenu(page).getByRole('menuitem', { name: /^Pin/ })).toHaveCount(1)
+    await openMenu(page).getByRole('menuitem', { name: 'Pin', exact: true }).click()
 
     await expect
       .poll(() =>
@@ -1789,9 +1829,9 @@ test.describe('column and row controls', () => {
       )
       .toBe(1)
 
-    // Pinning moves the row to the end it was pinned to, behind the two rows
-    // pinned there before it.
-    expect((await rowIds(root))[2]).toBe(target)
+    // Pinning a row does not move it: keeping its place in the order is the
+    // point of this mode.
+    expect(await rowIds(root)).toEqual(before)
 
     // The same entry unpins, and reads as "Unpin" while the row is pinned.
     await root

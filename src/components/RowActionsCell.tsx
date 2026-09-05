@@ -101,6 +101,23 @@ function rowPinItems<TData extends RowData>(
 
   const pinned = row.getIsPinned()
   const mode = table.dataTableOptions.rowPinningDisplayMode ?? 'sticky'
+
+  // A sticky row keeps its place and is held against both edges, so there is no
+  // direction to choose: one entry pins and unpins. (The pinning state still
+  // takes a side — `top`, arbitrarily — because that is the shape TanStack
+  // stores, and it decides only where a row a filter has dropped is put back.)
+  if (mode === 'sticky') {
+    return [
+      {
+        id: 'rtc-pin',
+        label: pinned ? localization.unpin : localization.pin,
+        icon: <ui.Icon name={pinned ? 'pinOff' : 'pin'} />,
+        active: !!pinned,
+        onSelect: () => row.pin(pinned ? false : 'top'),
+      },
+    ]
+  }
+
   // `top`/`bottom` name the one direction that table pins in, so the other is
   // not offered — except to a row already pinned to it, from `initialState` or
   // from `row.pin()`, which would otherwise have no way back.

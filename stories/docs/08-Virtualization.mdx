@@ -51,7 +51,8 @@ the option was honoured.
 **Pinned rows** move for the row window. A virtualized row is positioned
 absolutely against a spacer the height of the whole scroll range, and an
 absolutely positioned row cannot also be a sticky one, so
-`rowPinningDisplayMode: 'sticky'` — which elsewhere keeps pinned rows in the
-body's own rows, at its two ends — renders the top and bottom sections here
-instead. They sit outside the virtualized body and hold their own position,
-which is the same edge the rows would have held anyway.
+`rowPinningDisplayMode: 'sticky'` — which elsewhere leaves a pinned row in
+place and holds it against both edges — renders the top and bottom sections
+here instead. They sit outside the virtualized body and hold their own
+position, so a pinned row stays on screen; what it gives up is its place in the
+order, which absolute positioning had already taken.

@@ -91,7 +91,12 @@
   --rtc-row-bg-hover: rgb(15 23 42 / 4%);
   --rtc-row-bg-selected: var(--rtc-color-accent-subtle);
   --rtc-row-bg-selected-hover: rgb(37 99 235 / 14%);
-  --rtc-row-bg-pinned: var(--rtc-color-surface-raised);
+  /* Opaque, and tinted rather than a plain surface: what is pinned has to be
+     visible as pinned while it sits among its neighbours, and the rows that
+     scroll under it once it docks must not show through. The accent at 10%,
+     mixed into the surface rather than laid over it — half the strength of a
+     selected row, which is the other thing a row can be. */
+  --rtc-row-bg-pinned: color-mix(in srgb, var(--rtc-color-accent) 10%, var(--rtc-color-surface));
   --rtc-cell-bg-selected: rgb(37 99 235 / 16%);
   --rtc-cell-bg-grouped: var(--rtc-color-surface-sunken);
 
@@ -602,21 +607,23 @@
 
 /* Pinned rows ride above the body but below pinned headers.
  *
- * Both offsets come from `useStickyPinnedRows`, which measures them: the
- * heights of a sticky header and footer, which the pinned row has to clear or
- * it lands underneath them, and — for rows still in the body, which each stick
- * on their own — the heights of the pinned rows already stuck ahead of it. A
- * pinned section stacks its rows in flow, so it needs only the first. */
-.rtc-tbody:not([data-rtc-pinned-section]) > .rtc-tr[data-rtc-row-pinned="top"] {
+ * A row still in the body is held against *both* edges, which is what lets it
+ * keep its place in the order and never leave the screen: it sits where the
+ * sort put it while that place is on screen, docks under the header once the
+ * scroll goes past it, and docks on the floor while the scroll is still above
+ * it. One offset would hold it in one direction only — the direction it was
+ * pinned to picks no side here, because both sides are held.
+ *
+ * Every offset comes from `useStickyPinnedRows`, which measures them: the
+ * heights of a sticky header and footer, which a docked row has to clear or it
+ * lands underneath them, and the heights of the pinned rows docked ahead of it
+ * at that edge. A pinned section stacks its rows in flow, so it needs only the
+ * first. */
+.rtc-tbody:not([data-rtc-pinned-section]) > .rtc-tr[data-rtc-row-pinned] {
   position: sticky;
   z-index: 2;
-  top: calc(var(--rtc-sticky-head-height, 0px) + var(--rtc-pinned-row-offset, 0px));
-}
-
-.rtc-tbody:not([data-rtc-pinned-section]) > .rtc-tr[data-rtc-row-pinned="bottom"] {
-  position: sticky;
-  z-index: 2;
-  bottom: calc(var(--rtc-sticky-foot-height, 0px) + var(--rtc-pinned-row-offset, 0px));
+  top: calc(var(--rtc-sticky-head-height, 0px) + var(--rtc-pinned-row-offset-top, 0px));
+  bottom: calc(var(--rtc-sticky-foot-height, 0px) + var(--rtc-pinned-row-offset-bottom, 0px));
 }
 
 .rtc-tbody[data-rtc-pinned-section] {
@@ -642,29 +649,21 @@
   background: var(--rtc-row-bg-pinned);
 }
 
-/* The edge of the pinned block that faces the body is drawn in the same
+/* The edge of a pinned *section* that faces the body is drawn in the same
    stronger border the header's last row uses, and for the same reason: what is
-   on one side of that line scrolls, what is on the other does not.
- *
- * Only that edge, which is why the block's last row has to be picked out rather
- * than every pinned row given a line: a line under each of them says nothing
- * about where the block ends, and doubles the border those rows already carry.
- * A section knows its own last row; in the body, pinned rows are the rows at
- * either end, so the last of the top ones is the one whose neighbour is not
- * pinned to the top, and the first of the bottom ones is the one whose
- * neighbour is not pinned to the bottom. */
-.rtc-tbody[data-rtc-pinned-section="top"] > .rtc-tr:last-child .rtc-td,
-.rtc-tbody:not([data-rtc-pinned-section])
-  > .rtc-tr[data-rtc-row-pinned="top"]:has(+ .rtc-tr:not([data-rtc-row-pinned="top"]))
-  .rtc-td {
+   on one side of that line scrolls, what is on the other does not. Only that
+   edge — a line under every row in the block says nothing about where the block
+   ends, and doubles the border those rows already carry.
+
+   A pinned row left in the body gets no such line. It has no fixed edge to
+   draw: it is in the order one moment and docked against the header or the
+   floor the next, and a border that only makes sense docked would be drawn the
+   rest of the time too. What marks it is its background. */
+.rtc-tbody[data-rtc-pinned-section="top"] > .rtc-tr:last-child .rtc-td {
   border-bottom: var(--rtc-border-width) solid var(--rtc-color-border-strong);
 }
 
-.rtc-tbody[data-rtc-pinned-section="bottom"] > .rtc-tr:first-child .rtc-td,
-.rtc-tbody:not([data-rtc-pinned-section])
-  > .rtc-tr:not([data-rtc-row-pinned="bottom"])
-  + .rtc-tr[data-rtc-row-pinned="bottom"]
-  .rtc-td {
+.rtc-tbody[data-rtc-pinned-section="bottom"] > .rtc-tr:first-child .rtc-td {
   border-top: var(--rtc-border-width) solid var(--rtc-color-border-strong);
 }
 
