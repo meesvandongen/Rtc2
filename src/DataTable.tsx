@@ -15,6 +15,7 @@ import { TableHead } from './components/TableHead'
 import { BottomToolbar, TopToolbar } from './components/Toolbar'
 import { DragProvider, type DropEdge } from './dragContext'
 import { resolveLayoutMode } from './layoutMode'
+import { useStickyPinnedRows } from './pinnedRows'
 import { usesFilterDrawer } from './responsive'
 import { cx, moveItem, toCssSize } from './utils'
 import { useDataTable } from './useDataTable'
@@ -64,6 +65,11 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
   // on what they are counting — rows plus any open detail panels, each of
   // which the virtualizer positions and measures as an item of its own.
   const items = getBodyItems(table, table.getRenderRows())
+
+  // Where pinned rows and sections stick, measured from the header, the footer
+  // and the pinned rows themselves. Owned here because the offsets are read
+  // from the scroll container this component owns the ref to.
+  useStickyPinnedRows(table, containerRef)
 
   // Virtualization positions rows absolutely and offsets columns by an exact
   // number of pixels, neither of which the browser's native table layout can

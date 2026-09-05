@@ -39,6 +39,7 @@ const dutch: Partial<DataTableLocalization> = {
   noResultsFound: 'Geen resultaten gevonden',
   of: 'van',
   pagination: 'Paginering',
+  pin: 'Vastzetten',
   pinToStart: 'Vastzetten aan begin',
   pinToEnd: 'Vastzetten aan eind',
   rowsPerPage: 'Rijen per pagina',
