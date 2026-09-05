@@ -295,6 +295,7 @@ export type RtcIconName =
   | 'filter'
   | 'columns'
   | 'density'
+  | 'transpose'
   | 'fullScreen'
   | 'exitFullScreen'
   | 'more'

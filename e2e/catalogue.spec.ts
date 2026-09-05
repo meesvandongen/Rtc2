@@ -48,12 +48,43 @@ async function renderFailure(page: Page, entry: IndexEntry): Promise<string | un
       .first()
       .waitFor({ state: 'attached', timeout: 15_000 })
       .catch(() => undefined)
-    const failure = await page.evaluate((selector) => {
-      if (document.body.classList.contains('sb-show-errordisplay'))
-        return document.querySelector('#error-message')?.textContent?.trim() || 'error display shown'
-      if ((document.querySelector(selector)?.childElementCount ?? 0) === 0) return 'nothing rendered'
-      return undefined
-    }, mount)
+    const probe = () =>
+      page.evaluate((selector) => {
+        if (document.body.classList.contains('sb-show-errordisplay'))
+          return (
+            document.querySelector('#error-message')?.textContent?.trim() || 'error display shown'
+          )
+        if ((document.querySelector(selector)?.childElementCount ?? 0) === 0) return 'nothing rendered'
+        return undefined
+      }, mount)
+
+    // Storybook navigates the iframe again after `load` often enough to catch
+    // this mid-flight, and a probe interrupted that way reports nothing about
+    // the page — only that the harness raced itself. Waiting for the document
+    // it navigated to and asking again is the answer; a page that is genuinely
+    // broken is still broken on the second look.
+    const look = async (): Promise<string | undefined> => {
+      try {
+        return await probe()
+      } catch (error) {
+        if (!String(error).includes('Execution context was destroyed')) throw error
+        await page.waitForLoadState('load')
+        return await probe()
+      }
+    }
+
+    // An empty mount point is the one answer a single look cannot interpret: a
+    // page that failed to mount and one that has not mounted *yet* are the same
+    // document. So it is the one answer worth asking again for — a documentation
+    // page compiles its MDX and mounts every story on it, which under a loaded
+    // machine can outlast the wait above, while a page that is actually broken
+    // is still empty at the deadline. Every other answer is decided already.
+    const deadline = Date.now() + 15_000
+    let failure = await look()
+    while (failure === 'nothing rendered' && Date.now() < deadline) {
+      await page.waitForTimeout(250)
+      failure = await look()
+    }
     return failure ?? errors[0]
   } finally {
     page.removeAllListeners('pageerror')

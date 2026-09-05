@@ -1,0 +1,216 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+
+<Meta title="Docs/13 Transposed" />
+
+# Transposed
+
+`transposed` flips the table's axes: one row per column, one column per record.
+Column headers stack down the inline start and each record runs vertically
+beside them — the shape a spec-comparison table wants, and the readable one for
+a handful of records with a great many fields.
+
+```tsx
+<DataTable columns={columns} data={data} transposed />
+```
+
+Nothing is switched off by it. Every option keeps working, acting on the axis it
+now lands on — virtualization included — and the table stays one real `<table>`
+— a header that labels a row is a `<th scope="row">` — so grouped headers,
+detail panels and `position: sticky` all keep the browser's own semantics rather
+than a second, transposed implementation of each.
+
+## What turns with the table
+
+| Feature | Upright | Transposed |
+| --- | --- | --- |
+| Column headers | a row across the top | a column down the side |
+| Column footers | a row at the bottom | a column at the end |
+| `enableStickyHeader` | the header row sticks | the header column sticks |
+| `enableStickyFooter` | the footer row sticks | the footer column sticks |
+| `enableColumnPinning` | sticky start / end | sticky top / bottom |
+| `enableRowPinning` | held against top and bottom | held against start and end |
+| `rowPinningDisplayMode` sections | blocks above and below | blocks at start and end |
+| `enableColumnDragging` | drag across | drag up and down |
+| `enableRowOrdering` | drag up and down | drag across |
+| `enableColumnResizing` | column width | band height |
+| `enableRowVirtualization` | a vertical window | a horizontal one |
+| `enableColumnVirtualization` | a horizontal window | a vertical one |
+| `renderDetailPanel` | a row under its row | a column beside its record |
+| `skeletonRowCount` | placeholder rows | placeholder record columns |
+| Zebra striping | alternate records | alternate records |
+
+The column menu and the row menu follow: a column offers **Pin to top** and
+**Pin to bottom** where it offered start and end, and a row offers start and end
+where it offered top and bottom. Same state, same command — only the direction
+it will move in has changed.
+
+Row hover is the one thing that does not turn. It highlights the `<tr>`, which
+transposed is a *field* rather than a record: the line a reader is following
+across the records, which is the useful one to mark, and the only one CSS can
+mark without a class per cell.
+
+## Sizing
+
+Both axes are sized by custom properties rather than by each column's `size`,
+which measures the axis a transposed table no longer lays columns out along:
+
+| Property | Default | Sizes |
+| --- | --- | --- |
+| `--rtc-transposed-header-width` | `220px` | the label column, per header level |
+| `--rtc-transposed-record-width` | `200px` | every record column |
+| `--rtc-transposed-detail-width` | `280px` | an open detail panel's column |
+
+```tsx
+<DataTable
+  columns={columns}
+  data={data}
+  transposed
+  cssVars={{ '--rtc-transposed-record-width': '260px' }}
+/>
+```
+
+The widths are exact whenever the records overflow their container, which is
+when it matters: the table is `table-layout: fixed`, so a long email cannot
+widen its column and put every sticky offset out by the difference. A table with
+only a few records stretches to fill the space it was given instead — and a
+table that fits is one that does not scroll, so nothing is stuck anywhere for
+the stretch to disturb.
+
+`enableColumnResizing` still writes `columnSizing`, read as a band height: the
+grip lies along the bottom edge of a label rather than its trailing edge, and
+`resetSize` (double-click, or **Reset size** in the column menu) still clears
+it. A band with no entry keeps the height its density gives it.
+
+`enableStickyHeader` defaults to **on** here, where upright it is off. Upright
+the header row sits at the near edge of the axis the records run along, so
+scrolling across never takes it away — every column you can see brings its own
+header with it. Transposed the labels are at that edge, and without sticking
+them a scroll to the right leaves a screen of values with nothing saying what
+any of them are. Pass `enableStickyHeader={false}` to let the labels scroll away
+with everything else.
+
+## Pinning
+
+Both kinds turn, and each keeps the shape it has upright.
+
+A pinned **column** is a band stuck to the top or bottom of the scroll
+container. `columnPinning` already moves it to one end of the leaf order, which
+is the end a sticky edge can hold, and from there the pinned bands are measured
+and stacked by the same code that stacks upright pinned rows.
+
+A pinned **row** is a record column, and `rowPinningDisplayMode` chooses between
+the same two shapes it chooses between upright:
+
+| Mode | Upright | Transposed |
+| --- | --- | --- |
+| `sticky` (default) | keeps its place, held against the top and bottom edges | keeps its place, held against both inline edges |
+| `top` | a block above the body | a block at the inline start |
+| `bottom` | a block below the body | a block at the inline end |
+| `top-and-bottom` | both blocks | both blocks |
+
+In `sticky` a pinned record stays exactly where the sort put it — you can still
+see where it ranks — and is given *both* an inline start and an inline end
+offset. So it waits at the trailing edge while the scroll is still before it,
+sits among its neighbours while that place is on screen, and docks beside the
+label block once the scroll goes past it. One offset would hold it in one
+direction only. As upright, the direction in `rowPinning` picks no side there;
+it decides only where a record dropped by a filter or a page is put back.
+
+In the other three the pinned records are lifted into a block at one inline
+edge, stacked, with the record facing the rest of the table carrying the
+boundary. Upright that block is a `<tbody>` of its own, outside the scrolling
+one. It cannot be here — a record is a column, and a column has no element of
+its own — so each record of the block sticks on its own account, at an offset
+counted from the label block outwards. What a reader sees is the same.
+
+Every offset is stated rather than measured, which upright cannot do: a row is
+as tall as its tallest cell, but a record column is exactly one
+`--rtc-transposed-record-width` because the `<colgroup>` says so. A record's
+start offset is the label block plus the pinned records before it, and its end
+offset the footer block plus the pinned records after it — the same stacking,
+in closed form. An open detail panel is not counted: it does not dock with its
+record, exactly as an upright detail row does not dock with the row above it.
+
+`sticky` also survives virtualization here, where upright it falls back to the
+sections. An upright virtualized row is positioned absolutely and so cannot also
+be sticky; a windowed record is held in flow by a spacer instead, which leaves
+it an ordinary cell that sticks like any other.
+
+## The toggle
+
+The orientation is UI state, like `density`, so it can be seeded, observed,
+driven, or handed to the reader:
+
+```tsx
+<DataTable
+  columns={columns}
+  data={data}
+  enableTransposeToggle
+  initialState={{ transposed: true }}
+  onTransposedChange={(transposed) => save(transposed)}
+/>
+```
+
+`enableTransposeToggle` adds a button beside the density and full-screen ones.
+Passing `transposed` pins the orientation the way passing `density` pins the
+density, and the button then goes — it would have nothing left to change.
+
+Flipping preserves everything else. Sorting, filters, selection, pinning and
+grouping are table state, not properties of the orientation, and survive the
+flip in both directions.
+
+## Virtualization
+
+Both virtualizers still window the thing they are named for, on whichever axis
+it now runs: `enableRowVirtualization` windows the records, which run across,
+and `enableColumnVirtualization` windows the columns, which run down.
+
+```tsx
+<DataTable
+  columns={columns}
+  data={data}
+  transposed
+  enableRowVirtualization
+  enableColumnVirtualization
+  enablePagination={false}
+  height={520}
+/>
+```
+
+`height` (or `maxHeight`) is required, for the reason it is upright: a window is
+measured against a scroll container, and a container that grows with its content
+has none.
+
+The window is held open by **spacers** — a cell as wide as the records it
+skipped, a row as tall as the bands — rather than by taking anything out of
+flow. That is what lets a virtualized transposed table stay a real `<table>`,
+and with it keep the `rowSpan` that grouped headers and detail panels are built
+on.
+
+The two axes get there differently. A record column is exactly one
+`--rtc-transposed-record-width` — the `<colgroup>` says so — so a record spacer
+is stated: that length times the records it stands in for, which is also why the
+column widths cannot drift from the table's own width. A band's height is
+whatever its tallest cell makes it, so a band spacer is measured, from the
+virtualizer's own offsets. Computing that one as `--rtc-row-height` times a
+count came out two pixels short over forty bands, which is a scroll extent that
+moves as you scroll it.
+
+What survives a window:
+
+- **The label column.** It is never part of one — every band brings its own
+  label, exactly as the upright `<thead>` stays put whichever rows are mounted.
+- **Pinned bands and pinned records**, which are force-mounted at any scroll
+  offset. A sticky item that unmounted would leave its edge of the table blank.
+- **The item being dragged**, whose pointer handlers live on an element that
+  would otherwise unmount under the pointer.
+
+The **column** window is declined for a grouped header or a detail panel: both
+span the whole band order, and a window that dropped some of the bands would
+have no span left to give them. The records are windowed either way, and
+`data-rtc-column-virtual` on the root reports whether the option was honoured —
+the same way it does for an upright semantic layout.
+
+`layoutMode` is declined outright and reports `semantic`: the grid modes are
+about the axis the transposed table no longer lays columns out along, and it
+does not need them.

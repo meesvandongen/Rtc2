@@ -80,6 +80,18 @@ const shootSlice = async (page, path, { index = 0, rows = 4, fromHeader = false 
   console.log('✓ table')
 }
 
+// --------------------------------------------------------------- transposed ---
+
+{
+  // Wide enough for all eight records: the label column plus 8 × 200px, and a
+  // transposed table is exactly as wide as its records rather than as wide as
+  // the space it is given, so a narrower viewport clips the last one.
+  const { context, page } = await open({ id: 'datatable-18-transposed--transposed', width: 1880 })
+  await shootTable(page, `${OUT}/transposed.png`)
+  await context.close()
+  console.log('✓ transposed')
+}
+
 // ------------------------------------------------------------------ filters ---
 
 {

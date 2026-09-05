@@ -3,7 +3,8 @@ import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual'
 
 import type { DataTableInstance } from '../types'
 
-const DENSITY_ROW_HEIGHT = { compact: 32, comfortable: 44, spacious: 60 } as const
+/** What a row is worth to a virtualizer before anything has been measured. */
+export const DENSITY_ROW_HEIGHT = { compact: 32, comfortable: 44, spacious: 60 } as const
 
 export type RowVirtualizer = Virtualizer<HTMLDivElement, HTMLTableRowElement>
 

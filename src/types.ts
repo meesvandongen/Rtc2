@@ -133,6 +133,11 @@ export type DataTableHeader<TData extends RowData, TValue = unknown> = Header<Da
  */
 export interface DataTableUiState {
   density: DataTableDensity
+  /**
+   * Whether the table renders transposed — one row per column, one column per
+   * record. See the `transposed` option.
+   */
+  transposed: boolean
   isFullScreen: boolean
   /** Whether the docked filter panel is open. */
   showFilterPanel: boolean
@@ -274,6 +279,7 @@ export interface DataTableOptions<TData extends RowData> {
     updater: CellSelectionState | ((old: CellSelectionState) => CellSelectionState),
   ) => void
   onDensityChange?: (density: DataTableDensity) => void
+  onTransposedChange?: (transposed: boolean) => void
   onIsFullScreenChange?: (isFullScreen: boolean) => void
   onShowFilterPanelChange?: (show: boolean) => void
   onShowGlobalFilterChange?: (show: boolean) => void
@@ -427,7 +433,14 @@ export interface DataTableOptions<TData extends RowData> {
    * offer can always be unpinned, and is still rendered in that section.
    *
    * A virtualized body positions its rows absolutely, which a sticky row
-   * cannot be, so `sticky` there renders the sections instead.
+   * cannot be, so `sticky` there renders the sections instead. Not transposed:
+   * a windowed record is held in flow by a spacer rather than taken out of it,
+   * so it can stick, and `sticky` means what it says whether or not the records
+   * are virtualized.
+   *
+   * Transposed, all four turn with the table: `sticky` holds a record against
+   * both *inline* edges, and the sections become blocks at the inline start and
+   * end — `top` reading as start and `bottom` as end.
    */
   rowPinningDisplayMode?: 'sticky' | 'top' | 'bottom' | 'top-and-bottom'
   /**
@@ -485,6 +498,8 @@ export interface DataTableOptions<TData extends RowData> {
   enableBottomToolbar?: boolean
   enableToolbarInternalActions?: boolean
   enableDensityToggle?: boolean
+  /** Toolbar button that flips the table between upright and transposed. */
+  enableTransposeToggle?: boolean
   enableFullScreenToggle?: boolean
   enableGlobalFilterToggle?: boolean
   enableColumnFilterToggle?: boolean
@@ -535,6 +550,59 @@ export interface DataTableOptions<TData extends RowData> {
   enableKeyboardNavigation?: boolean
 
   // ----------------------------------------------------------- appearance ----
+  /**
+   * Flip the table's axes: one row per column, one column per record.
+   *
+   * Column headers stack down the inline start and each record runs vertically
+   * beside them — the shape a spec-comparison table wants, and the readable one
+   * for a handful of records with a great many fields.
+   *
+   * Nothing is switched off by it. Every feature keeps working, with the axis
+   * it acts on flipped, and the table stays one real `<table>` so grouped
+   * headers, detail panels and sticky cells keep the browser's own semantics:
+   *
+   * | Feature                     | Upright              | Transposed             |
+   * | --------------------------- | -------------------- | ---------------------- |
+   * | Column headers              | a row across the top | a column down the side |
+   * | Column footers              | a row at the bottom  | a column at the end    |
+   * | `enableStickyHeader`        | header row sticks    | header column sticks   |
+   * | `enableStickyFooter`        | footer row sticks    | footer column sticks   |
+   * | Column pinning              | sticky start/end     | sticky top/bottom      |
+   * | Row pinning                 | sticky top/bottom    | sticky start/end       |
+   * | Column drag / reorder       | horizontal           | vertical               |
+   * | Row drag / reorder          | vertical             | horizontal             |
+   * | `enableColumnResizing`      | column width         | row height             |
+   * | `enableRowVirtualization`   | a vertical window    | a horizontal one       |
+   * | `enableColumnVirtualization`| a horizontal window  | a vertical one         |
+   * | Zebra striping              | alternate records    | alternate records      |
+   * | Detail panel                | a row under its row  | a column beside it     |
+   *
+   * Column and row sizing come from `--rtc-transposed-header-width` and
+   * `--rtc-transposed-record-width` rather than from each column's `size`,
+   * which describes an axis the transposed table no longer lays columns out
+   * along; `enableColumnResizing` writes the same `columnSizing` state, read as
+   * a row height.
+   *
+   * Both virtualizers still window the thing they are named for, on whichever
+   * axis it now runs, and the window is held open by spacers rather than by
+   * taking anything out of flow — which is what lets a virtualized transposed
+   * table stay a real `<table>`. The label column is never part of a window:
+   * every band brings its own label, exactly as an upright `<thead>` stays put
+   * whichever rows are mounted. The column window is declined for a grouped
+   * header or a detail panel, both of which span the whole band order and have
+   * no span left to give when only some bands are rendered;
+   * `data-rtc-column-virtual` on the root reports it either way.
+   *
+   * `enableStickyHeader` defaults to *on* here. Upright the header row sits at
+   * the near edge of the axis the records run along, so scrolling across never
+   * takes it away; transposed the labels are at that edge, and without sticking
+   * them a scroll to the right leaves a screen of values with nothing saying
+   * what any of them are.
+   *
+   * Leave it unset to keep `enableTransposeToggle` live; setting it pins the
+   * orientation the same way `density` does.
+   */
+  transposed?: boolean
   layoutMode?: DataTableLayoutMode
   /**
    * Never render a column narrower than its own header. On by default.
@@ -624,6 +692,7 @@ export type DataTableInstance<TData extends RowData> = import('@tanstack/react-t
    */
   isMobile: boolean
   setDensity: (density: DataTableDensity) => void
+  setTransposed: (value: boolean | ((old: boolean) => boolean)) => void
   setIsFullScreen: (value: boolean | ((old: boolean) => boolean)) => void
   setShowFilterPanel: (value: boolean | ((old: boolean) => boolean)) => void
   setShowGlobalFilter: (value: boolean | ((old: boolean) => boolean)) => void

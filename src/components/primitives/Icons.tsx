@@ -115,6 +115,19 @@ export const DensityIcon = (p: SVGProps<SVGSVGElement>) => (
   </Icon>
 )
 
+/**
+ * Transpose: the mathematician's mark for it — a matrix reflected in its main
+ * diagonal — drawn as a frame with a double-headed diagonal inside. Two corner
+ * brackets stand in for the arrowheads, since a stroked arrowhead at this size
+ * fills in and reads as a dot.
+ */
+export const TransposeIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Icon {...p}>
+    <path d="M4 4h16v16H4z" />
+    <path d="m16 8-8 8M11 8h5v5M13 16H8v-5" />
+  </Icon>
+)
+
 export const FullScreenIcon = (p: SVGProps<SVGSVGElement>) => (
   <Icon {...p}>
     <path d="M8 3H5a2 2 0 00-2 2v3M16 3h3a2 2 0 012 2v3M8 21H5a2 2 0 01-2-2v-3M16 21h3a2 2 0 002-2v-3" />

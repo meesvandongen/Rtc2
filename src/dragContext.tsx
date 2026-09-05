@@ -53,6 +53,11 @@ export interface DragProviderProps {
   onDropColumn?: (activeId: string, overId: string, edge: DropEdge) => void
   onDropRow?: (activeId: string, overId: string, edge: DropEdge) => void
   onDropColumnOnGrouping?: (columnId: string) => void
+  /**
+   * Whether the table is transposed, which swaps the axis each kind is dragged
+   * along: columns stack vertically there and records run across.
+   */
+  transposed?: boolean
 }
 
 /**
@@ -65,9 +70,13 @@ function resolveEdge(
   element: Element,
   clientX: number,
   clientY: number,
+  transposed: boolean,
 ): DropEdge {
   const rect = element.getBoundingClientRect()
-  if (kind === 'row') return clientY < rect.top + rect.height / 2 ? 'before' : 'after'
+  // Rows stack vertically and columns run across — unless the table is
+  // transposed, in which case they have traded places.
+  const vertical = transposed ? kind === 'column' : kind === 'row'
+  if (vertical) return clientY < rect.top + rect.height / 2 ? 'before' : 'after'
   const rtl = getComputedStyle(element).direction === 'rtl'
   const pastMiddle = clientX > rect.left + rect.width / 2
   return pastMiddle === rtl ? 'before' : 'after'
@@ -85,6 +94,7 @@ export function DragProvider({
   onDropColumn,
   onDropRow,
   onDropColumnOnGrouping,
+  transposed = false,
 }: DragProviderProps) {
   const [state, setState] = useState<DragState>({
     kind: null,
@@ -99,6 +109,12 @@ export function DragProvider({
   const handlersRef = useRef({ onDropColumn, onDropRow, onDropColumnOnGrouping })
   handlersRef.current = { onDropColumn, onDropRow, onDropColumnOnGrouping }
 
+  // Read through a ref so `start` keeps the stable identity every consumer of
+  // the context depends on; a drag in flight when the table is flipped is not a
+  // case worth re-binding the window listeners for.
+  const transposedRef = useRef(transposed)
+  transposedRef.current = transposed
+
   const start = useCallback((kind: Exclude<DragKind, null>, id: string, event: React.PointerEvent) => {
     event.preventDefault()
     event.stopPropagation()
@@ -112,7 +128,7 @@ export function DragProvider({
       const target = element?.closest(`[${attribute}]`)
       const overId = target?.getAttribute(attribute) ?? null
       const overEdge = target
-        ? resolveEdge(kind, target, moveEvent.clientX, moveEvent.clientY)
+        ? resolveEdge(kind, target, moveEvent.clientX, moveEvent.clientY, transposedRef.current)
         : 'before'
       setState((prev) =>
         prev.overId === overId && prev.overEdge === overEdge && prev.overGroupingZone === !!zone

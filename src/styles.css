@@ -84,6 +84,14 @@
   --rtc-icon-size: 16px;
   --rtc-filter-panel-width: 280px;
 
+  /* Transposed tables size their two axes from these rather than from each
+     column's `size`, which measures the axis a transposed table no longer lays
+     columns out along. The label block is one of the first, per header level;
+     every record is one of the second. */
+  --rtc-transposed-header-width: 220px;
+  --rtc-transposed-record-width: 200px;
+  --rtc-transposed-detail-width: 280px;
+
   /* ---------------------------------------------------------- surfaces ---- */
   --rtc-row-bg: transparent;
   --rtc-row-bg-odd: transparent;
@@ -2296,4 +2304,261 @@
 .rtc-virtual-spacer {
   padding: 0;
   border: 0;
+}
+
+/* --------------------------------------------------- transposed layout --- */
+
+/* `transposed` turns the table on its side: one `<tr>` per column — a *band* —
+ * one column per record, the header block down the inline start and the footer
+ * block at the end.
+ *
+ * Most of what makes that work is not here. The markup stays a real `<table>`,
+ * so grouped headers, detail panels and `position: sticky` keep the browser's
+ * own semantics, and the transposed body sets the same data attributes on the
+ * other element: a pinned *column* becomes a band with `data-rtc-row-pinned`
+ * and a pinned *row* becomes a cell with `data-rtc-pinned`, so both reuse the
+ * sticky rules above unchanged. What is left is the geometry, and the handful
+ * of rules that were about an axis rather than about a state.
+ *
+ * Ordered the way the file above is — sizing, then row states, then pinning —
+ * because that order is what keeps a pinned cell opaque: a stripe or a
+ * selection painted over it would let the records it is stuck over scroll
+ * straight through. */
+
+/* Column widths become authoritative, which the auto algorithm will not do: one
+   header long enough to widen its cell would widen the whole label block, and
+   every sticky offset here is computed from that block's width. `fixed` takes
+   the widths from the first row, which the transposed body always fills with
+   one cell per column. The table's own width is stated inline — `fixed` is only
+   honoured for a definite one, and an intrinsic keyword sends the browser back
+   to the automatic algorithm and to sizing every column from its content.
+ *
+ * `min-width: 100%` stretches a table with only a few records to fill the space
+ * it was given, and the widths are then no longer exactly the two variables —
+ * which would put every sticky offset out by the difference. It cannot: a table
+ * that stretches is one that fits, and a table that fits does not scroll, so
+ * nothing is ever stuck anywhere. The moment the records overflow, the widths
+ * are exact again and so are the offsets. */
+.rtc-root[data-rtc-transposed="true"] .rtc-table {
+  table-layout: fixed;
+  min-width: 100%;
+}
+
+.rtc-root[data-rtc-transposed="true"] .rtc-th {
+  width: var(--rtc-transposed-header-width);
+  /* The base `min-content` floor is the whole of "a column is never narrower
+     than its own header". Transposed there is nothing for it to be narrower
+     than: the label block is one width for every field, and a floor taken from
+     the longest label would widen it for all of them. */
+  min-width: 0;
+  overflow: hidden;
+}
+
+.rtc-root[data-rtc-transposed="true"] .rtc-td {
+  width: var(--rtc-transposed-record-width);
+}
+
+/* The transpose of the header's bottom border: a strong rule between the label
+   block and the records, and another before the footer block. Expressed as the
+   first cell after the block rather than the last cell of it, since CSS can
+   name the one and not the other. */
+.rtc-root[data-rtc-transposed="true"] .rtc-th + .rtc-td,
+.rtc-root[data-rtc-transposed="true"] .rtc-td + .rtc-foot-cell {
+  border-inline-start: var(--rtc-border-width) solid var(--rtc-color-border-strong);
+}
+
+/* Layered for the reason `.rtc-th` is: a footer column can be sticky, and a
+   transparent `--rtc-footer-bg` would let records scroll through it. */
+.rtc-root[data-rtc-transposed="true"] .rtc-foot-cell {
+  font-weight: var(--rtc-footer-font-weight);
+  background-color: var(--rtc-color-surface);
+  background-image: linear-gradient(var(--rtc-footer-bg), var(--rtc-footer-bg));
+}
+
+/* A detail panel is a column beside its record rather than a row under it, so
+   it is sized like one and its content is aligned to the top of the table
+   rather than floating in the middle of however many bands it spans. */
+.rtc-root[data-rtc-transposed="true"] .rtc-detail-cell {
+  width: var(--rtc-transposed-detail-width);
+  padding: 0;
+  vertical-align: top;
+  background: var(--rtc-color-surface-sunken);
+}
+
+/* With the label block on screen the fields still say what the table is about,
+   so the empty state goes where the records would have been. */
+.rtc-root[data-rtc-transposed="true"] .rtc-transposed-empty {
+  width: auto;
+  text-align: center;
+}
+
+/* What a window leaves out is held open by a spacer rather than by taking the
+   rows out of flow — which is what lets a transposed table be virtualized while
+   staying a real `<table>`, `rowSpan` and all. A spacer stands for cells that
+   are not there, so it draws nothing: no padding, no border, no background, and
+   none of the row states below. `height: 0` on the row hands the height to the
+   cell, which carries the exact extent of the run it replaced. */
+.rtc-root[data-rtc-transposed="true"] tr.rtc-transposed-spacer {
+  height: 0;
+  background: none;
+}
+
+.rtc-root[data-rtc-transposed="true"] .rtc-transposed-spacer,
+.rtc-root[data-rtc-transposed="true"] tr.rtc-transposed-spacer > .rtc-td {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+/* Zebra striping, selection and hover all belong to a record, and a record is a
+ * column here: what the upright table states once on the `<tr>` has to be
+ * carried by every cell of it. Hovering still highlights the band, which is the
+ * line a reader is following across the records.
+ *
+ * Every one of them is painted as a background *image* over whatever colour the
+ * cell already has, never as a `background` that replaces it — the same
+ * two-layer trick `.rtc-th` uses, and here for the same reason. All four
+ * colours are translucent, and some of these cells are stuck: a pinned record,
+ * a pinned band. Replacing the colour of one of those with a 4%-alpha tint let
+ * the rows it is stuck over show straight through it, which on a hovered
+ * bottom-pinned band read as two rows of text printed on top of each other.
+ *
+ * Keeping the two properties apart is also what keeps this out of a specificity
+ * argument with the pinning rules below: the states own `background-image`, the
+ * pins own `background-color`, and neither can take the other's away. */
+.rtc-root[data-rtc-transposed="true"][data-rtc-stripes="true"]
+  .rtc-tbody
+  .rtc-td[data-rtc-parity="odd"] {
+  background-image: linear-gradient(var(--rtc-row-bg-odd), var(--rtc-row-bg-odd));
+}
+
+.rtc-root[data-rtc-transposed="true"][data-rtc-stripes="true"]
+  .rtc-tbody
+  .rtc-td[data-rtc-parity="even"] {
+  background-image: linear-gradient(var(--rtc-row-bg-even), var(--rtc-row-bg-even));
+}
+
+/* `.rtc-tr` earns this one the specificity to beat the stripe above it, which
+   carries an extra attribute for `data-rtc-stripes`: a selected record has to
+   read as selected whether or not the table is striped. */
+.rtc-root[data-rtc-transposed="true"] .rtc-tbody .rtc-tr .rtc-td[data-rtc-selected="true"] {
+  background-image: linear-gradient(var(--rtc-row-bg-selected), var(--rtc-row-bg-selected));
+}
+
+.rtc-root[data-rtc-transposed="true"][data-rtc-hover="true"]
+  .rtc-tbody
+  .rtc-tr:not(.rtc-transposed-spacer):hover
+  .rtc-td:not(.rtc-transposed-spacer) {
+  background-image: linear-gradient(var(--rtc-row-bg-hover), var(--rtc-row-bg-hover));
+}
+
+.rtc-root[data-rtc-transposed="true"][data-rtc-hover="true"]
+  .rtc-tbody
+  .rtc-tr:not(.rtc-transposed-spacer):hover
+  .rtc-td[data-rtc-selected="true"] {
+  background-image: linear-gradient(
+    var(--rtc-row-bg-selected-hover),
+    var(--rtc-row-bg-selected-hover)
+  );
+}
+
+/* Where a pinned record comes to rest.
+ *
+ * Two insets, where an upright pinned column takes one, because a record pinned
+ * in the sticky mode is held against *both* inline edges — the transpose of the
+ * pinned row above, and for the same reason: it sits where the sort put it
+ * while that place is on screen, docks beside the label block once the scroll
+ * goes past it, and waits at the trailing edge while the scroll is still before
+ * it. A record lifted into a section is given only the edge it was lifted to,
+ * and the other resolves to `auto`.
+ *
+ * `position: sticky` itself is the upright `[data-rtc-pinned]` rule's, which
+ * this only supplies offsets to. They are their own properties rather than the
+ * `--rtc-pin-offset` a pinned column sets, so neither reading can pick up the
+ * other's: `--rtc-pin-offset` is what still holds the label block, which runs
+ * through these same rows. */
+.rtc-root[data-rtc-transposed="true"] .rtc-td[data-rtc-pinned] {
+  inset-inline-start: var(--rtc-pin-start, auto);
+  inset-inline-end: var(--rtc-pin-end, auto);
+}
+
+/* The opaque base every stuck cell needs, under whichever state was painted
+   above. `--rtc-row-bg-pinned` rather than the surface an upright pinned
+   *column* takes: these are a pinned row, and a theme that marks pinned rows
+   should keep marking them when they stand on end. */
+.rtc-root[data-rtc-transposed="true"] .rtc-td[data-rtc-pinned],
+.rtc-root[data-rtc-transposed="true"] .rtc-tr[data-rtc-row-pinned] .rtc-td {
+  background-color: var(--rtc-row-bg-pinned);
+}
+
+/* The boundary of a pinned *section*, drawn on the innermost record of the
+   block — the last of the start block, the first of the end block. Upright that
+   is the strong border under the section's last row; here it is the pin shadow
+   the upright `[data-rtc-pin-edge]` rules already draw, unchanged, because
+   transposed the block is docked along a vertical edge with the records sliding
+   under it horizontally, which is the geometry that shadow is for.
+
+   A record pinned in the sticky mode carries no edge and gets none: it is in
+   the order one moment and docked the next, exactly as upright, and what marks
+   it is its background. */
+
+/* A pinned band has to outrank the label block that runs through it. The label
+   column is stuck to the inline start with the z-index of a pinned column — 4,
+   above the 2 a pinned row takes — so a band stuck to the top kept its own
+   cells but had the *labels* of the bands scrolling under it painted over its
+   own: the top row read "Email" beside the first names. */
+.rtc-root[data-rtc-transposed="true"] .rtc-tr[data-rtc-row-pinned] {
+  z-index: 5;
+}
+
+/* The grip lies along the band's bottom edge, because what a resize changes
+   when a column is a row is its height. */
+.rtc-root[data-rtc-transposed="true"] .rtc-resizer {
+  inset-block: auto;
+  inset-inline: 0;
+  bottom: 0;
+  width: auto;
+  height: 8px;
+  cursor: row-resize;
+}
+
+.rtc-root[data-rtc-transposed="true"] .rtc-resizer::after {
+  inset-block: auto;
+  inset-inline: 15%;
+  bottom: 3px;
+  width: auto;
+  height: 2px;
+}
+
+.rtc-root[data-rtc-transposed="true"] .rtc-resizer[data-rtc-resizing="true"]::after {
+  inset-inline: 0;
+}
+
+/* Both drop indicators turn with their axis. A column is dropped between two
+   bands, so its line is horizontal — and a horizontal line needs no RTL mirror,
+   which is why the upright pair of `[dir="rtl"]` overrides has no counterpart
+   here. A record is dropped between two columns, so its line is vertical, and
+   that one does. */
+.rtc-root[data-rtc-transposed="true"] .rtc-th[data-rtc-drop-edge="before"] {
+  box-shadow: inset 0 2px 0 0 var(--rtc-color-accent);
+}
+
+.rtc-root[data-rtc-transposed="true"] .rtc-th[data-rtc-drop-edge="after"] {
+  box-shadow: inset 0 -2px 0 0 var(--rtc-color-accent);
+}
+
+.rtc-root[data-rtc-transposed="true"] .rtc-td[data-rtc-drop-edge="before"] {
+  box-shadow: inset 2px 0 0 0 var(--rtc-color-accent);
+}
+
+.rtc-root[data-rtc-transposed="true"] .rtc-td[data-rtc-drop-edge="after"] {
+  box-shadow: inset -2px 0 0 0 var(--rtc-color-accent);
+}
+
+.rtc-root[data-rtc-transposed="true"][dir="rtl"] .rtc-td[data-rtc-drop-edge="before"] {
+  box-shadow: inset -2px 0 0 0 var(--rtc-color-accent);
+}
+
+.rtc-root[data-rtc-transposed="true"][dir="rtl"] .rtc-td[data-rtc-drop-edge="after"] {
+  box-shadow: inset 2px 0 0 0 var(--rtc-color-accent);
 }
