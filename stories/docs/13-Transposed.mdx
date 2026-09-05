@@ -137,9 +137,16 @@ The window is held open by **spacers** — a cell as wide as the records it
 skipped, a row as tall as the bands — rather than by taking anything out of
 flow. That is what lets a virtualized transposed table stay a real `<table>`,
 and with it keep the `rowSpan` that grouped headers and detail panels are built
-on. The spacers are exact rather than measured: both axes are already definite
-lengths, so each one is the same sum the cells it replaced would have added up
-to. The virtualizers only choose *which* items to render.
+on.
+
+The two axes get there differently. A record column is exactly one
+`--rtc-transposed-record-width` — the `<colgroup>` says so — so a record spacer
+is stated: that length times the records it stands in for, which is also why the
+column widths cannot drift from the table's own width. A band's height is
+whatever its tallest cell makes it, so a band spacer is measured, from the
+virtualizer's own offsets. Computing that one as `--rtc-row-height` times a
+count came out two pixels short over forty bands, which is a scroll extent that
+moves as you scroll it.
 
 What survives a window:
 
