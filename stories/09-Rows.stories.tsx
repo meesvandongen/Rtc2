@@ -166,11 +166,12 @@ export const RowPinningSticky: Story = {
   render: (args) => (
     <>
       <p className="rtc-sb-note">
-        Pinned rows keep their place in the order and stick to the edge of the scroll container
-        once they would have scrolled away — below the sticky header, and stacked behind one
-        another when several are pinned to the same edge. `enableRowPinning` puts pin/unpin in
-        each row&apos;s overflow menu; <code>row.pin(&apos;top&apos;)</code> is still there if you
-        would rather drive it from your own control.
+        Pinned rows move to the two ends of the body and stay stuck to the edges of the scroll
+        container for the whole of it — below the sticky header, stacked behind one another when
+        several are pinned to the same edge, and clear of a sticky footer where there is one.
+        Scroll all the way down: the bottom one is still there. `enableRowPinning` puts pin/unpin in each
+        row&apos;s overflow menu; <code>row.pin(&apos;top&apos;)</code> is still there if you would
+        rather drive it from your own control.
       </p>
       <DataTable
         columns={personColumns.slice(0, 5)}

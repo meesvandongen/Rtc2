@@ -7,7 +7,7 @@ import { GLOBAL_MODE_FILTER_FN, STRUCTURED_FILTER_FN } from './filters/filterFn'
 import type { DataTableTableMeta } from './filters/registry'
 import { dataTableFeatures } from './features'
 import { mergeLocalization, type DataTableLocalization } from './locale'
-import { usesPinnedRowSections, withKeptPinnedRows } from './pinnedRows'
+import { usesPinnedRowSections, withPinnedRowsAtTheEdges } from './pinnedRows'
 import { filterDrawerApplies, useIsMobile } from './responsive'
 import { maxSubRowDepth } from './treeIndent'
 import type {
@@ -531,11 +531,12 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
 
     if (opts.enableRowPinning) {
       // Lifted into sections, a pinned row is rendered by the section and must
-      // not also be rendered here; left in the body, it stays where it is and
-      // only the ones filtering or pagination dropped have to be put back.
+      // not also be rendered here; kept in the body, it moves to the end it is
+      // pinned to, which is the only place a sticky row holds its edge for the
+      // whole scroll range.
       rows = usesPinnedRowSections(opts)
         ? rows.filter((row) => !row.getIsPinned())
-        : withKeptPinnedRows(current, rows)
+        : withPinnedRowsAtTheEdges(current, rows)
     }
 
     return rows

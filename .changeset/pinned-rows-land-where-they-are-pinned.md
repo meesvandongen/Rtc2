@@ -15,12 +15,21 @@ behind it. Both offsets are now measured — from the header, the footer and the
 pinned rows themselves — so a pinned row clears the header and the rows already
 stuck ahead of it, at any density, header height or row height.
 
+The `sticky` mode left a pinned row where the sort had put it, which is what
+Material React Table does — and a sticky row holds its edge only while the flow
+has not carried it past. A row pinned to the bottom from the middle of the
+order was therefore glued to the floor until you scrolled as far as it and came
+loose from there on, drifting up the screen and off the top; a row pinned to
+the top was not on screen at all until the scroll reached it. Pinned rows now
+move to the two ends of the body, which is the only place an edge holds for the
+whole scroll range.
+
 `keepPinnedRows` is on by default and always was, which is what keeps a pinned
 row on screen after a filter or a page has dropped it. The `sticky` display
 mode never rendered those rows: pinning a row and then searching for something
 else made it vanish, and a search that matched nothing left a body with no rows
-and no empty state either. They are now folded back in at the edge they are
-pinned to, and the empty state says so when nothing else matched.
+and no empty state either. They are pinned at the edges with the rest now, and
+the empty state says so when nothing else matched.
 
 The `top`, `bottom` and `top-and-bottom` modes lift pinned rows into a section
 of their own, and each section is now sticky as a block — the top one below the

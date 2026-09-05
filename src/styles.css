@@ -644,16 +644,27 @@
 
 /* The edge of the pinned block that faces the body is drawn in the same
    stronger border the header's last row uses, and for the same reason: what is
-   on one side of that line scrolls, what is on the other does not. Only that
-   edge — a hairline under every pinned row would double the border the row
-   already has, and say nothing about where the block ends. */
+   on one side of that line scrolls, what is on the other does not.
+ *
+ * Only that edge, which is why the block's last row has to be picked out rather
+ * than every pinned row given a line: a line under each of them says nothing
+ * about where the block ends, and doubles the border those rows already carry.
+ * A section knows its own last row; in the body, pinned rows are the rows at
+ * either end, so the last of the top ones is the one whose neighbour is not
+ * pinned to the top, and the first of the bottom ones is the one whose
+ * neighbour is not pinned to the bottom. */
 .rtc-tbody[data-rtc-pinned-section="top"] > .rtc-tr:last-child .rtc-td,
-.rtc-tbody:not([data-rtc-pinned-section]) > .rtc-tr[data-rtc-row-pinned="top"] .rtc-td {
+.rtc-tbody:not([data-rtc-pinned-section])
+  > .rtc-tr[data-rtc-row-pinned="top"]:has(+ .rtc-tr:not([data-rtc-row-pinned="top"]))
+  .rtc-td {
   border-bottom: var(--rtc-border-width) solid var(--rtc-color-border-strong);
 }
 
 .rtc-tbody[data-rtc-pinned-section="bottom"] > .rtc-tr:first-child .rtc-td,
-.rtc-tbody:not([data-rtc-pinned-section]) > .rtc-tr[data-rtc-row-pinned="bottom"] .rtc-td {
+.rtc-tbody:not([data-rtc-pinned-section])
+  > .rtc-tr:not([data-rtc-row-pinned="bottom"])
+  + .rtc-tr[data-rtc-row-pinned="bottom"]
+  .rtc-td {
   border-top: var(--rtc-border-width) solid var(--rtc-color-border-strong);
 }
 

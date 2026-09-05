@@ -413,11 +413,13 @@ export interface DataTableOptions<TData extends RowData> {
   /**
    * Where pinned rows go.
    *
-   * `sticky` (the default) leaves a pinned row in the order and sticks it to
-   * the top or bottom edge of the scroll container once it would have scrolled
-   * away. The other three lift pinned rows out of the body into a section of
-   * their own, and choose which directions the pin control offers — a row
-   * already pinned to a direction the mode does not offer can always be
+   * `sticky` (the default) keeps them in the body's own rows, moved to its two
+   * ends, where each sticks to its edge of the scroll container for the whole
+   * scroll range — a sticky row only holds an edge while the flow has not
+   * carried it past, so the ends are the only place that holds. The other three
+   * lift pinned rows out of the body into a section of their own, a block with
+   * its own boundary, and choose which directions the pin control offers — a
+   * row already pinned to a direction the mode does not offer can always be
    * unpinned, and is still rendered in that section.
    *
    * A virtualized body positions its rows absolutely, which a sticky row

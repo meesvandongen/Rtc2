@@ -6,11 +6,10 @@ import type { DataTableInstance, DataTableOptions, DataTableRow } from './types'
 /**
  * Where pinned rows are rendered.
  *
- * `sticky` leaves a pinned row where the sort put it and makes it stick to the
- * edge of the scroll container once it would have scrolled away — the row keeps
- * its place in the order and never leaves the screen. The other three modes
- * lift pinned rows out of the body into a section of their own, above or below
- * the rows that remain.
+ * `sticky` keeps pinned rows in the body's own `<tbody>`, at its two ends,
+ * where each sticks to its edge of the scroll container on its own. The other
+ * three lift them out into a section of their own, above or below the rows that
+ * remain — a block with its own boundary, which stacks and scrolls as one.
  *
  * The mode chooses which directions the pin control offers; it does not decide
  * which sections exist. A table in `top` mode that is handed
@@ -31,19 +30,31 @@ export function usesPinnedRowSections<TData extends RowData>(
 }
 
 /**
- * The rows to render, with pinned rows the current row model has dropped folded
- * back in.
+ * The rows to render in the sticky mode: pinned rows moved to the ends of the
+ * body, in the order they were pinned, around the rows that stay put.
  *
- * `keepPinnedRows` (TanStack's, on by default) keeps a pinned row alive through
- * filtering and pagination: `getTopRows()` still returns it after a filter has
- * excluded it or a page has moved past it. That is the whole point of pinning a
- * row — to keep it in view while you look for something else — but the row is
- * no longer in the row model, so in the sticky mode, where the body renders the
- * model as it stands, it has to be put back. Rows already in the model keep
- * their place; only the ones the model dropped are added, at the edge they are
- * pinned to.
+ * A sticky row is only held at an edge while its position in the flow is past
+ * that edge; scroll beyond that position and it travels with the flow like any
+ * other row. Where a row sits in the order therefore decides whether pinning it
+ * means anything, and only the ends of the order work for the whole scroll
+ * range: a bottom-pinned row left in the middle is glued to the floor until you
+ * reach it and comes loose from there on — it drifts up the screen and off the
+ * top, which is precisely what pinning it was meant to prevent. Moved to the
+ * end, nothing follows it, so nothing can scroll it away. The same in reverse at
+ * the top, where the failure is quieter but no less real: a row pinned to the
+ * top is not on screen at all until the scroll reaches it.
+ *
+ * Material React Table leaves pinned rows in place here and inherits that
+ * asymmetry — it prepends the top rows a filter has dropped, and nothing else.
+ * Sections are what its other modes lift rows into, so nothing was lost by
+ * having this mode also put them where they can be seen.
+ *
+ * Which rows count is TanStack's answer, not the row model's: with
+ * `keepPinnedRows` (on by default) `getTopRows()` still returns a row after a
+ * filter has excluded it or a page has moved past it, which is what keeps a
+ * pinned row in view while you look for something else.
  */
-export function withKeptPinnedRows<TData extends RowData>(
+export function withPinnedRowsAtTheEdges<TData extends RowData>(
   table: DataTableInstance<TData>,
   rows: Array<DataTableRow<TData>>,
 ): Array<DataTableRow<TData>> {
@@ -51,12 +62,8 @@ export function withKeptPinnedRows<TData extends RowData>(
   const bottom = table.getBottomRows() as Array<DataTableRow<TData>>
   if (top.length === 0 && bottom.length === 0) return rows
 
-  const rendered = new Set(rows.map((row) => row.id))
-  const missingTop = top.filter((row) => !rendered.has(row.id))
-  const missingBottom = bottom.filter((row) => !rendered.has(row.id))
-  if (missingTop.length === 0 && missingBottom.length === 0) return rows
-
-  return [...missingTop, ...rows, ...missingBottom]
+  const pinned = new Set([...top, ...bottom].map((row) => row.id))
+  return [...top, ...rows.filter((row) => !pinned.has(row.id)), ...bottom]
 }
 
 /** Sub-pixel differences are rounding, not layout. */
