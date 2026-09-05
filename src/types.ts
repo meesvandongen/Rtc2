@@ -433,7 +433,14 @@ export interface DataTableOptions<TData extends RowData> {
    * offer can always be unpinned, and is still rendered in that section.
    *
    * A virtualized body positions its rows absolutely, which a sticky row
-   * cannot be, so `sticky` there renders the sections instead.
+   * cannot be, so `sticky` there renders the sections instead. Not transposed:
+   * a windowed record is held in flow by a spacer rather than taken out of it,
+   * so it can stick, and `sticky` means what it says whether or not the records
+   * are virtualized.
+   *
+   * Transposed, all four turn with the table: `sticky` holds a record against
+   * both *inline* edges, and the sections become blocks at the inline start and
+   * end — `top` reading as start and `bottom` as end.
    */
   rowPinningDisplayMode?: 'sticky' | 'top' | 'bottom' | 'top-and-bottom'
   /**

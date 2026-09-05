@@ -5,6 +5,7 @@ import { getCellLayoutProps } from './HeaderCell'
 import { DISPLAY_COLUMN_IDS, rendersOnGroupedRow } from '../displayColumnIds'
 import { resolveGroupingLayout } from '../displayColumns'
 import { cellEditId, isCellEditing } from '../editing'
+import type { TransposedPin } from '../transpose'
 import { cx, stringifyValue } from '../utils'
 import type { DataTableCell, DataTableInstance, DataTableRow } from '../types'
 
@@ -20,10 +21,16 @@ export interface TransposedRecordState {
   /** Zebra parity of the record, counted over the rendered records. */
   parity: 'odd' | 'even'
   selected: boolean
-  /** Which end of the record axis the record is stuck to, if any. */
-  pinned: false | 'start' | 'end'
-  /** Sticky offset for a pinned record, as CSS. */
-  pinOffset?: string
+  /**
+   * How the record is held, if at all. `both` is the sticky mode, where the
+   * record keeps its place in the order and is held against either inline edge;
+   * `start` and `end` are a section lifted out to one of them.
+   */
+  pinned: TransposedPin
+  /** Where it docks at the inline start, as CSS. Set for `both` and `start`. */
+  pinStart?: string
+  /** …and at the inline end. Set for `both` and `end`. */
+  pinEnd?: string
   /** Innermost record of a pinned block: the one that carries the shadow. */
   pinEdge?: boolean
   /** Whether clicking the cell toggles the record's selection. */
@@ -120,7 +127,12 @@ export function BodyCell<TData extends RowData>({
       className={cx(layout.className, record?.attributes?.className, userProps?.className)}
       style={{
         ...layout.style,
-        ...(record?.pinOffset ? ({ '--rtc-pin-offset': record.pinOffset } as React.CSSProperties) : {}),
+        // Two offsets, not one: a record pinned in the sticky mode is held
+        // against both inline edges, which is what lets it keep its place in
+        // the order and still never leave the screen. A section record sets
+        // only the edge it was lifted to.
+        ...(record?.pinStart ? ({ '--rtc-pin-start': record.pinStart } as React.CSSProperties) : {}),
+        ...(record?.pinEnd ? ({ '--rtc-pin-end': record.pinEnd } as React.CSSProperties) : {}),
         ...record?.attributes?.style,
         ...userProps?.style,
       }}

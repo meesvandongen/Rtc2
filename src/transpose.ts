@@ -1,5 +1,6 @@
 import type { RowData } from '@tanstack/react-table'
 
+import { usesPinnedRowSections } from './pinnedRows'
 import type { DataTableHeader, DataTableInstance, DataTableRow } from './types'
 
 /**
@@ -78,73 +79,90 @@ function transposeHeaderGroups<TData extends RowData>(
   return { levels: groups.length, byBand }
 }
 
+/**
+ * How a record is held.
+ *
+ * `both` is the sticky mode: the record keeps its place among its neighbours
+ * and is held against *both* inline edges, so it sits where the sort put it
+ * while that place is on screen, docks beside the label column once the scroll
+ * goes past it, and waits at the trailing edge while the scroll is still before
+ * it. `start` and `end` are a section: a block lifted out of the order to one
+ * edge, which is held against that edge alone.
+ */
+export type TransposedPin = false | 'start' | 'end' | 'both'
+
 /** One record — an upright row — as the transposed table lays it out. */
 export interface TransposedRecord<TData extends RowData> {
   row: DataTableRow<TData>
   /** Position along the record axis, counted over every rendered record. */
   index: number
-  /** Which end of the record axis it is stuck to, if any. */
-  pinned: false | 'start' | 'end'
-  /** How many pinned records lie between it and its edge — its sticky offset. */
-  pinIndex: number
-  /** Innermost record of its pinned block: the one that carries the shadow. */
+  /** How the record is held, if at all. */
+  pinned: TransposedPin
+  /** Where it docks at the inline start, as CSS. Set for `both` and `start`. */
+  pinStart?: string
+  /** …and at the inline end. Set for `both` and `end`. */
+  pinEnd?: string
+  /** Innermost record of a section: the one that carries the block's boundary. */
   pinEdge: boolean
   /** Whether an open detail panel follows it. */
   hasDetail: boolean
 }
 
 /**
- * The records the transposed body renders, pinned ones lifted to the ends.
+ * The records the transposed body renders.
  *
- * Upright, a pinned *column* is moved to the start or end of every row and made
- * sticky there; a pinned *row* stays where it is and sticks to the top or
- * bottom of the viewport. Transposed those two swap, so a pinned row is lifted
- * out of the record order and stuck to the inline start or end — which is also
- * the only arrangement whose sticky offsets are computable, since an offset has
- * to count a contiguous block from one edge.
+ * The two shapes are the upright ones, turned. In the **sticky** mode a pinned
+ * record keeps its place — `getRenderRows` leaves it there, folding back any
+ * the filter or the page dropped — and is held against both inline edges, which
+ * is what lets it stay in the order and still never leave the screen. In the
+ * three **section** modes it is lifted into a block at the inline start or end,
+ * which is held against that one edge.
  *
- * `rowPinningDisplayMode` keeps its meaning: `sticky` sticks both blocks, and
- * the explicit `top` / `bottom` / `top-and-bottom` modes render them as plain
- * leading and trailing groups. `top` reads as "start" here and `bottom` as
- * "end", the same rotation the rest of the table makes.
+ * `top` reads as "start" here and `bottom` as "end", the same rotation the rest
+ * of the table makes.
+ *
+ * Every offset is stated rather than measured, which upright cannot do: a row's
+ * height is whatever its tallest cell makes it, but a record column is exactly
+ * one `--rtc-transposed-record-width` because the `<colgroup>` says so. So a
+ * record's start offset is the label block plus the pinned records before it,
+ * and its end offset the footer block plus the pinned records after it — the
+ * same stacking `useStickyPinnedRows` measures upright, in closed form.
  */
 function transposedRecords<TData extends RowData>(
   table: DataTableInstance<TData>,
 ): Array<TransposedRecord<TData>> {
   const options = table.dataTableOptions
-  const pinningOn = options.enableRowPinning ?? false
-  const mode = options.rowPinningDisplayMode ?? 'sticky'
+  const pinningOn = !!options.enableRowPinning
+  const sections = usesPinnedRowSections(options, true)
 
-  const showStart = mode === 'sticky' || mode === 'top' || mode === 'top-and-bottom'
-  const showEnd = mode === 'sticky' || mode === 'bottom' || mode === 'top-and-bottom'
+  const startRows = sections ? (table.getTopRows() as Array<DataTableRow<TData>>) : []
+  const endRows = sections ? (table.getBottomRows() as Array<DataTableRow<TData>>) : []
+  // Already correct for both shapes: sections have had their rows taken out of
+  // it, and the sticky mode has had its dropped ones put back.
+  const centerRows = table.getRenderRows()
 
-  const startRows = pinningOn && showStart ? (table.getTopRows() as Array<DataTableRow<TData>>) : []
-  const endRows = pinningOn && showEnd ? (table.getBottomRows() as Array<DataTableRow<TData>>) : []
-
-  // `getRenderRows` only drops pinned rows when they are rendered in sections
-  // of their own; under `sticky` it leaves them in place, and they would
-  // otherwise be rendered twice.
-  const centerRows = table
-    .getRenderRows()
-    .filter((row) => !pinningOn || !row.getIsPinned())
-
-  const sticky = mode === 'sticky'
   const hasPanel = detailPanelPredicate(table)
 
   const records: Array<TransposedRecord<TData>> = []
-  const push = (rows: Array<DataTableRow<TData>>, pinned: false | 'start' | 'end') => {
+  const push = (rows: Array<DataTableRow<TData>>, section: 'start' | 'end' | false) => {
     rows.forEach((row, position) => {
-      // Distance from the edge the block is stuck to, so an end-pinned record
-      // counts the records between it and the trailing edge, not the leading
-      // one. `pinEdge` marks the innermost record, which carries the shadow
-      // that separates the block from the ones that scroll under it.
-      const pinIndex = pinned === 'end' ? rows.length - 1 - position : position
+      const pinned: TransposedPin = section
+        ? section
+        : pinningOn && row.getIsPinned()
+          ? 'both'
+          : false
       records.push({
         row,
         index: records.length,
-        pinned: sticky ? pinned : false,
-        pinIndex,
-        pinEdge: sticky && pinned !== false && pinIndex === rows.length - 1,
+        pinned,
+        // The innermost record of a section — the last of the start block, the
+        // first of the end block — is the one with an edge to draw. A record
+        // left in the body has none: it is in the order one moment and docked
+        // the next, so what marks it is its background.
+        pinEdge:
+          section === 'start'
+            ? position === rows.length - 1
+            : section === 'end' && position === 0,
         hasDetail: hasPanel(row),
       })
     })
@@ -154,7 +172,37 @@ function transposedRecords<TData extends RowData>(
   push(centerRows, false)
   push(endRows, 'end')
 
+  // The offsets, once every record's place is known. One list in render order,
+  // however each of them was pinned: a record's start offset clears the pinned
+  // records before it and its end offset those after it, so the same set stacks
+  // correctly at whichever edge each of them is docked to.
+  const pinned = records.filter((record) => record.pinned !== false)
+  pinned.forEach((record, position) => {
+    const before = pinned.slice(0, position)
+    const after = pinned.slice(position + 1)
+    if (record.pinned !== 'end') {
+      record.pinStart = `calc(var(--rtc-transposed-label-size, 0px) + ${extentOf(before)})`
+    }
+    if (record.pinned !== 'start') {
+      record.pinEnd = `calc(var(--rtc-transposed-footer-size, 0px) + ${extentOf(after)})`
+    }
+  })
+
   return records
+}
+
+/**
+ * How much room a run of pinned records takes up once docked.
+ *
+ * The record columns alone. An open detail panel is a column of its own, but it
+ * does not dock with the record it belongs to — it has no `data-rtc-pinned` and
+ * scrolls under, exactly as an upright detail *row* does under the pinned row
+ * above it, which is why `useStickyPinnedRows` does not count it either. Adding
+ * its width here would leave a panel-wide gap between two docked records.
+ */
+function extentOf<TData extends RowData>(records: Array<TransposedRecord<TData>>): string {
+  if (records.length === 0) return '0px'
+  return `var(--rtc-transposed-record-width) * ${records.length}`
 }
 
 /**
@@ -216,14 +264,16 @@ export interface TransposedLayout<TData extends RowData> {
    * pixels, and by the body, which sets it on the row.
    */
   bandSizes: Array<number | undefined>
-  /** Bands pinned to the top, which are the first of the order. */
+  /** Bands pinned to the top, which column pinning puts first in the order. */
   pinnedBands: number
-  /** …and to the bottom, which are the last. */
+  /** …and to the bottom, which it puts last. */
   pinnedBandsEnd: number
-  /** Records pinned to the inline start, which are the first of the order. */
-  pinnedRecords: number
-  /** …and to the inline end, which are the last. */
-  pinnedRecordsEnd: number
+  /**
+   * Positions of the pinned records, which in the sticky mode are wherever the
+   * sort left them rather than at either end — so a window is told the
+   * positions to force-mount rather than a count at each edge.
+   */
+  pinnedRecords: number[]
 }
 
 export function transposedLayout<TData extends RowData>(
@@ -320,8 +370,7 @@ export function transposedLayout<TData extends RowData>(
     bandSizes,
     pinnedBands: pinningColumns ? table.getStartVisibleLeafColumns().length : 0,
     pinnedBandsEnd: pinningColumns ? table.getEndVisibleLeafColumns().length : 0,
-    pinnedRecords: records.filter((record) => record.pinned === 'start').length,
-    pinnedRecordsEnd: records.filter((record) => record.pinned === 'end').length,
+    pinnedRecords: records.flatMap((record, index) => (record.pinned ? [index] : [])),
     // The empty and error states have no width of their own to state: their one
     // cell fills whatever is left, so the container sizes the table instead.
     width: recordCount > 0 && sum ? `calc(${sum})` : '100%',
@@ -365,22 +414,32 @@ export interface TransposedWindow {
  * scrollbar that will not settle.
  */
 export interface TransposedBandWindow extends TransposedWindow {
-  /** Height of the run before the first free band, in pixels. */
-  leading: number
-  trailing: number
+  /** Measured offset of each rendered band, parallel to `indexes`. */
+  starts: number[]
+  ends: number[]
+  /** The axis's whole scroll extent, which the last gap runs up to. */
+  totalSize: number
 }
 
-/** One axis of the render order, with the runs it is standing in for. */
+/**
+ * One entry of the render order: an item to draw, or a spacer standing in for
+ * a run of items the window left out.
+ */
+export type TransposedSlot = { index: number; spacer?: never } | { spacer: string; index?: never }
+
+/**
+ * One axis of the render order.
+ *
+ * A flat list rather than a contiguous run between two pinned blocks, because
+ * a pinned item is no longer always at an end: the sticky mode leaves a pinned
+ * record exactly where the sort put it, and force-mounting one out of the
+ * middle of a window leaves a gap on each side of it. A spacer per gap covers
+ * that and the simple case alike.
+ */
 export interface TransposedAxisPlan {
-  /** Positions to render, ascending. */
+  slots: TransposedSlot[]
+  /** Positions being rendered, ascending — the slots without their spacers. */
   indexes: number[]
-  /** Entries of `indexes` that come before the leading spacer. */
-  pinnedStart: number
-  /** Entries of `indexes` that come after the trailing spacer. */
-  pinnedEnd: number
-  /** Extent of the run the leading spacer stands in for, as CSS, or null. */
-  leading: string | null
-  trailing: string | null
 }
 
 /**
@@ -412,51 +471,51 @@ export interface TransposedPlan<TData extends RowData> extends TransposedLayout<
 
 /** The whole axis, unwindowed. */
 function wholeAxis(count: number): TransposedAxisPlan {
-  return {
-    indexes: Array.from({ length: count }, (_, index) => index),
-    pinnedStart: 0,
-    pinnedEnd: 0,
-    leading: null,
-    trailing: null,
-  }
+  const indexes = Array.from({ length: count }, (_, index) => index)
+  return { slots: indexes.map((index) => ({ index })), indexes }
 }
 
 /**
- * The runs a window left out, as the positions they occupy.
+ * The rendered items with a spacer in every gap between them.
  *
- * Pinned items sit at the two ends of the order — column pinning puts them
- * there, and `transposedRecords` lifts pinned rows there — so a window is
- * always `[start pins…, one contiguous run, …end pins]` and what it skipped is
- * the two gaps either side of that run.
+ * `extent` is asked for each run the window skipped, as the half-open range it
+ * covers; it answers in whatever units that axis is sized in.
  */
-function skippedRuns(
+function withSpacers(
   indexes: number[],
   count: number,
-  pinnedStart: number,
-  pinnedEnd: number,
-): { before: number[]; after: number[] } {
-  const range = (from: number, to: number) =>
-    from < to ? Array.from({ length: to - from }, (_, offset) => from + offset) : []
-
-  const free = indexes.slice(pinnedStart, indexes.length - pinnedEnd)
-  // Nothing free is mounted at all — the whole middle is one gap.
-  if (free.length === 0) return { before: range(pinnedStart, count - pinnedEnd), after: [] }
-  return {
-    before: range(pinnedStart, free[0]!),
-    after: range(free[free.length - 1]! + 1, count - pinnedEnd),
+  extent: (from: number, to: number) => string | null,
+): TransposedAxisPlan {
+  const slots: TransposedSlot[] = []
+  let next = 0
+  for (const index of indexes) {
+    if (index > next) {
+      const spacer = extent(next, index)
+      if (spacer) slots.push({ spacer })
+    }
+    slots.push({ index })
+    next = index + 1
   }
+  if (next < count) {
+    const spacer = extent(next, count)
+    if (spacer) slots.push({ spacer })
+  }
+  return { slots, indexes }
 }
 
 /** Total width of a run of records, the columns their panels occupy included. */
 function recordExtent<TData extends RowData>(
-  indexes: number[],
+  from: number,
+  to: number,
   records: Array<TransposedRecord<TData>>,
-): string {
-  const panels = indexes.filter((index) => records[index]?.hasDetail).length
-  const terms: string[] = []
-  if (indexes.length > 0) terms.push(`var(--rtc-transposed-record-width) * ${indexes.length}`)
+): string | null {
+  const length = to - from
+  if (length <= 0) return null
+  let panels = 0
+  for (let index = from; index < to; index++) if (records[index]?.hasDetail) panels += 1
+  const terms = [`var(--rtc-transposed-record-width) * ${length}`]
   if (panels > 0) terms.push(`var(--rtc-transposed-detail-width) * ${panels}`)
-  return terms.length > 0 ? `calc(${terms.join(' + ')})` : '0px'
+  return `calc(${terms.join(' + ')})`
 }
 
 export function transposedPlan<TData extends RowData>(
@@ -473,26 +532,24 @@ export function transposedPlan<TData extends RowData>(
 
   let bandPlan = wholeAxis(bandCount)
   if (windowed && bandWindow) {
-    bandPlan = {
-      indexes: bandWindow.indexes,
-      pinnedStart: layout.pinnedBands,
-      pinnedEnd: layout.pinnedBandsEnd,
-      leading: bandWindow.leading > 0 ? `${bandWindow.leading}px` : null,
-      trailing: bandWindow.trailing > 0 ? `${bandWindow.trailing}px` : null,
-    }
+    // A gap runs from the end of the band before it to the start of the band
+    // after it, both of which the virtualizer measured; the two outer gaps run
+    // from zero and up to the whole extent.
+    const ends = new Map(bandWindow.indexes.map((index, at) => [index, bandWindow.ends[at]!]))
+    const starts = new Map(bandWindow.indexes.map((index, at) => [index, bandWindow.starts[at]!]))
+    bandPlan = withSpacers(bandWindow.indexes, bandCount, (from, to) => {
+      const left = from === 0 ? 0 : (ends.get(from - 1) ?? 0)
+      const right = to === bandCount ? bandWindow.totalSize : (starts.get(to) ?? left)
+      const size = Math.max(0, right - left)
+      return size > 0 ? `${size}px` : null
+    })
   }
 
   let recordPlan = wholeAxis(recordCount)
   if (windowed && recordWindow) {
-    const { pinnedRecords, pinnedRecordsEnd, records } = layout
-    const runs = skippedRuns(recordWindow.indexes, recordCount, pinnedRecords, pinnedRecordsEnd)
-    recordPlan = {
-      indexes: recordWindow.indexes,
-      pinnedStart: pinnedRecords,
-      pinnedEnd: pinnedRecordsEnd,
-      leading: runs.before.length > 0 ? recordExtent(runs.before, records) : null,
-      trailing: runs.after.length > 0 ? recordExtent(runs.after, records) : null,
-    }
+    recordPlan = withSpacers(recordWindow.indexes, recordCount, (from, to) =>
+      recordExtent(from, to, layout.records),
+    )
   }
 
   // The `<colgroup>`. With `table-layout: fixed` a table takes its widths from
@@ -502,19 +559,17 @@ export function transposedPlan<TData extends RowData>(
   const colWidths: string[] = []
   for (let level = 0; level < layout.headerLevels; level++) colWidths.push(label)
 
-  const recordCols = (indexes: number[]) => {
-    for (const index of indexes) {
-      colWidths.push('var(--rtc-transposed-record-width)')
-      if (layout.records[index]?.hasDetail) colWidths.push('var(--rtc-transposed-detail-width)')
-    }
-  }
   if (layout.mode === 'records') {
-    const { indexes, pinnedStart, pinnedEnd, leading, trailing } = recordPlan
-    recordCols(indexes.slice(0, pinnedStart))
-    if (leading) colWidths.push(leading)
-    recordCols(indexes.slice(pinnedStart, indexes.length - pinnedEnd))
-    if (trailing) colWidths.push(trailing)
-    recordCols(indexes.slice(indexes.length - pinnedEnd))
+    for (const slot of recordPlan.slots) {
+      if (slot.spacer !== undefined) {
+        colWidths.push(slot.spacer)
+        continue
+      }
+      colWidths.push('var(--rtc-transposed-record-width)')
+      if (layout.records[slot.index]?.hasDetail) {
+        colWidths.push('var(--rtc-transposed-detail-width)')
+      }
+    }
   } else if (layout.mode === 'loading') {
     for (let index = 0; index < layout.skeletonCount; index++) {
       colWidths.push('var(--rtc-transposed-record-width)')
@@ -531,34 +586,12 @@ export function transposedPlan<TData extends RowData>(
 }
 
 /**
- * Sticky offset for a band pinned by column pinning.
+ * Sticky offset for the header cell at `level` of the label block.
  *
- * Bands are uniform: a row is `--rtc-row-height` tall whatever is in it, unless
- * `enableColumnResizing` gave this one an explicit height, and a resized band
- * is not one that is also pinned in practice. Expressed in CSS rather than
- * measured so it stays correct through a density change, which no observer
- * would be told about.
+ * A pinned *band* needs no such helper: it is a row carrying
+ * `data-rtc-row-pinned`, so `useStickyPinnedRows` measures and stacks it with
+ * the upright pinned rows, and the same stylesheet rules dock it.
  */
-export function bandPinOffset(index: number): string {
-  return `calc(var(--rtc-row-height) * ${index})`
-}
-
-/**
- * Sticky offset for a record pinned by row pinning.
- *
- * Counts the block already stuck to that edge first — when the header column
- * sticks, a start-pinned record has to come to rest beside it rather than
- * underneath it, and the footer column does the same at the other end — then
- * one record width per record between it and the edge. Both block sizes are
- * published by the body as custom properties, and default to zero for a table
- * whose header or footer scrolls away like any other column.
- */
-export function recordPinOffset(index: number, pinned: 'start' | 'end'): string {
-  const block = pinned === 'start' ? '--rtc-transposed-label-size' : '--rtc-transposed-footer-size'
-  return `calc(var(${block}, 0px) + var(--rtc-transposed-record-width) * ${index})`
-}
-
-/** Sticky offset for the header cell at `level` of the label block. */
 export function labelPinOffset(level: number): string {
   return `calc(var(--rtc-transposed-header-width) * ${level})`
 }

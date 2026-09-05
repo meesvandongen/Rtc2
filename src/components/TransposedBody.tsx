@@ -5,7 +5,7 @@ import { BodyCell, type TransposedRecordState } from './BodyCell'
 import { getCellLayoutProps, HeaderCell } from './HeaderCell'
 import { useComponents } from './registry'
 import { useDrag } from '../dragContext'
-import { bandPinOffset, labelPinOffset, recordPinOffset, type TransposedPlan } from '../transpose'
+import { labelPinOffset, type TransposedPlan } from '../transpose'
 import { cx } from '../utils'
 import type { DataTableColumnInstance, DataTableInstance } from '../types'
 
@@ -133,16 +133,13 @@ export function TransposedBody<TData extends RowData>({
         key={leaf.id}
         ref={measureBand}
         className={cx('rtc-tr', options.classNames?.bodyRow)}
-        style={{
-          ...(size ? { height: size } : {}),
-          ...(pin ? ({ '--rtc-pinned-row-offset': pin.offset } as React.CSSProperties) : {}),
-        }}
+        style={size ? { height: size } : undefined}
         aria-rowindex={index + 1}
         // Read by `virtualizer.measureElement`, which is what keeps the band
         // spacers honest about heights it cannot compute.
         data-index={index}
         data-rtc-column-id={column.id}
-        data-rtc-row-pinned={pin?.edge}
+        data-rtc-row-pinned={pin}
         data-rtc-dragging={
           drag.kind === 'column' && drag.activeId === column.id ? 'true' : undefined
         }
@@ -164,24 +161,20 @@ export function TransposedBody<TData extends RowData>({
    * whole table in the DOM — and, unlike taking rows out of flow, it leaves
    * `rowSpan` alone.
    */
-  const bandRows = (children: (index: number) => React.ReactNode) => {
-    const { indexes, pinnedStart, pinnedEnd, leading, trailing } = bandPlan
-    const spacer = (edge: string, size: string) => (
-      <tr key={`spacer-${edge}`} className="rtc-tr rtc-transposed-spacer" aria-hidden="true">
-        <td className="rtc-td" colSpan={Math.max(1, domColumnCount)} style={{ height: size }} />
-      </tr>
+  const bandRows = (children: (index: number) => React.ReactNode) =>
+    bandPlan.slots.map((slot, at) =>
+      slot.spacer !== undefined ? (
+        <tr key={`spacer-${at}`} className="rtc-tr rtc-transposed-spacer" aria-hidden="true">
+          <td
+            className="rtc-td"
+            colSpan={Math.max(1, domColumnCount)}
+            style={{ height: slot.spacer }}
+          />
+        </tr>
+      ) : (
+        band(slot.index, children(slot.index))
+      ),
     )
-    const run = (from: number, to: number) =>
-      indexes.slice(from, to).map((index) => band(index, children(index)))
-
-    return [
-      ...run(0, pinnedStart),
-      ...(leading ? [spacer('leading', leading)] : []),
-      ...run(pinnedStart, indexes.length - pinnedEnd),
-      ...(trailing ? [spacer('trailing', trailing)] : []),
-      ...run(indexes.length - pinnedEnd, indexes.length),
-    ]
-  }
 
   const bodyProps = {
     className: cx('rtc-tbody', options.classNames?.body),
@@ -266,8 +259,7 @@ export function TransposedBody<TData extends RowData>({
   // whole band order and the first of it. Written from the plan rather than
   // assumed, so they stay right if that ever stops being true.
   const leadBand = bandPlan.indexes[0]
-  const detailSpan =
-    bandPlan.indexes.length + (bandPlan.leading ? 1 : 0) + (bandPlan.trailing ? 1 : 0)
+  const detailSpan = bandPlan.slots.length
 
   const recordCell = (position: number, index: number) => {
     const record = records[position]
@@ -278,7 +270,8 @@ export function TransposedBody<TData extends RowData>({
       parity: record.index % 2 === 0 ? 'odd' : 'even',
       selected: !!table.state.rowSelection[row.id],
       pinned: record.pinned,
-      ...(record.pinned ? { pinOffset: recordPinOffset(record.pinIndex, record.pinned) } : {}),
+      ...(record.pinStart ? { pinStart: record.pinStart } : {}),
+      ...(record.pinEnd ? { pinEnd: record.pinEnd } : {}),
       pinEdge: record.pinEdge,
       clickable: !!options.enableClickToSelect && row.getCanSelect(),
       dragging: drag.kind === 'row' && drag.activeId === row.id,
@@ -315,49 +308,38 @@ export function TransposedBody<TData extends RowData>({
    * A band's record cells, with a spacer holding open each run the window left
    * out — the same trick as the spacer rows, along the other axis.
    */
-  const recordCells = (index: number) => {
-    const { indexes, pinnedStart, pinnedEnd, leading, trailing } = recordPlan
-    const spacer = (edge: string, size: string) => (
-      <td
-        key={`spacer-${edge}`}
-        className="rtc-td rtc-transposed-spacer"
-        aria-hidden="true"
-        style={{ width: size }}
-      />
+  const recordCells = (index: number) =>
+    recordPlan.slots.map((slot, at) =>
+      slot.spacer !== undefined ? (
+        <td
+          key={`spacer-${at}`}
+          className="rtc-td rtc-transposed-spacer"
+          aria-hidden="true"
+          style={{ width: slot.spacer }}
+        />
+      ) : (
+        recordCell(slot.index, index)
+      ),
     )
-    const run = (from: number, to: number) =>
-      indexes.slice(from, to).map((position) => recordCell(position, index))
-
-    return [
-      ...run(0, pinnedStart),
-      ...(leading ? [spacer('leading', leading)] : []),
-      ...run(pinnedStart, indexes.length - pinnedEnd),
-      ...(trailing ? [spacer('trailing', trailing)] : []),
-      ...run(indexes.length - pinnedEnd, indexes.length),
-    ]
-  }
 
   return <tbody {...bodyProps}>{bandRows(recordCells)}</tbody>
 }
 
 /**
- * Which bands are stuck to the top and bottom, and how far in.
+ * Which bands are stuck to the top and which to the bottom.
  *
- * Column pinning already moves a pinned column to one end of the leaf order, so
- * the pinned bands are the first and last rows of the body and their offsets
- * are a straight count of the bands between them and their edge.
+ * The edge only: a pinned band is a row carrying `data-rtc-row-pinned`, so
+ * `useStickyPinnedRows` measures and stacks it with the upright pinned rows,
+ * and the same stylesheet rules dock it. Column pinning has already moved it to
+ * one end of the leaf order, which is where a sticky edge can hold it.
  */
 function resolveBandPins<TData extends RowData>(
   table: DataTableInstance<TData>,
-): Map<string, { edge: 'top' | 'bottom'; offset: string }> {
-  const pins = new Map<string, { edge: 'top' | 'bottom'; offset: string }>()
+): Map<string, 'top' | 'bottom'> {
+  const pins = new Map<string, 'top' | 'bottom'>()
   if (!(table.dataTableOptions.enableColumnPinning ?? false)) return pins
 
-  const start = table.getStartVisibleLeafColumns()
-  const end = table.getEndVisibleLeafColumns()
-  start.forEach((column, index) => pins.set(column.id, { edge: 'top', offset: bandPinOffset(index) }))
-  end.forEach((column, index) =>
-    pins.set(column.id, { edge: 'bottom', offset: bandPinOffset(end.length - 1 - index) }),
-  )
+  for (const column of table.getStartVisibleLeafColumns()) pins.set(column.id, 'top')
+  for (const column of table.getEndVisibleLeafColumns()) pins.set(column.id, 'bottom')
   return pins
 }

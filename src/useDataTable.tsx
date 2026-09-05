@@ -541,7 +541,7 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
       // not also be rendered here; kept in the body, it stays exactly where it
       // is — the stylesheet holds it against both edges — and only the rows
       // filtering or pagination dropped have to be put back.
-      rows = usesPinnedRowSections(opts)
+      rows = usesPinnedRowSections(opts, uiRef.current.transposed)
         ? rows.filter((row) => !row.getIsPinned())
         : withKeptPinnedRows(current, rows)
     }

@@ -2462,6 +2462,26 @@
   );
 }
 
+/* Where a pinned record comes to rest.
+ *
+ * Two insets, where an upright pinned column takes one, because a record pinned
+ * in the sticky mode is held against *both* inline edges — the transpose of the
+ * pinned row above, and for the same reason: it sits where the sort put it
+ * while that place is on screen, docks beside the label block once the scroll
+ * goes past it, and waits at the trailing edge while the scroll is still before
+ * it. A record lifted into a section is given only the edge it was lifted to,
+ * and the other resolves to `auto`.
+ *
+ * `position: sticky` itself is the upright `[data-rtc-pinned]` rule's, which
+ * this only supplies offsets to. They are their own properties rather than the
+ * `--rtc-pin-offset` a pinned column sets, so neither reading can pick up the
+ * other's: `--rtc-pin-offset` is what still holds the label block, which runs
+ * through these same rows. */
+.rtc-root[data-rtc-transposed="true"] .rtc-td[data-rtc-pinned] {
+  inset-inline-start: var(--rtc-pin-start, auto);
+  inset-inline-end: var(--rtc-pin-end, auto);
+}
+
 /* The opaque base every stuck cell needs, under whichever state was painted
    above. `--rtc-row-bg-pinned` rather than the surface an upright pinned
    *column* takes: these are a pinned row, and a theme that marks pinned rows
@@ -2470,6 +2490,17 @@
 .rtc-root[data-rtc-transposed="true"] .rtc-tr[data-rtc-row-pinned] .rtc-td {
   background-color: var(--rtc-row-bg-pinned);
 }
+
+/* The boundary of a pinned *section*, drawn on the innermost record of the
+   block — the last of the start block, the first of the end block. Upright that
+   is the strong border under the section's last row; here it is the pin shadow
+   the upright `[data-rtc-pin-edge]` rules already draw, unchanged, because
+   transposed the block is docked along a vertical edge with the records sliding
+   under it horizontally, which is the geometry that shadow is for.
+
+   A record pinned in the sticky mode carries no edge and gets none: it is in
+   the order one moment and docked the next, exactly as upright, and what marks
+   it is its background. */
 
 /* A pinned band has to outrank the label block that runs through it. The label
    column is stuck to the inline start with the z-index of a pinned column — 4,

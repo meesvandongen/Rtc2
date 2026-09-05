@@ -202,6 +202,26 @@ test.describe('transposed behaviour', () => {
   })
 })
 
+/**
+ * Where every rendered cell of one record sits, relative to the scrollport.
+ *
+ * A record is a column, so "where the record is" is a column position — and the
+ * assertion that matters is that it is the *same* for every band, since a
+ * record that stuck in one band and not another would be a column with a bend
+ * in it.
+ */
+async function recordLeft(root: Locator, rowId: string): Promise<number> {
+  const lefts = await root.evaluate((element, id) => {
+    const container = element.querySelector('.rtc-container')!.getBoundingClientRect()
+    return [...element.querySelectorAll(`td[data-rtc-row-id="${id}"]`)].map((cell) =>
+      Math.round(cell.getBoundingClientRect().left - container.left),
+    )
+  }, rowId)
+  expect(lefts.length, `record ${rowId} is rendered`).toBeGreaterThan(0)
+  expect(new Set(lefts).size, `record ${rowId} is one straight column`).toBe(1)
+  return lefts[0]!
+}
+
 test.describe('transposed pinning', () => {
   test('a pinned column sticks as a band, a pinned row as a record column', async ({ page }) => {
     const root = await openStory(page, 'datatable-18-transposed--pinning')
@@ -234,7 +254,7 @@ test.describe('transposed pinning', () => {
         labelWidth: Math.round(
           element.querySelector('tbody tr th')!.getBoundingClientRect().width,
         ),
-        pinnedRecord: pick('td[data-rtc-pinned="start"]'),
+        pinnedRecord: pick('td[data-rtc-pinned]'),
         topLabel: at(60, 8),
         topRecord: at(300, 8),
       }
@@ -251,6 +271,133 @@ test.describe('transposed pinning', () => {
     // And the pinned band is what a reader sees there, label included.
     expect(geometry.topLabel).toBe('firstName')
     expect(geometry.topRecord).toBe('firstName')
+  })
+
+  /**
+   * `rowPinningDisplayMode: 'sticky'`, turned on its side.
+   *
+   * The mode's whole point is that the record keeps its place in the order and
+   * still never leaves the screen, which takes an offset at *each* inline edge:
+   * one alone would hold it in one direction and let it scroll away in the
+   * other. So the assertion is made three times over — before the record, at
+   * it, and past it — because any single one of them passes with a single-sided
+   * pin as well.
+   */
+  test('a sticky pinned record is held against both inline edges', async ({ page }) => {
+    const root = await openStory(page, 'datatable-18-transposed--pinning')
+
+    const early = root.locator('td[data-rtc-row-id="p3"]').first()
+    const late = root.locator('td[data-rtc-row-id="p13"]').first()
+    // Both are pinned, and neither has been lifted to an end of the order: the
+    // records around them are still theirs to sit among.
+    await expect(early).toHaveAttribute('data-rtc-pinned', 'both')
+    await expect(late).toHaveAttribute('data-rtc-pinned', 'both')
+
+    const labelWidth = await root
+      .locator('tbody tr th')
+      .first()
+      .evaluate((node) => Math.round(node.getBoundingClientRect().width))
+    const width = await root
+      .locator('.rtc-container')
+      .first()
+      .evaluate((node) => Math.round(node.getBoundingClientRect().width))
+
+    // At rest: the third record is where the order put it, and the thirteenth —
+    // which is far off to the right — is already waiting at the trailing edge.
+    expect(await recordLeft(root, 'p3')).toBeGreaterThan(labelWidth)
+    const parked = await recordLeft(root, 'p13')
+    expect(parked).toBeLessThan(width)
+
+    // Scrolled past the third: it has come to rest against the label block,
+    // and the thirteenth has left the edge for its own place in the order.
+    await scrollTable(root, 1400, 0)
+    expect(await recordLeft(root, 'p3')).toBe(labelWidth)
+    expect(await recordLeft(root, 'p13')).toBeLessThan(parked)
+
+    // All the way across: now the thirteenth is the one in place and the third
+    // is still docked, which is the half a single `inset-inline-start` cannot do.
+    await scrollTable(root, 100_000, 0)
+    expect(await recordLeft(root, 'p3')).toBe(labelWidth)
+    expect(await recordLeft(root, 'p13')).toBeGreaterThan(labelWidth)
+  })
+
+  /**
+   * The section modes, which lift the pinned records out to the two ends.
+   *
+   * Upright each block is a `<tbody>` of its own; a record has no element to be
+   * lifted into, so the block is the records themselves, each docked at its own
+   * offset. What has to hold either way is that the block does not move.
+   */
+  test('the section modes lift pinned records to the inline ends', async ({ page }) => {
+    const root = await openStory(page, 'datatable-18-transposed--pinned-sections')
+
+    const pinning = async (rowId: string) =>
+      root.locator(`td[data-rtc-row-id="${rowId}"]`).first().getAttribute('data-rtc-pinned')
+    expect(await pinning('p3')).toBe('start')
+    expect(await pinning('p6')).toBe('start')
+    expect(await pinning('p10')).toBe('end')
+
+    // The order itself is the lift: pinned records are no longer among their
+    // neighbours but at the two ends of it.
+    const ids = await root.evaluate((element) => {
+      const selector = 'tbody tr[data-rtc-column-id="firstName"] td[data-rtc-row-id]'
+      return [...element.querySelectorAll(selector)].map((cell) =>
+        cell.getAttribute('data-rtc-row-id'),
+      )
+    })
+    expect(ids.slice(0, 2)).toEqual(['p3', 'p6'])
+    expect(ids.at(-1)).toBe('p10')
+
+    // The innermost record of each block carries its boundary; the ones behind
+    // it in the block do not, or the block would be drawn as three edges.
+    await expect(root.locator('td[data-rtc-row-id="p6"]').first()).toHaveAttribute(
+      'data-rtc-pin-edge',
+      'true',
+    )
+    await expect(root.locator('td[data-rtc-row-id="p3"]').first()).not.toHaveAttribute(
+      'data-rtc-pin-edge',
+      'true',
+    )
+
+    const block = async () => [
+      await recordLeft(root, 'p3'),
+      await recordLeft(root, 'p6'),
+      await recordLeft(root, 'p10'),
+    ]
+    const before = await block()
+    await scrollTable(root, 1200, 0)
+    expect(await block()).toEqual(before)
+  })
+
+  /**
+   * A window is what a stated offset is for.
+   *
+   * Upright, `sticky` gives way to the sections under `enableRowVirtualization`:
+   * a virtualized row is positioned absolutely and cannot also be sticky.
+   * Transposed nothing leaves the flow — a spacer holds the gap open — so the
+   * mode means what it says, and a pinned record 2,500 columns along has to be
+   * mounted and docked at every offset.
+   */
+  test('a pinned record survives the record window', async ({ page }) => {
+    const root = await openStory(page, 'datatable-18-transposed--virtualized')
+
+    const labelWidth = await root
+      .locator('tbody tr th')
+      .first()
+      .evaluate((node) => Math.round(node.getBoundingClientRect().width))
+
+    await expect(root.locator('td[data-rtc-row-id="p2500"]').first()).toHaveAttribute(
+      'data-rtc-pinned',
+      'both',
+    )
+
+    for (const offset of [0, 200_000, 600_000, 999_000]) {
+      await scrollTable(root, offset, 0)
+      // Force-mounted whatever the window asked for, and a straight column in
+      // every band it is rendered in.
+      expect(await recordLeft(root, 'p3'), `p3 at ${offset}`).toBeGreaterThanOrEqual(labelWidth)
+      expect(await recordLeft(root, 'p2500'), `p2500 at ${offset}`).toBeGreaterThan(labelWidth)
+    }
   })
 
   /**
@@ -274,7 +421,7 @@ test.describe('transposed pinning', () => {
 
     for (const [what, cell] of [
       ['a pinned band', root.locator('tr[data-rtc-row-pinned="bottom"] td.rtc-td').first()],
-      ['a pinned record', root.locator('td[data-rtc-pinned="start"]').first()],
+      ['a pinned record', root.locator('td[data-rtc-pinned]').first()],
     ] as const) {
       expect((await opacity(cell)).alpha, `${what}, at rest`).toBe(1)
       await cell.hover()
@@ -292,6 +439,39 @@ test.describe('transposed pinning', () => {
     await expect(menu).toBeVisible()
     await expect(menu.getByText('Pin to top')).toBeVisible()
     await expect(menu.getByText('Pin to bottom')).toBeVisible()
+  })
+
+  /**
+   * And the row menu names the direction *it* will pin in, which is the other
+   * one — with the same shape it has upright: one entry in the sticky mode,
+   * where both edges are held and there is nothing to choose, and a direction
+   * each where the modes lift a record into a block.
+   */
+  test('the row menu offers the direction the table will pin in', async ({ page }) => {
+    const actions = (root: Locator, rowId: string) =>
+      band(root, 'rtc-row-actions')
+        .locator(`td[data-rtc-row-id="${rowId}"]`)
+        .getByRole('button', { name: 'Row actions' })
+
+    const sticky = await openStory(page, 'datatable-18-transposed--pinning')
+    await actions(sticky, 'p1').click()
+    await expect(openMenu(page).getByRole('menuitem', { name: /^Pin/ })).toHaveCount(1)
+    await expect(openMenu(page).getByRole('menuitem', { name: 'Pin', exact: true })).toBeVisible()
+    await page.keyboard.press('Escape')
+
+    const sections = await openStory(page, 'datatable-18-transposed--pinned-sections')
+    await actions(sections, 'p1').click()
+    const menu = openMenu(page)
+    await expect(menu.getByRole('menuitem', { name: 'Pin to start' })).toBeVisible()
+    await expect(menu.getByRole('menuitem', { name: 'Pin to end' })).toBeVisible()
+
+    // And the command does what it says: the record leaves its place in the
+    // order for the head of it.
+    await menu.getByRole('menuitem', { name: 'Pin to start' }).click()
+    await expect(sections.locator('td[data-rtc-row-id="p1"]').first()).toHaveAttribute(
+      'data-rtc-pinned',
+      'start',
+    )
   })
 })
 

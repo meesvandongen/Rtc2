@@ -89,18 +89,20 @@ function useMeasuredSizes(
  * upright column virtualizer keeps it — its pointer handlers live on an element
  * that would otherwise unmount under the pointer.
  */
-function useForcedRange(pinnedStart: number, pinnedEnd: number, draggingIndex: number) {
+function useForcedRange(pinned: number[], draggingIndex: number) {
+  const key = pinned.join(',')
   return useCallback(
     (range: Range) => {
       const indexes = new Set(defaultRangeExtractor(range))
-      for (let index = 0; index < pinnedStart; index++) indexes.add(index)
-      for (let index = 0; index < pinnedEnd; index++) indexes.add(range.count - 1 - index)
+      for (const index of pinned) indexes.add(index)
       if (draggingIndex >= 0) indexes.add(draggingIndex)
       return [...indexes]
         .filter((index) => index >= 0 && index < range.count)
         .sort((a, b) => a - b)
     },
-    [pinnedStart, pinnedEnd, draggingIndex],
+    // Keyed on the joined list rather than the array, which is rebuilt on
+    // every render and would give the extractor a new identity each time.
+    [key, draggingIndex],
   )
 }
 
@@ -112,39 +114,16 @@ function useWindow(indexes: number[], enabled: boolean): TransposedWindow | null
 
 function useBandWindowValue(
   indexes: number[],
-  leading: number,
-  trailing: number,
+  starts: number[],
+  ends: number[],
+  totalSize: number,
   enabled: boolean,
 ): TransposedBandWindow | null {
-  const key = `${indexes.join(',')}|${leading}|${trailing}`
-  return useMemo(() => (enabled ? { indexes, leading, trailing } : null), [enabled, key])
-}
-
-/**
- * What the bands a window left out would have occupied, in pixels.
- *
- * The pinned blocks are stripped off both ends first: they are rendered in flow
- * at the head and tail of the body and only pulled to the viewport edges by
- * `position: sticky`, so the space they take up is not part of the gap. This is
- * the row-shaped twin of the padding `useColumnWindow` computes upright, and it
- * is measured for the same reason: only the virtualizer knows what the items it
- * dropped actually came to.
- */
-function windowGaps(
-  items: Array<{ start: number; end: number }>,
-  totalSize: number,
-  pinnedStart: number,
-  pinnedEnd: number,
-): { leading: number; trailing: number } {
-  if (items.length <= pinnedStart + pinnedEnd) return { leading: 0, trailing: 0 }
-  const firstFree = items[pinnedStart]!
-  const lastFree = items[items.length - 1 - pinnedEnd]!
-  const startPinned = pinnedStart > 0 ? items[pinnedStart - 1]!.end : 0
-  const endPinned = pinnedEnd > 0 ? totalSize - items[items.length - pinnedEnd]!.start : 0
-  return {
-    leading: Math.max(0, firstFree.start - startPinned),
-    trailing: Math.max(0, totalSize - lastFree.end - endPinned),
-  }
+  const key = `${indexes.join(',')}|${starts.join(',')}|${ends.join(',')}|${totalSize}`
+  return useMemo(
+    () => (enabled ? { indexes, starts, ends, totalSize } : null),
+    [enabled, key],
+  )
 }
 
 /**
@@ -198,8 +177,20 @@ export function WithTransposedWindows<TData extends RowData>({
       ? layout.records.findIndex((record) => record.row.id === drag.activeId)
       : -1
 
-  const bandRange = useForcedRange(layout.pinnedBands, layout.pinnedBandsEnd, draggingBand)
-  const recordRange = useForcedRange(layout.pinnedRecords, layout.pinnedRecordsEnd, draggingRecord)
+  // Column pinning puts the pinned bands at the two ends of the band order, so
+  // those are a count from each edge; a pinned record in the sticky mode is
+  // wherever the sort left it, so those are the positions themselves.
+  const pinnedBandIndexes = useMemo(() => {
+    const indexes: number[] = []
+    for (let index = 0; index < layout.pinnedBands; index++) indexes.push(index)
+    for (let index = 0; index < layout.pinnedBandsEnd; index++) {
+      indexes.push(bandCount - 1 - index)
+    }
+    return indexes
+  }, [layout.pinnedBands, layout.pinnedBandsEnd, bandCount])
+
+  const bandRange = useForcedRange(pinnedBandIndexes, draggingBand)
+  const recordRange = useForcedRange(layout.pinnedRecords, draggingRecord)
 
   const bandVirtualizer = useVirtualizer<HTMLDivElement, HTMLTableRowElement>({
     count: virtualizeBands ? bandCount : 0,
@@ -241,17 +232,11 @@ export function WithTransposedWindows<TData extends RowData>({
   }, [recordVirtualizer, measured.record, measured.detail])
 
   const bandItems = bandVirtualizer.getVirtualItems()
-  const bandGaps = windowGaps(
-    bandItems,
-    bandVirtualizer.getTotalSize(),
-    layout.pinnedBands,
-    layout.pinnedBandsEnd,
-  )
-
   const bandWindow = useBandWindowValue(
     bandItems.map((item) => item.index),
-    bandGaps.leading,
-    bandGaps.trailing,
+    bandItems.map((item) => item.start),
+    bandItems.map((item) => item.end),
+    bandVirtualizer.getTotalSize(),
     virtualizeBands,
   )
   const recordWindow = useWindow(

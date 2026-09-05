@@ -28,7 +28,8 @@ than a second, transposed implementation of each.
 | `enableStickyHeader` | the header row sticks | the header column sticks |
 | `enableStickyFooter` | the footer row sticks | the footer column sticks |
 | `enableColumnPinning` | sticky start / end | sticky top / bottom |
-| `enableRowPinning` | sticky top / bottom | sticky start / end |
+| `enableRowPinning` | held against top and bottom | held against start and end |
+| `rowPinningDisplayMode` sections | blocks above and below | blocks at start and end |
 | `enableColumnDragging` | drag across | drag up and down |
 | `enableRowOrdering` | drag up and down | drag across |
 | `enableColumnResizing` | column width | band height |
@@ -87,6 +88,53 @@ header with it. Transposed the labels are at that edge, and without sticking
 them a scroll to the right leaves a screen of values with nothing saying what
 any of them are. Pass `enableStickyHeader={false}` to let the labels scroll away
 with everything else.
+
+## Pinning
+
+Both kinds turn, and each keeps the shape it has upright.
+
+A pinned **column** is a band stuck to the top or bottom of the scroll
+container. `columnPinning` already moves it to one end of the leaf order, which
+is the end a sticky edge can hold, and from there the pinned bands are measured
+and stacked by the same code that stacks upright pinned rows.
+
+A pinned **row** is a record column, and `rowPinningDisplayMode` chooses between
+the same two shapes it chooses between upright:
+
+| Mode | Upright | Transposed |
+| --- | --- | --- |
+| `sticky` (default) | keeps its place, held against the top and bottom edges | keeps its place, held against both inline edges |
+| `top` | a block above the body | a block at the inline start |
+| `bottom` | a block below the body | a block at the inline end |
+| `top-and-bottom` | both blocks | both blocks |
+
+In `sticky` a pinned record stays exactly where the sort put it — you can still
+see where it ranks — and is given *both* an inline start and an inline end
+offset. So it waits at the trailing edge while the scroll is still before it,
+sits among its neighbours while that place is on screen, and docks beside the
+label block once the scroll goes past it. One offset would hold it in one
+direction only. As upright, the direction in `rowPinning` picks no side there;
+it decides only where a record dropped by a filter or a page is put back.
+
+In the other three the pinned records are lifted into a block at one inline
+edge, stacked, with the record facing the rest of the table carrying the
+boundary. Upright that block is a `<tbody>` of its own, outside the scrolling
+one. It cannot be here — a record is a column, and a column has no element of
+its own — so each record of the block sticks on its own account, at an offset
+counted from the label block outwards. What a reader sees is the same.
+
+Every offset is stated rather than measured, which upright cannot do: a row is
+as tall as its tallest cell, but a record column is exactly one
+`--rtc-transposed-record-width` because the `<colgroup>` says so. A record's
+start offset is the label block plus the pinned records before it, and its end
+offset the footer block plus the pinned records after it — the same stacking,
+in closed form. An open detail panel is not counted: it does not dock with its
+record, exactly as an upright detail row does not dock with the row above it.
+
+`sticky` also survives virtualization here, where upright it falls back to the
+sections. An upright virtualized row is positioned absolutely and so cannot also
+be sticky; a windowed record is held in flow by a spacer instead, which leaves
+it an ordinary cell that sticks like any other.
 
 ## The toggle
 

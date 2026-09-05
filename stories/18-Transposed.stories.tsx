@@ -172,16 +172,24 @@ export const EveryFeature: Story = {
  * Pinning, both kinds, on a table that scrolls both ways.
  *
  * A pinned **column** is a band stuck to the top or bottom; a pinned **row** is
- * a record column stuck to the inline start or end. `enableStickyHeader` sticks
+ * a record column held against the inline edges. `enableStickyHeader` sticks
  * the label block and `enableStickyFooter` the footer block, which is what a
  * pinned record has to come to rest beside rather than under.
+ *
+ * `rowPinningDisplayMode` is left at its default, `sticky`: the pinned record
+ * keeps its place in the order — you can still see where it ranks — and is held
+ * against *both* inline edges, so it waits at the trailing edge until the
+ * scroll reaches it and docks beside the labels once the scroll goes past. The
+ * transpose of what a sticky pinned row does upright, edges and all.
  */
 export const Pinning: Story = {
   render: () => (
     <>
       <p className="rtc-sb-note">
-        Scroll in both directions. The first name band and the label column stay put; so does the
-        record pinned to the start.
+        Scroll in both directions. The first name band and the label column stay put. Two records
+        are pinned: the third sits among its neighbours until you scroll past it and then docks
+        beside the labels, and the thirteenth waits at the far edge until you reach it. Neither
+        ever leaves the screen.
       </p>
       <DataTable
         columns={withFooters}
@@ -196,9 +204,57 @@ export const Pinning: Story = {
         enableStickyFooter
         enablePagination={false}
         enableBorders="all"
+        // Narrower records so the two pinned ones and the footer block all fit
+        // with room to spare: held against both edges, a pinned record keeps
+        // clear of whatever is parked beyond it, and in a container with no
+        // room left that is what pushes it off its own place in the order.
+        cssVars={{ '--rtc-transposed-record-width': '150px' }}
         initialState={{
           columnPinning: { start: ['firstName'], end: ['age'] },
-          rowPinning: { top: [data[2]!.id], bottom: [] },
+          rowPinning: { top: [data[2]!.id], bottom: [data[12]!.id] },
+        }}
+        height={280}
+      />
+    </>
+  ),
+}
+
+/**
+ * The other three `rowPinningDisplayMode`s, turned.
+ *
+ * Where `sticky` leaves a pinned record among its neighbours, `top`, `bottom`
+ * and `top-and-bottom` lift it into a block of its own — at the inline **start**
+ * for `top` and the inline **end** for `bottom`, the same rotation the rest of
+ * the table makes. The block is docked against that one edge and stacks there,
+ * and the record facing the rest of the table carries the boundary.
+ *
+ * Upright the block is a `<tbody>` of its own outside the scrolling one. It
+ * cannot be here — a record is a column, and a column has no element — so each
+ * record of the block sticks on its own account, at an offset counted from the
+ * label block. The result is the same: a block that holds one edge while the
+ * records between them scroll under it.
+ */
+export const PinnedSections: Story = {
+  render: () => (
+    <>
+      <p className="rtc-sb-note">
+        Scroll across. Two records are lifted out to the start and one to the end, and the records
+        in between pass underneath.
+      </p>
+      <DataTable
+        columns={withFooters}
+        data={data.slice(0, 14)}
+        getRowId={(row) => row.id}
+        transposed
+        enableRowPinning
+        rowPinningDisplayMode="top-and-bottom"
+        enableRowActions
+        enableStickyHeader
+        enableStickyFooter
+        enablePagination={false}
+        enableBorders="all"
+        initialState={{
+          rowPinning: { top: [data[2]!.id, data[5]!.id], bottom: [data[9]!.id] },
         }}
         height={280}
       />
@@ -253,7 +309,8 @@ export const Virtualized: Story = {
     <>
       <p className="rtc-sb-note">
         5,000 records across and 40 fields down, with a bounded height. Scroll either way — the
-        label column stays at the side, and only what is in view is mounted.
+        label column stays at the side, and only what is in view is mounted. Two records are
+        pinned and stay on screen the whole way, one of them 2,500 columns in.
       </p>
       <DataTable
         columns={makeWideColumns(40)}
@@ -263,10 +320,18 @@ export const Virtualized: Story = {
         enableRowVirtualization
         enableColumnVirtualization
         enableColumnPinning
+        enableRowPinning
         enablePagination={false}
         enableBorders="all"
         density="compact"
-        initialState={{ columnPinning: { start: ['firstName'], end: [] } }}
+        initialState={{
+          columnPinning: { start: ['firstName'], end: [] },
+          // `sticky` survives a window here, where upright it falls back to the
+          // sections: a windowed record is held in flow by a spacer rather than
+          // taken out of it, so it can stick like any other cell. The window
+          // force-mounts both of them at any scroll offset.
+          rowPinning: { top: ['p3'], bottom: ['p2500'] },
+        }}
         height={420}
       />
     </>

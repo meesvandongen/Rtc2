@@ -63,13 +63,27 @@ async function renderFailure(page: Page, entry: IndexEntry): Promise<string | un
     // the page — only that the harness raced itself. Waiting for the document
     // it navigated to and asking again is the answer; a page that is genuinely
     // broken is still broken on the second look.
-    let failure: string | undefined
-    try {
-      failure = await probe()
-    } catch (error) {
-      if (!String(error).includes('Execution context was destroyed')) throw error
-      await page.waitForLoadState('load')
-      failure = await probe()
+    const look = async (): Promise<string | undefined> => {
+      try {
+        return await probe()
+      } catch (error) {
+        if (!String(error).includes('Execution context was destroyed')) throw error
+        await page.waitForLoadState('load')
+        return await probe()
+      }
+    }
+
+    // An empty mount point is the one answer a single look cannot interpret: a
+    // page that failed to mount and one that has not mounted *yet* are the same
+    // document. So it is the one answer worth asking again for — a documentation
+    // page compiles its MDX and mounts every story on it, which under a loaded
+    // machine can outlast the wait above, while a page that is actually broken
+    // is still empty at the deadline. Every other answer is decided already.
+    const deadline = Date.now() + 15_000
+    let failure = await look()
+    while (failure === 'nothing rendered' && Date.now() < deadline) {
+      await page.waitForTimeout(250)
+      failure = await look()
     }
     return failure ?? errors[0]
   } finally {

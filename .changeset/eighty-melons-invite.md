@@ -24,6 +24,21 @@ its record; and `enableColumnResizing` writes the same `columnSizing` state,
 read as a band height, from a grip along the bottom edge of each label. The
 column and row menus name the direction they will pin in.
 
+`rowPinningDisplayMode` turns with the rest. In the default `sticky` mode a
+pinned record keeps its place in the order and is held against **both** inline
+edges — it waits at the trailing edge until the scroll reaches it, sits among
+its neighbours while that place is on screen, and docks beside the label column
+once the scroll goes past it. The other three lift the pinned records into a
+block at the inline start (`top`) or end (`bottom`), stacked and docked against
+that edge, with the record facing the rest of the table carrying the block's
+boundary. Every offset is stated rather than measured, which upright cannot do:
+a record column is exactly one `--rtc-transposed-record-width`, so a record's
+start offset is the label block plus the pinned records before it and its end
+offset the footer block plus the ones after it. And `sticky` keeps working under
+`enableRowVirtualization` here, where upright it falls back to the sections — a
+windowed record is held in flow by a spacer rather than taken out of it, so it
+sticks like any other cell.
+
 Both axes are sized by `--rtc-transposed-header-width` (`220px`) and
 `--rtc-transposed-record-width` (`200px`) rather than by each column's `size`,
 which measures an axis the transposed table no longer lays columns out along.
