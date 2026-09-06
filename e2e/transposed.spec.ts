@@ -359,6 +359,28 @@ test.describe('transposed pinning', () => {
       'true',
     )
 
+    /**
+     * And it is *one* boundary, not one per band.
+     *
+     * A record is a column, so the block's edge is a run of one cell per band
+     * rather than a single element. Drawn with the pin shadow an upright pinned
+     * column carries, that run came out scalloped: the shadow's negative spread
+     * shrinks each cell's copy away from that cell's own top and bottom, so it
+     * pinched in at every row line and read as a stack of separate shadows. A
+     * border has no waist, and adjacent cells' borders meet exactly.
+     */
+    const edge = await root.evaluate((element) =>
+      [...element.querySelectorAll('td[data-rtc-pin-edge="true"][data-rtc-pinned="start"]')].map(
+        (cell) => {
+          const style = getComputedStyle(cell)
+          return `${style.boxShadow}|${style.borderInlineEndWidth}|${style.borderInlineEndColor}`
+        },
+      ),
+    )
+    expect(edge.length).toBeGreaterThan(1)
+    expect(new Set(edge).size, 'every band draws the same edge').toBe(1)
+    expect(edge[0], 'a continuous border, not a shadow per band').toMatch(/^none\|[1-9]/)
+
     const block = async () => [
       await recordLeft(root, 'p3'),
       await recordLeft(root, 'p6'),
