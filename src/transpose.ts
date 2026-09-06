@@ -274,6 +274,15 @@ export interface TransposedLayout<TData extends RowData> {
    * positions to force-mount rather than a count at each edge.
    */
   pinnedRecords: number[]
+  /**
+   * Record position the empty-state column is inserted before — `records.length`
+   * to put it after all of them — or `null` when the records fill the middle
+   * themselves and there is no empty state to show.
+   *
+   * Only a section mode reaches it: a filter that matched nothing, with the
+   * pinned records kept on screen and none left in between.
+   */
+  emptyCenterAt: number | null
 }
 
 export function transposedLayout<TData extends RowData>(
@@ -313,26 +322,49 @@ export function transposedLayout<TData extends RowData>(
         : 'records'
   const skeletonCount = options.skeletonRowCount ?? 5
 
+  // A section mode can leave every record in a block and nothing in between:
+  // a filter that matched nothing, with `keepPinnedRows` holding the pinned
+  // ones on screen. That is not an empty table — the blocks are still there,
+  // and they are the reason to have pinned anything — but nothing says the
+  // filter came back with nothing either. Upright the sections sit either side
+  // of the empty state; here it is a column of its own, in the gap the records
+  // left, which is the same place turned.
+  const emptyCenterAt =
+    mode === 'records' &&
+    !records.some((record) => record.pinned !== 'start' && record.pinned !== 'end')
+      ? (() => {
+          // Before the end block, or after everything when the start block is
+          // the only one — the gap is wherever the records would have been.
+          const at = records.findIndex((record) => record.pinned === 'end')
+          return at === -1 ? records.length : at
+        })()
+      : null
+
   // Column positions along the record axis. An open detail panel is a column of
   // its own beside its record, so positions are counted rather than derived.
   const recordColumns: number[] = []
   let cursor = headerLevels
   let detailCount = 0
-  for (const record of records) {
+  records.forEach((record, index) => {
+    if (index === emptyCenterAt) cursor += 1
     recordColumns.push(cursor)
     cursor += record.hasDetail ? 2 : 1
     if (record.hasDetail) detailCount += 1
-  }
+  })
 
   // How many record columns are actually drawn: the records themselves, the
   // placeholders standing in for them, or the one cell the empty and error
   // states put where they would have been.
   const recordCount = mode === 'records' ? records.length : mode === 'loading' ? skeletonCount : 0
-  const columnCount = headerLevels + Math.max(1, recordCount) + detailCount + footerLevels
+  // The empty-centre message is a record column like any other, sized like one
+  // so the table's stated width stays the sum of its columns.
+  const messageCount = emptyCenterAt === null ? 0 : 1
+  const columnCount =
+    headerLevels + Math.max(1, recordCount) + messageCount + detailCount + footerLevels
 
   const terms: Array<[number, string]> = [
     [headerLevels + footerLevels, '--rtc-transposed-header-width'],
-    [recordCount, '--rtc-transposed-record-width'],
+    [recordCount + messageCount, '--rtc-transposed-record-width'],
     [detailCount, '--rtc-transposed-detail-width'],
   ]
   const sum = terms
@@ -371,6 +403,7 @@ export function transposedLayout<TData extends RowData>(
     pinnedBands: pinningColumns ? table.getStartVisibleLeafColumns().length : 0,
     pinnedBandsEnd: pinningColumns ? table.getEndVisibleLeafColumns().length : 0,
     pinnedRecords: records.flatMap((record, index) => (record.pinned ? [index] : [])),
+    emptyCenterAt,
     // The empty and error states have no width of their own to state: their one
     // cell fills whatever is left, so the container sizes the table instead.
     width: recordCount > 0 && sum ? `calc(${sum})` : '100%',
@@ -467,6 +500,14 @@ export interface TransposedPlan<TData extends RowData> extends TransposedLayout<
   colWidths: string[]
   /** Columns actually in the DOM, which is what a spacer row has to span. */
   domColumnCount: number
+  /**
+   * Slot position the empty-state column goes at — `slots.length` to append —
+   * or `-1` when there is none. `emptyCenterAt` counts records; this counts the
+   * slots actually rendered, which a window can make a different number.
+   * Resolved once so the `<colgroup>` and the body cannot disagree about which
+   * column it is.
+   */
+  emptyCenterSlot: number
 }
 
 /** The whole axis, unwindowed. */
@@ -552,28 +593,46 @@ export function transposedPlan<TData extends RowData>(
     )
   }
 
+  // Where the empty-state column lands among the slots actually rendered. The
+  // first slot at or past the record it goes before, since a window may have
+  // left that record out and put a spacer in its place.
+  let emptyCenterSlot = -1
+  if (layout.emptyCenterAt !== null) {
+    const at = recordPlan.slots.findIndex(
+      (slot) => slot.index !== undefined && slot.index >= layout.emptyCenterAt!,
+    )
+    emptyCenterSlot = at === -1 ? recordPlan.slots.length : at
+  }
+
   // The `<colgroup>`. With `table-layout: fixed` a table takes its widths from
   // its first row unless there is one of these, and under a band window the
   // first row is a spacer — one wide cell that would then decide every column.
   const label = 'var(--rtc-transposed-header-width)'
+  const record = 'var(--rtc-transposed-record-width)'
   const colWidths: string[] = []
   for (let level = 0; level < layout.headerLevels; level++) colWidths.push(label)
 
   if (layout.mode === 'records') {
-    for (const slot of recordPlan.slots) {
+    // The empty-state column is the one `auto` among them, so it takes the gap
+    // between the two pinned blocks rather than a record's width: with
+    // `table-layout: fixed`, whatever `min-width: 100%` stretches the table by
+    // lands on the auto column alone and leaves every stated width alone. The
+    // table's own width still counts it as one record wide, which is the floor
+    // it falls back to once the records overflow and there is no slack left.
+    recordPlan.slots.forEach((slot, at) => {
+      if (at === emptyCenterSlot) colWidths.push('auto')
       if (slot.spacer !== undefined) {
         colWidths.push(slot.spacer)
-        continue
+        return
       }
-      colWidths.push('var(--rtc-transposed-record-width)')
+      colWidths.push(record)
       if (layout.records[slot.index]?.hasDetail) {
         colWidths.push('var(--rtc-transposed-detail-width)')
       }
-    }
+    })
+    if (emptyCenterSlot === recordPlan.slots.length) colWidths.push('auto')
   } else if (layout.mode === 'loading') {
-    for (let index = 0; index < layout.skeletonCount; index++) {
-      colWidths.push('var(--rtc-transposed-record-width)')
-    }
+    for (let index = 0; index < layout.skeletonCount; index++) colWidths.push(record)
   } else {
     // The empty and error states have one cell where the records would be, and
     // it takes whatever is left over.
@@ -582,7 +641,14 @@ export function transposedPlan<TData extends RowData>(
 
   for (let level = 0; level < layout.footerLevels; level++) colWidths.push(label)
 
-  return { ...layout, bandPlan, recordPlan, colWidths, domColumnCount: colWidths.length }
+  return {
+    ...layout,
+    bandPlan,
+    recordPlan,
+    colWidths,
+    domColumnCount: colWidths.length,
+    emptyCenterSlot,
+  }
 }
 
 /**

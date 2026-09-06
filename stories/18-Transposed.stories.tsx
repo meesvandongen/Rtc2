@@ -233,13 +233,18 @@ export const Pinning: Story = {
  * record of the block sticks on its own account, at an offset counted from the
  * label block. The result is the same: a block that holds one edge while the
  * records between them scroll under it.
+ *
+ * `keepPinnedRows` is on, so searching for something else leaves the pinned
+ * records where they are — which is the point of pinning one. Search for
+ * something no record matches and the blocks stay put with the empty state
+ * between them, exactly as the upright sections keep theirs.
  */
 export const PinnedSections: Story = {
   render: () => (
     <>
       <p className="rtc-sb-note">
         Scroll across. Two records are lifted out to the start and one to the end, and the records
-        in between pass underneath.
+        in between pass underneath. Search to see the blocks survive a filter that drops the rest.
       </p>
       <DataTable
         columns={withFooters}
@@ -249,10 +254,15 @@ export const PinnedSections: Story = {
         enableRowPinning
         rowPinningDisplayMode="top-and-bottom"
         enableRowActions
+        enableGlobalFilter
         enableStickyHeader
         enableStickyFooter
         enablePagination={false}
         enableBorders="all"
+        // Narrower records so the two blocks and the footer leave room between
+        // them: the empty state takes the gap when there is one, and falls back
+        // to a record's width when the blocks have taken it all.
+        cssVars={{ '--rtc-transposed-record-width': '150px' }}
         initialState={{
           rowPinning: { top: [data[2]!.id, data[5]!.id], bottom: [data[9]!.id] },
         }}

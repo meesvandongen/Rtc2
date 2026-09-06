@@ -131,10 +131,21 @@ offset the footer block plus the pinned records after it — the same stacking,
 in closed form. An open detail panel is not counted: it does not dock with its
 record, exactly as an upright detail row does not dock with the row above it.
 
+`keepPinnedRows` is what makes pinning worth doing while you look for something
+else, and it turns too: a record a filter or a page has dropped stays pinned, at
+the edge it was pinned to. A section mode can then be left with both blocks and
+nothing in between — a filter that matched nothing. Upright the sections sit
+either side of the empty state; here it is a column of its own, in the gap the
+records left, spanning every band. It takes that whole gap when there is one and
+falls back to a record's width when the blocks have taken it all.
+
 `sticky` also survives virtualization here, where upright it falls back to the
 sections. An upright virtualized row is positioned absolutely and so cannot also
 be sticky; a windowed record is held in flow by a spacer instead, which leaves
-it an ordinary cell that sticks like any other.
+it an ordinary cell that sticks like any other. (The band window stands down
+while that empty-state column is on screen, for the reason a detail panel makes
+it stand down: it is a `rowSpan` over the whole band order, and a window that
+dropped some of the bands would have no span left to give it.)
 
 ## The toggle
 

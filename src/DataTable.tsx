@@ -122,16 +122,22 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
    * with grouped headers renders all of its columns rather than a misaligned
    * subset.
    *
-   * Transposed only the second applies, and it applies twice over: a grouped
-   * header spans bands, and so does a detail panel — both are `rowSpan`s over
-   * the whole band order, and a window that dropped some of them would have no
-   * span left to give. The records are windowed either way.
+   * Transposed only the second applies, and it applies three times over: a
+   * grouped header spans bands, so does a detail panel, and so does the empty
+   * state a section mode shows between its pinned blocks when the filter
+   * matched nothing — each is a `rowSpan` over the whole band order, and a
+   * window that dropped some of them would have no span left to give. The
+   * records are windowed either way.
    */
+  const spansEveryBand =
+    transposed &&
+    (!!options.renderDetailPanel || transposedLayoutData?.emptyCenterAt != null)
+
   const virtualizeColumns =
     (options.enableColumnVirtualization ?? false) &&
     (transposed || layoutMode !== 'semantic') &&
     singleHeaderRow &&
-    !(transposed && options.renderDetailPanel)
+    !spansEveryBand
 
   const showTopToolbar = (options.enableToolbar ?? true) && (options.enableTopToolbar ?? true)
   const showBottomToolbar = (options.enableToolbar ?? true) && (options.enableBottomToolbar ?? true)

@@ -39,6 +39,13 @@ offset the footer block plus the ones after it. And `sticky` keeps working under
 windowed record is held in flow by a spacer rather than taken out of it, so it
 sticks like any other cell.
 
+`keepPinnedRows` turns with them: a record a filter or a page has dropped stays
+pinned, and a section mode left with both blocks and nothing in between shows
+the empty state as a column between them, spanning every band — the upright
+empty *row* between the two sections, turned. It takes the whole gap the records
+left when there is one, and falls back to a record's width when the blocks have
+taken it all.
+
 Both axes are sized by `--rtc-transposed-header-width` (`220px`) and
 `--rtc-transposed-record-width` (`200px`) rather than by each column's `size`,
 which measures an axis the transposed table no longer lays columns out along.

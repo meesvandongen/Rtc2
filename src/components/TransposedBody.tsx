@@ -58,8 +58,19 @@ export function TransposedBody<TData extends RowData>({
     bandPlan,
     recordPlan,
     bandSizes,
+    emptyCenterSlot,
   } = plan
   const bandCount = bands.length
+
+  /** What the table says when there is nothing — or nothing left — to show. */
+  const emptyMessage = () =>
+    options.renderEmptyState?.({ table }) ?? (
+      <div className="rtc-empty">
+        {table.getPreFilteredRowModel().rows.length > 0
+          ? localization.noResultsFound
+          : localization.noRecordsToDisplay}
+      </div>
+    )
 
   const bandPins = resolveBandPins(table)
   // Only the records actually rendered: with a window over a large table this
@@ -216,13 +227,7 @@ export function TransposedBody<TData extends RowData>({
   }
 
   if (plan.mode === 'empty') {
-    const message = options.renderEmptyState?.({ table }) ?? (
-      <div className="rtc-empty">
-        {table.getPreFilteredRowModel().rows.length > 0
-          ? localization.noResultsFound
-          : localization.noRecordsToDisplay}
-      </div>
-    )
+    const message = emptyMessage()
     // With the label block on screen the fields still say what the table is
     // about, so the message goes where the records would have been, spanning
     // every band. With no label block there is nothing to keep, and the empty
@@ -305,22 +310,42 @@ export function TransposedBody<TData extends RowData>({
   }
 
   /**
+   * The empty state as a column, for a section mode whose filter matched
+   * nothing: the pinned blocks are still there, and this goes in the gap the
+   * records left. Emitted on the lead band alone, like the detail panel, since
+   * it is one cell spanning every band.
+   */
+  const emptyCenterCell = (index: number) =>
+    index === leadBand ? (
+      <td key="empty-center" className="rtc-td rtc-transposed-empty" rowSpan={detailSpan}>
+        {emptyMessage()}
+      </td>
+    ) : null
+
+  /**
    * A band's record cells, with a spacer holding open each run the window left
    * out — the same trick as the spacer rows, along the other axis.
    */
-  const recordCells = (index: number) =>
-    recordPlan.slots.map((slot, at) =>
-      slot.spacer !== undefined ? (
-        <td
-          key={`spacer-${at}`}
-          className="rtc-td rtc-transposed-spacer"
-          aria-hidden="true"
-          style={{ width: slot.spacer }}
-        />
-      ) : (
-        recordCell(slot.index, index)
-      ),
-    )
+  const recordCells = (index: number) => {
+    const cells: React.ReactNode[] = []
+    recordPlan.slots.forEach((slot, at) => {
+      if (at === emptyCenterSlot) cells.push(emptyCenterCell(index))
+      cells.push(
+        slot.spacer !== undefined ? (
+          <td
+            key={`spacer-${at}`}
+            className="rtc-td rtc-transposed-spacer"
+            aria-hidden="true"
+            style={{ width: slot.spacer }}
+          />
+        ) : (
+          recordCell(slot.index, index)
+        ),
+      )
+    })
+    if (emptyCenterSlot === recordPlan.slots.length) cells.push(emptyCenterCell(index))
+    return cells
+  }
 
   return <tbody {...bodyProps}>{bandRows(recordCells)}</tbody>
 }

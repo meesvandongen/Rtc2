@@ -370,6 +370,54 @@ test.describe('transposed pinning', () => {
   })
 
   /**
+   * `keepPinnedRows` can leave a section mode with both blocks and nothing in
+   * between — the whole point of pinning a record before searching for
+   * something else. Upright the sections sit either side of the empty state;
+   * here it is a column of its own, in the gap the records left, or the table
+   * shows three pinned records and nothing saying the filter came back empty.
+   */
+  test('a section mode keeps its blocks and the empty state between them', async ({ page }) => {
+    const root = await openStory(page, 'datatable-18-transposed--pinned-sections')
+
+    await toolbarAction(root, 'toggle-search').click()
+    await root.locator('[data-rtc-global-filter]').fill('nothing-matches-this')
+
+    // The blocks survive the filter, and nothing else does.
+    await expect
+      .poll(async () =>
+        root.evaluate((element) => {
+          const selector = 'tbody tr[data-rtc-column-id="firstName"] td[data-rtc-row-id]'
+          return [...element.querySelectorAll(selector)].map((cell) =>
+            cell.getAttribute('data-rtc-row-id'),
+          )
+        }),
+      )
+      .toEqual(['p3', 'p6', 'p10'])
+
+    // One message, in the gap between them, spanning every band — where the
+    // records would have been, which is the upright empty *row* turned.
+    const message = root.locator('td.rtc-transposed-empty')
+    await expect(message).toHaveCount(1)
+    await expect(message).toHaveText('No results found')
+
+    const geometry = await root.evaluate((element) => {
+      const empty = element.querySelector<HTMLTableCellElement>('td.rtc-transposed-empty')!
+      const cell = empty.getBoundingClientRect()
+      const at = (id: string) =>
+        element.querySelector(`td[data-rtc-row-id="${id}"]`)!.getBoundingClientRect()
+      return {
+        bands: empty.rowSpan,
+        bandCount: element.querySelectorAll('tbody > tr').length,
+        afterStart: Math.round(cell.left - at('p6').right),
+        beforeEnd: Math.round(at('p10').left - cell.right),
+      }
+    })
+    expect(geometry.bands).toBe(geometry.bandCount)
+    expect(geometry.afterStart).toBe(0)
+    expect(geometry.beforeEnd).toBe(0)
+  })
+
+  /**
    * A window is what a stated offset is for.
    *
    * Upright, `sticky` gives way to the sections under `enableRowVirtualization`:
