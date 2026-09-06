@@ -118,7 +118,13 @@ it decides only where a record dropped by a filter or a page is put back.
 
 In the other three the pinned records are lifted into a block at one inline
 edge, stacked, with the record facing the rest of the table carrying the
-boundary. Upright that block is a `<tbody>` of its own, outside the scrolling
+boundary — `--rtc-shadow-block-start` and `--rtc-shadow-block-end`, the edge a
+block that is a *run of cells* draws. The label and footer blocks draw the same
+one, and for the same reason: transposed each of them is one cell per band
+rather than a single element, so the edge is painted once per cell, and a shadow
+with a negative spread stops short of each cell's own top and bottom and comes
+out scalloped down the run. These have no spread, so the copies overlap across
+each row line instead and the run reads as one edge. Upright that block is a `<tbody>` of its own, outside the scrolling
 one. It cannot be here — a record is a column, and a column has no element of
 its own — so each record of the block sticks on its own account, at an offset
 counted from the label block outwards. What a reader sees is the same.

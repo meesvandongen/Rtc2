@@ -360,26 +360,26 @@ test.describe('transposed pinning', () => {
     )
 
     /**
-     * And it is *one* boundary, not one per band.
+     * And it draws as *one* edge, not one shadow per band.
      *
      * A record is a column, so the block's edge is a run of one cell per band
-     * rather than a single element. Drawn with the pin shadow an upright pinned
-     * column carries, that run came out scalloped: the shadow's negative spread
-     * shrinks each cell's copy away from that cell's own top and bottom, so it
-     * pinched in at every row line and read as a stack of separate shadows. A
-     * border has no waist, and adjacent cells' borders meet exactly.
+     * rather than a single element, and the shadow is drawn once per cell.
+     * `--rtc-shadow-pin-start` is not built to be repeated: its negative spread
+     * pulls each copy in from all four sides, so each one stops short of its own
+     * cell's top and bottom and the run came out scalloped — pinched at every
+     * row line. Zero spread is what closes it: each copy covers its cell's full
+     * height and overlaps its neighbours across the line.
      */
-    const edge = await root.evaluate((element) =>
+    const shadows = await root.evaluate((element) =>
       [...element.querySelectorAll('td[data-rtc-pin-edge="true"][data-rtc-pinned="start"]')].map(
-        (cell) => {
-          const style = getComputedStyle(cell)
-          return `${style.boxShadow}|${style.borderInlineEndWidth}|${style.borderInlineEndColor}`
-        },
+        (cell) => getComputedStyle(cell).boxShadow,
       ),
     )
-    expect(edge.length).toBeGreaterThan(1)
-    expect(new Set(edge).size, 'every band draws the same edge').toBe(1)
-    expect(edge[0], 'a continuous border, not a shadow per band').toMatch(/^none\|[1-9]/)
+    expect(shadows.length, 'the edge is a run of cells').toBeGreaterThan(1)
+    expect(new Set(shadows).size, 'every band draws the same shadow').toBe(1)
+    // `<colour> <x> <y> <blur> <spread>`; the spread is the one that scalloped it.
+    expect(shadows[0], 'a shadow, drawn on every band').not.toBe('none')
+    expect(shadows[0]!.trim().split(/\s+/).at(-1), 'no spread, or the run pinches').toBe('0px')
 
     const block = async () => [
       await recordLeft(root, 'p3'),

@@ -112,6 +112,12 @@
   --rtc-shadow-sticky: 0 1px 0 0 var(--rtc-color-border);
   --rtc-shadow-pin-start: 4px 0 6px -4px rgb(15 23 42 / 25%);
   --rtc-shadow-pin-end: -4px 0 6px -4px rgb(15 23 42 / 25%);
+  /* The same edge, for a block that is a run of cells rather than one element —
+     a transposed label, footer or pinned-record block. No spread, so each cell's
+     copy covers its own full height and the run has no waist at the row lines;
+     see the transposed section at the end of this file. */
+  --rtc-shadow-block-start: 3px 0 5px 0 rgb(15 23 42 / 20%);
+  --rtc-shadow-block-end: -3px 0 5px 0 rgb(15 23 42 / 20%);
   --rtc-shadow-menu: 0 8px 28px -8px rgb(15 23 42 / 25%), 0 2px 6px -2px rgb(15 23 42 / 12%);
   --rtc-focus-ring: 0 0 0 2px var(--rtc-color-surface), 0 0 0 4px var(--rtc-color-accent);
   --rtc-transition: 120ms ease;
@@ -187,6 +193,8 @@
     --rtc-cell-bg-selected: rgb(96 165 250 / 26%);
     --rtc-shadow-pin-start: 4px 0 8px -4px rgb(0 0 0 / 60%);
     --rtc-shadow-pin-end: -4px 0 8px -4px rgb(0 0 0 / 60%);
+    --rtc-shadow-block-start: 3px 0 6px 0 rgb(0 0 0 / 55%);
+    --rtc-shadow-block-end: -3px 0 6px 0 rgb(0 0 0 / 55%);
     --rtc-shadow-menu: 0 10px 32px -8px rgb(0 0 0 / 65%);
   }
 }
@@ -216,6 +224,8 @@
   --rtc-cell-bg-selected: rgb(96 165 250 / 26%);
   --rtc-shadow-pin-start: 4px 0 8px -4px rgb(0 0 0 / 60%);
   --rtc-shadow-pin-end: -4px 0 8px -4px rgb(0 0 0 / 60%);
+  --rtc-shadow-block-start: 3px 0 6px 0 rgb(0 0 0 / 55%);
+  --rtc-shadow-block-end: -3px 0 6px 0 rgb(0 0 0 / 55%);
   --rtc-shadow-menu: 0 10px 32px -8px rgb(0 0 0 / 65%);
 }
 
@@ -2491,32 +2501,40 @@
   background-color: var(--rtc-row-bg-pinned);
 }
 
-/* The boundary of a pinned *section*, drawn on the innermost record of the
- * block — the last of the start block, the first of the end block.
+/* The edge of a stuck block, which transposed is a run of cells rather than one
+ * element: the label block, the footer block and a pinned record section are
+ * each one cell per band, stacked.
  *
- * A border, as upright, and not the shadow an upright pinned *column* carries.
- * A record is a column here, so the block's edge is a run of one cell per band
- * rather than a single element, and `--rtc-shadow-pin-start` is drawn per cell:
- * its `-4px` spread shrinks each cell's shadow away from that cell's own top
- * and bottom, so the run comes out scalloped — a separate shadow per band,
- * pinched at every row line, which is the opposite of the one block edge it is
- * meant to be. A border has no such waist. Adjacent cells' borders meet exactly
- * (`border-spacing: 0`), so the same run draws one unbroken line, and it is the
- * line the label and footer blocks already draw at their own edges.
+ * So the shadow is drawn once per cell, and `--rtc-shadow-pin-start` is not
+ * built to be repeated. Its `-4px` spread pulls each copy in from all four
+ * sides — which upright only has to keep the shadow off the cell's own left,
+ * but here also pulls it away from that cell's top and bottom, before the blur
+ * softens what is left. Stack those and the run comes out scalloped: a separate
+ * shadow per band, pinched at every row line, which is the opposite of the one
+ * block edge it is meant to draw.
+ *
+ * `--rtc-shadow-block-*` is the same shadow with no spread, so each cell's copy
+ * covers its own full height and bleeds a little past it. Neighbours overlap
+ * across the row line instead of leaving a gap there, and two half-strength
+ * overlaps come to within a few percent of one full-strength one — a seam you
+ * cannot see, where the waist was plain. The offset and blur are trimmed to
+ * keep the reach the pinned columns have, since nothing is being shrunk away
+ * from the edge any more.
  *
  * A record pinned in the sticky mode carries no edge and gets none: it is in
  * the order one moment and docked the next, exactly as upright, and what marks
- * it is its background. */
-.rtc-root[data-rtc-transposed="true"] .rtc-td[data-rtc-pin-edge="true"] {
-  box-shadow: none;
+ * it is its background.
+ *
+ * `:where()` keeps this at the specificity the drop indicators below already
+ * out-order, so dragging onto a stuck cell still draws its line. */
+.rtc-root[data-rtc-transposed="true"]
+  :where(.rtc-th, .rtc-td)[data-rtc-pin-edge="true"][data-rtc-pinned="start"] {
+  box-shadow: var(--rtc-shadow-block-start);
 }
 
-.rtc-root[data-rtc-transposed="true"] .rtc-td[data-rtc-pin-edge="true"][data-rtc-pinned="start"] {
-  border-inline-end: var(--rtc-border-width) solid var(--rtc-color-border-strong);
-}
-
-.rtc-root[data-rtc-transposed="true"] .rtc-td[data-rtc-pin-edge="true"][data-rtc-pinned="end"] {
-  border-inline-start: var(--rtc-border-width) solid var(--rtc-color-border-strong);
+.rtc-root[data-rtc-transposed="true"]
+  :where(.rtc-th, .rtc-td)[data-rtc-pin-edge="true"][data-rtc-pinned="end"] {
+  box-shadow: var(--rtc-shadow-block-end);
 }
 
 /* A pinned band has to outrank the label block that runs through it. The label
