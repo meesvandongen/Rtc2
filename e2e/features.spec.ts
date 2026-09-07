@@ -659,6 +659,39 @@ test.describe('columns', () => {
     expect(await diagonalHeaderOverflows(root)).toEqual([])
   })
 
+  /**
+   * The column boundary a turned header can use. A vertical border says "this
+   * column's header ends here", which is the one thing the diagonal denies —
+   * at 45° over a 44px column it would cross four labels — so where the table
+   * draws vertical borders, the header draws a rule along each label instead.
+   */
+  test('a diagonal header rules along its label, not up the band', async ({ page }) => {
+    const root = await openStory(page, 'datatable-06-columns--diagonal-headers')
+
+    const drawn = await header(root, 'check-3').evaluate((cell) => {
+      const label = cell.querySelector('.rtc-th-content') as HTMLElement
+      const rule = getComputedStyle(cell, '::after')
+      return {
+        border: getComputedStyle(cell).borderInlineEndColor,
+        ruleLength: Number.parseFloat(rule.width),
+        ruleTurn: rule.transform,
+        labelTurn: getComputedStyle(label).transform,
+        labelLength: label.offsetWidth,
+      }
+    })
+
+    expect(drawn.border).toBe('rgba(0, 0, 0, 0)')
+    // Turned by exactly what the label is turned by, so the line runs along it.
+    expect(drawn.ruleTurn).toBe(drawn.labelTurn)
+    // And carried on past the label to the top of the band, so that the rules
+    // of a short label and a long one end level.
+    const band = (await root.locator('thead').boundingBox())!.height
+    expect(drawn.ruleLength * Math.SQRT1_2).toBeGreaterThan(band - 24)
+    expect(drawn.ruleLength).toBeGreaterThan(drawn.labelLength)
+
+    expect(await diagonalHeaderOverflows(root)).toEqual([])
+  })
+
   /** `meta.headerOrientation` overrides the table, in both directions. */
   test('a column can keep its header flat in a diagonal table', async ({ page }) => {
     const root = await openStory(page, 'datatable-06-columns--diagonal-headers')

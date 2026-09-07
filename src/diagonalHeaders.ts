@@ -30,9 +30,13 @@ import type {
  * - `--rtc-header-diagonal-height`, the height the tallest label needs.
  * - `--rtc-header-diagonal-inset`, how far along the row every label starts,
  *   which is what keeps the corner it leans away from inside its own cell.
+ * - `--rtc-header-diagonal-rule`, the length of the line each label sits on
+ *   where the table draws vertical borders — the boundary a turned header can
+ *   use, since a vertical one crosses every label leaning over it. Carried on
+ *   past the label to the top of the band, so every rule ends level.
  * - `--rtc-header-diagonal-gutter`, the strip at the end of the table that the
- *   longest label leans into, so it is not cut off at the edge of the scroll
- *   container.
+ *   longest label — or its rule, which reaches further — leans into, so it is
+ *   not cut off at the edge of the scroll container.
  *
  * The geometry is one right-angled triangle. A label is a box `length` long and
  * `thickness` tall, pinned by the corner it descends to and turned by `angle`,
@@ -52,6 +56,7 @@ const DIAGONAL_CELL = '.rtc-th[data-rtc-header-orientation="diagonal"]'
 const PUBLISHED_PROPERTIES = [
   '--rtc-header-diagonal-height',
   '--rtc-header-diagonal-inset',
+  '--rtc-header-diagonal-rule',
   '--rtc-header-diagonal-gutter',
 ]
 
@@ -167,6 +172,12 @@ export function useDiagonalHeaderLayout<TData extends RowData>(
   const options = table.dataTableOptions
   const enabled = usesDiagonalHeaders(table)
   const angle = resolveHeaderAngle(options)
+  // Whether the stylesheet draws a rule along each label, which it does in
+  // place of the vertical border a turned header cannot use — a line straight
+  // up the band crosses every label leaning over it. The rule reaches further
+  // than the label does, so the gutter has to know.
+  const borders = options.enableBorders ?? 'horizontal'
+  const hasRules = borders === true || borders === 'all' || borders === 'vertical'
 
   const boxesRef = useRef<Record<string, HeaderBox>>({})
 
@@ -218,22 +229,37 @@ export function useDiagonalHeaderLayout<TData extends RowData>(
       height = Math.max(height, box.length * sin + box.thickness * cos)
       inset = Math.max(inset, box.thickness * sin)
     }
+    height = Math.ceil(height)
+
+    // The rule each label runs along, where the table draws vertical borders:
+    // the same line the label sits on, carried on to the top of the band so
+    // that every label's rule ends flush with the last. It climbs from the
+    // label's own foot, which is `padding-y` up from the row's bottom border.
+    const paddingX = readPixels(head, '--rtc-cell-padding-x')
+    const paddingY = readPixels(head, '--rtc-cell-padding-y')
+    const rise = height + paddingY - readPixels(head, '--rtc-border-width')
+    const rule = rise / sin
 
     // The gutter every label needs past its *own* column, rather than past the
     // table: what a column has beyond its own width is whichever neighbours are
     // rendered beside it, and that changes as a window of columns scrolls. A
     // gutter measured from the widest overhang is a few pixels more than the
     // last column strictly needs, and it holds still.
-    const padding = readPixels(head, '--rtc-cell-padding-x')
+    //
+    // A rule reaches further along the row than the label it runs under, since
+    // it carries on to the top of the band — but only where one is drawn.
+    const ruleReach = hasRules ? rule * cos : 0
     let gutter = 0
     for (const [id, box] of Object.entries(boxes)) {
-      gutter = Math.max(gutter, padding + inset + box.length * cos - (sizesRef.current[id] ?? 0))
+      const reach = Math.max(box.length * cos, ruleReach)
+      gutter = Math.max(gutter, paddingX + inset + reach - (sizesRef.current[id] ?? 0))
     }
 
-    setPixelProperty(tableElement, '--rtc-header-diagonal-height', Math.ceil(height))
+    setPixelProperty(tableElement, '--rtc-header-diagonal-height', height)
     setPixelProperty(tableElement, '--rtc-header-diagonal-inset', Math.ceil(inset))
+    setPixelProperty(tableElement, '--rtc-header-diagonal-rule', Math.ceil(rule))
     setPixelProperty(tableElement, '--rtc-header-diagonal-gutter', Math.max(0, Math.ceil(gutter)))
-  }, [headRef, angle])
+  }, [headRef, angle, hasRules])
 
   // Density, column visibility, translated labels and web-font loading all
   // change how much room a label wants, and observing the header covers every

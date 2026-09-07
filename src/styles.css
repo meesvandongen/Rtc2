@@ -933,10 +933,12 @@
   overflow: visible;
 }
 
-.rtc-th[data-rtc-header-orientation="diagonal"] .rtc-th-content {
+/* The label, and the rule it sits on, are pinned and turned together — same
+   corner, same angle, so the line runs exactly along the text. */
+.rtc-th[data-rtc-header-orientation="diagonal"] .rtc-th-content,
+.rtc-th[data-rtc-header-orientation="diagonal"]::after {
   position: absolute;
   bottom: var(--rtc-cell-padding-y);
-  width: max-content;
   /* Above the header cells beside it, which are opaque and painted in document
      order: without this, the cell after a label paints over the part of the
      label that crosses into it. Below a pinned header (z-index 4), which is
@@ -947,7 +949,12 @@
   transform: rotate(calc(-1 * var(--rtc-header-angle)));
 }
 
-[dir="rtl"] .rtc-th[data-rtc-header-orientation="diagonal"] .rtc-th-content {
+.rtc-th[data-rtc-header-orientation="diagonal"] .rtc-th-content {
+  width: max-content;
+}
+
+[dir="rtl"] .rtc-th[data-rtc-header-orientation="diagonal"] .rtc-th-content,
+[dir="rtl"] .rtc-th[data-rtc-header-orientation="diagonal"]::after {
   transform: rotate(var(--rtc-header-angle));
 }
 
@@ -956,7 +963,8 @@
  * side swings out by, so paying it up front puts the start of every label
  * exactly at its cell's padding edge — where a flat label starts — instead of
  * over the cell before it. */
-.rtc-root[data-rtc-header-lean="end"] .rtc-th[data-rtc-header-orientation="diagonal"] .rtc-th-content {
+.rtc-root[data-rtc-header-lean="end"] .rtc-th[data-rtc-header-orientation="diagonal"] .rtc-th-content,
+.rtc-root[data-rtc-header-lean="end"] .rtc-th[data-rtc-header-orientation="diagonal"]::after {
   inset-inline-start: calc(var(--rtc-cell-padding-x) + var(--rtc-header-diagonal-inset, 0px));
   transform-origin: left bottom;
   /* The funnel and the column menu ride at the far end of a flat header row,
@@ -968,17 +976,47 @@
   flex-direction: row-reverse;
 }
 
-.rtc-root[dir="rtl"][data-rtc-header-lean="end"] .rtc-th[data-rtc-header-orientation="diagonal"] .rtc-th-content {
+.rtc-root[dir="rtl"][data-rtc-header-lean="end"] .rtc-th[data-rtc-header-orientation="diagonal"] .rtc-th-content,
+.rtc-root[dir="rtl"][data-rtc-header-lean="end"] .rtc-th[data-rtc-header-orientation="diagonal"]::after {
   transform-origin: right bottom;
 }
 
-.rtc-root[data-rtc-header-lean="start"] .rtc-th[data-rtc-header-orientation="diagonal"] .rtc-th-content {
+.rtc-root[data-rtc-header-lean="start"] .rtc-th[data-rtc-header-orientation="diagonal"] .rtc-th-content,
+.rtc-root[data-rtc-header-lean="start"] .rtc-th[data-rtc-header-orientation="diagonal"]::after {
   inset-inline-end: calc(var(--rtc-cell-padding-x) + var(--rtc-header-diagonal-inset, 0px));
   transform-origin: right bottom;
 }
 
-.rtc-root[dir="rtl"][data-rtc-header-lean="start"] .rtc-th[data-rtc-header-orientation="diagonal"] .rtc-th-content {
+.rtc-root[dir="rtl"][data-rtc-header-lean="start"] .rtc-th[data-rtc-header-orientation="diagonal"] .rtc-th-content,
+.rtc-root[dir="rtl"][data-rtc-header-lean="start"] .rtc-th[data-rtc-header-orientation="diagonal"]::after {
   transform-origin: left bottom;
+}
+
+/* A vertical border does not survive the turn.
+ *
+ * It says "this column's header ends here", which is the one thing a diagonal
+ * header denies: at 45° over a 44px column the labels are seven pixels apart,
+ * so a line straight up the band crosses four of them. The boundary that still
+ * means something runs *along* the labels — each one on a rule of its own,
+ * pinned at the same corner and turned by the same angle, carried on past the
+ * label to the top of the band so that all of them end level.
+ *
+ * Drawn only where the table draws vertical borders, since that is the line it
+ * stands in for: `useDiagonalHeaderLayout` publishes the length, and without
+ * the `content` below the pseudo-element is never generated. */
+.rtc-root[data-rtc-borders="vertical"] .rtc-thead .rtc-th[data-rtc-header-orientation="diagonal"],
+.rtc-root[data-rtc-borders="all"] .rtc-thead .rtc-th[data-rtc-header-orientation="diagonal"] {
+  /* Transparent rather than removed: the cell keeps the width its column was
+     given, borders and all. */
+  border-inline-end-color: transparent;
+}
+
+.rtc-root[data-rtc-borders="vertical"] .rtc-thead .rtc-th[data-rtc-header-orientation="diagonal"]::after,
+.rtc-root[data-rtc-borders="all"] .rtc-thead .rtc-th[data-rtc-header-orientation="diagonal"]::after {
+  content: "";
+  width: var(--rtc-header-diagonal-rule, 0px);
+  height: var(--rtc-border-width);
+  background: var(--rtc-color-border);
 }
 
 /* The row a turned label is in has to be given the height the label no longer
@@ -1030,10 +1068,10 @@
  * end of the *window*, and the strip would float in the middle of the header. */
 .rtc-root[data-rtc-header-lean="end"]:not([data-rtc-column-virtual="true"])
   .rtc-thead
-  .rtc-th:last-child::after,
+  .rtc-th:last-child::before,
 .rtc-root[data-rtc-header-lean="start"]:not([data-rtc-column-virtual="true"])
   .rtc-thead
-  .rtc-th:first-child::after {
+  .rtc-th:first-child::before {
   content: "";
   position: absolute;
   /* Down over the row's own bottom border, which the gradient carries on so the
@@ -1054,11 +1092,11 @@
   --rtc-header-band-line: var(--rtc-color-border-strong);
 }
 
-.rtc-root[data-rtc-header-lean="end"] .rtc-thead .rtc-th:last-child::after {
+.rtc-root[data-rtc-header-lean="end"] .rtc-thead .rtc-th:last-child::before {
   inset-inline-start: 100%;
 }
 
-.rtc-root[data-rtc-header-lean="start"] .rtc-thead .rtc-th:first-child::after {
+.rtc-root[data-rtc-header-lean="start"] .rtc-thead .rtc-th:first-child::before {
   inset-inline-end: 100%;
 }
 

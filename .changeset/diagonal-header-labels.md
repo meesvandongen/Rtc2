@@ -31,9 +31,14 @@ Being out of flow is what keeps the other half of the promise: a label that
 sizes nothing cannot widen its column, so this composes with
 `enableHeaderContentFit` rather than fighting it.
 
-Two smaller things come with it. Everything in a header row that holds a turned
-label sits at the foot of the band, flat labels included — in the middle of a
-header three times their own height they are both adrift from their column and
-in the path of every label leaning across them. And the funnel and column menu
-move to the foot of each label, above the data they filter, instead of riding to
-the top of the climb where they end up a label's length from their own column.
+Three smaller things come with it. A vertical border does not survive the turn —
+it says "this column's header ends here", which is what the diagonal denies, and
+at 45° over a 44px column a line straight up the band crosses four labels — so
+where `enableBorders` draws vertical borders, the turned header draws a rule
+along each label instead, carried on past it to the top of the band so that
+every rule ends level. Everything in a header row that holds a turned label sits
+at the foot of the band, flat labels included: in the middle of a header three
+times their own height they are both adrift from their column and in the path of
+every label leaning across them. And the funnel and column menu move to the foot
+of each label, above the data they filter, instead of riding to the top of the
+climb where they end up a label's length from their own column.

@@ -153,3 +153,11 @@ Labels lean over the columns they climb towards, so put the flat columns on the
 other side of the turned ones — with the default angle, that means the columns
 that name a row come first. The header's own controls move to the foot of each
 label, above the data they act on, rather than riding to the top of the climb.
+
+A vertical border does not survive the turn either. It says "this column's
+header ends here", which is exactly what the diagonal denies: at 45° over a 44px
+column the labels are seven pixels apart, so a line straight up the band crosses
+four of them. Where `enableBorders` draws vertical borders, the turned header
+draws a rule along each label instead — pinned at the same corner, turned by the
+same angle, and carried on past the label to the top of the band so that a short
+label's rule and a long one's end level.
