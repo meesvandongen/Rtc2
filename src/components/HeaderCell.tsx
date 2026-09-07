@@ -3,6 +3,7 @@ import type { RowData } from '@tanstack/react-table'
 import { ColumnActionsMenu } from './ColumnActionsMenu'
 import { ColumnFilterPopover } from './ColumnFilterPopover'
 import { useComponents } from './registry'
+import { resolveHeaderOrientation } from '../diagonalHeaders'
 import { isDisplayColumnId } from '../displayColumns'
 import { useDrag } from '../dragContext'
 import { resolveLayoutMode } from '../layoutMode'
@@ -125,6 +126,14 @@ export function HeaderCell<TData extends RowData>({
 
   const label = getColumnLabel(column, localization)
 
+  // Leaf headers only. A grouped header spans columns of its own, so there is
+  // no one column for it to lean over, and a placeholder renders nothing to
+  // turn — both keep the flat box the row's height is still measured from.
+  const isDiagonal =
+    !header.isPlaceholder &&
+    header.subHeaders.length === 0 &&
+    resolveHeaderOrientation(options, column as never) === 'diagonal'
+
   const isDropTarget =
     drag.kind === 'column' && drag.overId === column.id && drag.activeId !== column.id
 
@@ -160,6 +169,7 @@ export function HeaderCell<TData extends RowData>({
       scope={header.colSpan > 1 ? 'colgroup' : 'col'}
       aria-colindex={colIndex === undefined ? undefined : colIndex + 1}
       aria-sort={ariaSort}
+      data-rtc-header-orientation={isDiagonal ? 'diagonal' : undefined}
       data-rtc-filtered={column.getIsFiltered() ? 'true' : undefined}
       data-rtc-dragging={drag.kind === 'column' && drag.activeId === column.id ? 'true' : undefined}
       data-rtc-drop-target={isDropTarget ? 'true' : undefined}

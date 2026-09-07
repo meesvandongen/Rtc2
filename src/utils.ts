@@ -88,6 +88,23 @@ export function toCssSize(value: string | number | undefined): string | undefine
   return typeof value === 'number' ? `${value}px` : value
 }
 
+/** Sub-pixel differences are rounding, not layout. */
+const PIXEL_EPSILON = 0.5
+
+/**
+ * Writes a measured pixel value to an element as a custom property.
+ *
+ * Used by the measurements that publish layout back to the stylesheet — sticky
+ * offsets, diagonal header geometry — which re-run on every commit and mostly
+ * arrive at the number that is already there. Writing it anyway invalidates
+ * style for the subtree, so the write is skipped unless the value moved.
+ */
+export function setPixelProperty(element: HTMLElement, property: string, value: number) {
+  const current = Number.parseFloat(element.style.getPropertyValue(property))
+  if (Math.abs((Number.isNaN(current) ? 0 : current) - value) < PIXEL_EPSILON) return
+  element.style.setProperty(property, `${value}px`)
+}
+
 /** Human-readable label for a cell value used by faceted filters and CSV export. */
 export function stringifyValue(value: unknown): string {
   if (value == null) return ''

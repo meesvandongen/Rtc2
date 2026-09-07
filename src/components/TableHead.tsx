@@ -3,6 +3,7 @@ import type { RowData } from '@tanstack/react-table'
 
 import { type ColumnWindow, windowedEntries } from './columnVirtualizer'
 import { HeaderCell } from './HeaderCell'
+import { useDiagonalHeaderLayout } from '../diagonalHeaders'
 import { useHeaderContentFit } from '../headerFit'
 import { cx } from '../utils'
 import type { DataTableInstance } from '../types'
@@ -27,6 +28,10 @@ export function TableHead<TData extends RowData>({
   // handed over because a header can only be measured while it is mounted:
   // scrolling sideways brings columns in that have never been measured.
   useHeaderContentFit(table, headRef, columnWindow?.key)
+  // A rotated label is out of flow, so it no longer sizes anything: the height
+  // it needs, and the room it leans into, are measured here for the same reason
+  // and from the same window.
+  useDiagonalHeaderLayout(table, headRef, columnWindow?.key)
 
   return (
     <thead ref={headRef} className={cx('rtc-thead', options.classNames?.head)}>

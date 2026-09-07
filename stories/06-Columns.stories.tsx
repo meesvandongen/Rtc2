@@ -4,6 +4,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite'
 import { DataTable, type ColumnPinningState } from '../src'
 import { loadingArgTypes } from './controls'
 import {
+  checklistColumns,
   groupedHeaderColumns,
   makePeople,
   makeTree,
@@ -343,6 +344,83 @@ export const HeaderContentFit: Story = {
             enablePagination={false}
             enableBorders="all"
             caption={`enableHeaderContentFit={${fit}}`}
+          />
+        </div>
+      ))}
+    </>
+  ),
+}
+
+/**
+ * Long labels over columns as narrow as their data.
+ *
+ * Flat, each of these seven checks is a column as wide as "Expense policy
+ * signed" holding a single tick, and the table is nearly all header.
+ * `headerOrientation="diagonal"` turns the labels off the horizontal and trades
+ * that width for height: the header row grows to whatever the longest label
+ * needs — measured, so a translation or a density change is already covered —
+ * and every column goes back to the width of its own content.
+ *
+ * The two columns that name the row keep their flat headers through
+ * `meta.headerOrientation`, which overrides the table in both directions.
+ */
+export const DiagonalHeaders: Story = {
+  args: {
+    headerOrientation: 'diagonal',
+    headerAngle: 45,
+    enableColumnActions: true,
+    density: 'comfortable',
+  },
+  argTypes: {
+    headerOrientation: {
+      control: 'inline-radio',
+      options: ['horizontal', 'diagonal'],
+      table: { category: 'Columns' },
+    },
+    headerAngle: {
+      control: { type: 'range', min: -90, max: 90, step: 5 },
+      description:
+        'Degrees counter-clockwise from horizontal. The sign picks which way the labels climb; 90 stands them upright.',
+      table: { category: 'Columns' },
+    },
+  },
+  render: (args) => (
+    <DataTable
+      columns={checklistColumns}
+      data={data.slice(0, 8)}
+      getRowId={(row) => row.id}
+      layoutMode="grid-no-grow"
+      enablePagination={false}
+      enableBorders="all"
+      {...args}
+    />
+  ),
+}
+
+/**
+ * The same table at three angles.
+ *
+ * `headerAngle` is signed: a positive angle climbs towards the end of the row
+ * and a negative one towards the start, and the table reserves the strip the
+ * labels lean into at whichever end that is. At 90 they stand upright, which
+ * costs no width at all.
+ */
+export const DiagonalHeaderAngles: Story = {
+  render: () => (
+    <>
+      {[45, -45, 90].map((headerAngle) => (
+        <div key={headerAngle} style={{ marginBottom: 16 }}>
+          <DataTable
+            columns={checklistColumns}
+            data={data.slice(0, 4)}
+            getRowId={(row) => row.id}
+            headerOrientation="diagonal"
+            headerAngle={headerAngle}
+            layoutMode="grid-no-grow"
+            enableToolbar={false}
+            enablePagination={false}
+            enableBorders="all"
+            caption={`headerAngle={${headerAngle}}`}
           />
         </div>
       ))}

@@ -122,3 +122,34 @@ layout, which hands the surplus to the columns that declared no width — so the
 growing columns declare none, and carry their `size` as a floor instead. Use
 `layoutMode="grid-no-grow"` for a table where no column grows and the surplus
 stays empty to the right.
+
+## Headers that are wider than their columns
+
+Widening the column is one answer to a long label, and truncating it is the
+other. Both are the wrong one for a table of checklist or measure columns, where
+the label is "Expense policy signed" and the data under it is a tick: widening
+makes the table nearly all header, truncating makes every column read `Ex…`.
+
+`headerOrientation="diagonal"` turns the labels off the horizontal instead, and
+trades the width they wanted for height the table has to spare. `headerAngle` is
+signed degrees counter-clockwise from horizontal — 45 by default, negative to
+lean the labels the other way, 90 to stand them upright, which costs no width at
+all. Any column can decide for itself with `meta.headerOrientation`, in both
+directions, so the columns that identify a row keep their flat headers in a
+table of turned ones.
+
+**This one is a measurement pass**, unlike the sizing above, and it has to be: a
+`transform` is applied after layout, so a turned label sizes nothing — not the
+row it is in, not the table it leans across. `useDiagonalHeaderLayout` reads each
+label's flat box and publishes three lengths the stylesheet cannot work out on
+its own: the height the tallest label needs, how far along the row every label
+starts so that the corner it leans away from stays inside its own cell, and the
+strip at the end of the table for the longest label to lean into. Being out of
+flow is also what keeps the promise the other direction: a label that sizes
+nothing cannot widen its column, and `enableHeaderContentFit` measures a cell
+with nothing in it and publishes no floor.
+
+Labels lean over the columns they climb towards, so put the flat columns on the
+other side of the turned ones — with the default angle, that means the columns
+that name a row come first. The header's own controls move to the foot of each
+label, above the data they act on, rather than riding to the top of the climb.

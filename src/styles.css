@@ -54,6 +54,10 @@
   --rtc-header-color: var(--rtc-color-text);
   --rtc-header-bg: var(--rtc-color-surface-sunken);
   --rtc-header-align: start;
+  /* Only read where `headerOrientation` turns the labels. Set it through the
+     `headerAngle` option rather than here: the header's height is measured from
+     it, and the option is what the measurement reads. */
+  --rtc-header-angle: 45deg;
 
   --rtc-footer-font-weight: 600;
   --rtc-footer-bg: var(--rtc-color-surface-sunken);
@@ -908,6 +912,154 @@
 
 .rtc-th-spacer {
   flex: 1 1 auto;
+}
+
+/* --------------------------------------------------- diagonal headers ---- */
+
+/* Long labels over columns as narrow as their data. The rotation is here; the
+ * three lengths it needs are measured by `useDiagonalHeaderLayout`, because a
+ * `transform` is applied after layout and a turned label therefore sizes
+ * nothing — see that module for the geometry.
+ *
+ * Taking the label out of flow is the point, not a side effect. An absolutely
+ * positioned box contributes nothing to its cell's intrinsic width, so a
+ * diagonal header cannot widen its column, and `enableHeaderContentFit` —
+ * which measures exactly that width — measures an empty cell and publishes no
+ * floor. The two features compose without either knowing about the other. */
+.rtc-root .rtc-th[data-rtc-header-orientation="diagonal"] {
+  /* Leaving the cell on two sides is what the rotation is for, so the opt-out
+     that clips a flat header (`data-rtc-header-fit="clip"`) must not reach a
+     turned one — the cell is the label's containing block and would clip it. */
+  overflow: visible;
+}
+
+.rtc-th[data-rtc-header-orientation="diagonal"] .rtc-th-content {
+  position: absolute;
+  bottom: var(--rtc-cell-padding-y);
+  width: max-content;
+  /* Above the header cells beside it, which are opaque and painted in document
+     order: without this, the cell after a label paints over the part of the
+     label that crosses into it. Below a pinned header (z-index 4), which is
+     meant to cover whatever scrolls under it. */
+  z-index: 1;
+  /* CSS angles turn clockwise; `headerAngle` counts counter-clockwise, the way
+     a spreadsheet's does. RTL mirrors the whole thing, sign included. */
+  transform: rotate(calc(-1 * var(--rtc-header-angle)));
+}
+
+[dir="rtl"] .rtc-th[data-rtc-header-orientation="diagonal"] .rtc-th-content {
+  transform: rotate(var(--rtc-header-angle));
+}
+
+/* Where the label is pinned: the bottom corner it descends to, one cell padding
+ * plus the inset along the row. The inset is what the corner on the *other*
+ * side swings out by, so paying it up front puts the start of every label
+ * exactly at its cell's padding edge — where a flat label starts — instead of
+ * over the cell before it. */
+.rtc-root[data-rtc-header-lean="end"] .rtc-th[data-rtc-header-orientation="diagonal"] .rtc-th-content {
+  inset-inline-start: calc(var(--rtc-cell-padding-x) + var(--rtc-header-diagonal-inset, 0px));
+  transform-origin: left bottom;
+  /* The funnel and the column menu ride at the far end of a flat header row,
+     which on a diagonal one is the top of the climb — a label's length away
+     from the column it acts on, among the buttons of every other column that
+     ends up there. Reversed, the controls sit at the foot, above the data they
+     filter, and the label climbs away from them. The other lean puts the foot
+     at the other end of the row, where they already are. */
+  flex-direction: row-reverse;
+}
+
+.rtc-root[dir="rtl"][data-rtc-header-lean="end"] .rtc-th[data-rtc-header-orientation="diagonal"] .rtc-th-content {
+  transform-origin: right bottom;
+}
+
+.rtc-root[data-rtc-header-lean="start"] .rtc-th[data-rtc-header-orientation="diagonal"] .rtc-th-content {
+  inset-inline-end: calc(var(--rtc-cell-padding-x) + var(--rtc-header-diagonal-inset, 0px));
+  transform-origin: right bottom;
+}
+
+.rtc-root[dir="rtl"][data-rtc-header-lean="start"] .rtc-th[data-rtc-header-orientation="diagonal"] .rtc-th-content {
+  transform-origin: left bottom;
+}
+
+/* The row a turned label is in has to be given the height the label no longer
+   contributes. `height` on a table row is a minimum and on a flex row is exact,
+   which is what both layouts want from one declaration. The fallback is a
+   placeholder for the one commit before the measurement lands — visible only in
+   server-rendered markup, since the measurement is a layout effect. */
+.rtc-thead .rtc-tr:has(.rtc-th[data-rtc-header-orientation="diagonal"]) {
+  height: calc(
+    var(--rtc-header-diagonal-height, calc(2 * var(--rtc-row-height))) + 2 *
+      var(--rtc-cell-padding-y)
+  );
+}
+
+/* Everything in that row sits at the foot of the band, turned or not.
+ *
+ * A diagonal label is pinned to the bottom of its cell and climbs from there,
+ * so a flat label left in the middle of a header three times its own height is
+ * both adrift from the column it names and directly in the path of every label
+ * leaning across it — in a table whose identifying columns are flat and whose
+ * measures are turned, that is a collision by construction. At the foot they
+ * line up with the diagonals' own feet, clear of the climb, and the header
+ * reads as one band standing on the data. */
+.rtc-thead .rtc-tr:has(.rtc-th[data-rtc-header-orientation="diagonal"]) .rtc-th {
+  vertical-align: bottom;
+  align-items: flex-end;
+}
+
+/* The strip the longest label leans into, at whichever end it climbs towards.
+   Padding on the table, because `padding` does not apply to a `table-row` box —
+   and on the table rather than the scroll container so it is part of what
+   scrolls, not a permanent margin at the edge of the viewport. */
+.rtc-root[data-rtc-header-lean="end"] .rtc-table {
+  padding-inline-end: var(--rtc-header-diagonal-gutter, 0px);
+}
+
+.rtc-root[data-rtc-header-lean="start"] .rtc-table {
+  padding-inline-start: var(--rtc-header-diagonal-gutter, 0px);
+}
+
+/* That strip is outside the rows, so the header band ended at the last column
+ * while the labels carried on across it — a hard edge straight through the
+ * middle of the diagonal, with the line under the header stopping at it too.
+ * The cell at that end paints the strip as part of itself: inside the cell, so
+ * it travels with a sticky header, and per header row, so a grouped header
+ * carries its band across as well.
+ *
+ * Not while columns are virtualized: the cell at the end of a row is then the
+ * end of the *window*, and the strip would float in the middle of the header. */
+.rtc-root[data-rtc-header-lean="end"]:not([data-rtc-column-virtual="true"])
+  .rtc-thead
+  .rtc-th:last-child::after,
+.rtc-root[data-rtc-header-lean="start"]:not([data-rtc-column-virtual="true"])
+  .rtc-thead
+  .rtc-th:first-child::after {
+  content: "";
+  position: absolute;
+  /* Down over the row's own bottom border, which the gradient carries on so the
+     line under the header reaches the end of the band rather than stopping
+     where the columns do. */
+  inset-block: 0 calc(-1 * var(--rtc-border-width));
+  width: var(--rtc-header-diagonal-gutter, 0px);
+  background-image: linear-gradient(
+    to top,
+    var(--rtc-header-band-line, transparent) var(--rtc-border-width),
+    var(--rtc-header-bg) var(--rtc-border-width)
+  );
+}
+
+/* The divider under the header is the one line the strip has to carry; a group
+   row above it has only the border `enableBorders` gave it. */
+.rtc-root[data-rtc-header-lean] .rtc-thead .rtc-tr:last-child .rtc-th {
+  --rtc-header-band-line: var(--rtc-color-border-strong);
+}
+
+.rtc-root[data-rtc-header-lean="end"] .rtc-thead .rtc-th:last-child::after {
+  inset-inline-start: 100%;
+}
+
+.rtc-root[data-rtc-header-lean="start"] .rtc-thead .rtc-th:first-child::after {
+  inset-inline-end: 100%;
 }
 
 /* ------------------------------------------------------------ resizer ---- */

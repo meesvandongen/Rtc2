@@ -13,6 +13,11 @@ import { TableBody } from './components/TableBody'
 import { TableFoot } from './components/TableFoot'
 import { TableHead } from './components/TableHead'
 import { BottomToolbar, TopToolbar } from './components/Toolbar'
+import {
+  resolveHeaderAngle,
+  resolveHeaderLean,
+  usesDiagonalHeaders,
+} from './diagonalHeaders'
 import { DragProvider, type DropEdge } from './dragContext'
 import { resolveLayoutMode } from './layoutMode'
 import { useStickyPinnedRows } from './pinnedRows'
@@ -93,6 +98,11 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
     (options.enableColumnVirtualization ?? false) &&
     layoutMode !== 'semantic' &&
     table.getHeaderGroups().length === 1
+
+  // Asked of the columns, not of the option: one column is free to turn its own
+  // header in a table that never asked for it, and the row's height and the
+  // gutter it leans into are the table's to reserve either way.
+  const diagonalHeaders = usesDiagonalHeaders(table)
 
   const showTopToolbar = (options.enableToolbar ?? true) && (options.enableTopToolbar ?? true)
   const showBottomToolbar = (options.enableToolbar ?? true) && (options.enableBottomToolbar ?? true)
@@ -252,6 +262,9 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
         /* Reports whether the option was honoured, since it is declined for a
            semantic layout or a grouped header. */
         data-rtc-column-virtual={virtualizeColumns ? 'true' : undefined}
+        /* Which way the diagonal labels climb, and so which end of the table
+           reserves the strip they lean into. */
+        data-rtc-header-lean={diagonalHeaders ? resolveHeaderLean(options) : undefined}
         data-rtc-sticky-header={(options.enableStickyHeader ?? false) ? 'true' : undefined}
         data-rtc-sticky-footer={(options.enableStickyFooter ?? false) ? 'true' : undefined}
         data-rtc-stripes={(options.enableStripes ?? false) ? 'true' : undefined}
@@ -259,6 +272,10 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
         data-rtc-borders={bordersValue}
         style={{
           ...(options.cssVars as React.CSSProperties),
+          /* After `cssVars`, deliberately: the header's height is measured from
+             this angle, so the number the measurement used is the number the
+             stylesheet has to turn the labels by. `headerAngle` is the knob. */
+          ...(diagonalHeaders ? { '--rtc-header-angle': `${resolveHeaderAngle(options)}deg` } : {}),
           ...(table.ui.isFullScreen
             ? {}
             : { height: toCssSize(options.height), maxHeight: toCssSize(options.maxHeight) }),

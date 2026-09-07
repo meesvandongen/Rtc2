@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react'
 import type { RowData } from '@tanstack/react-table'
 
+import { setPixelProperty } from './utils'
 import type { DataTableInstance, DataTableOptions, DataTableRow } from './types'
 
 /**
@@ -63,15 +64,6 @@ export function withKeptPinnedRows<TData extends RowData>(
   return [...missingTop, ...rows, ...missingBottom]
 }
 
-/** Sub-pixel differences are rounding, not layout. */
-const EPSILON = 0.5
-
-function setPixels(element: HTMLElement, property: string, value: number) {
-  const current = Number.parseFloat(element.style.getPropertyValue(property))
-  if (Math.abs((Number.isNaN(current) ? 0 : current) - value) < EPSILON) return
-  element.style.setProperty(property, `${value}px`)
-}
-
 /**
  * Publishes the offsets a pinned row sticks at.
  *
@@ -129,8 +121,8 @@ export function useStickyPinnedRows<TData extends RowData>(
     const foot = stickyFooter ? container.querySelector('.rtc-tfoot') : null
     const headHeight = head?.getBoundingClientRect().height ?? 0
     const footHeight = foot?.getBoundingClientRect().height ?? 0
-    setPixels(container, '--rtc-sticky-head-height', headHeight)
-    setPixels(container, '--rtc-sticky-foot-height', footHeight)
+    setPixelProperty(container, '--rtc-sticky-head-height', headHeight)
+    setPixelProperty(container, '--rtc-sticky-foot-height', footHeight)
 
     // Rows lifted into a pinned section need no offset of their own: the
     // section is the sticky element and its rows stack inside it in flow.
@@ -148,13 +140,13 @@ export function useStickyPinnedRows<TData extends RowData>(
 
     let above = 0
     rows.forEach((row, index) => {
-      setPixels(row, '--rtc-pinned-row-offset-top', above)
+      setPixelProperty(row, '--rtc-pinned-row-offset-top', above)
       above += heights[index] ?? 0
     })
 
     let below = 0
     for (let index = rows.length - 1; index >= 0; index--) {
-      setPixels(rows[index]!, '--rtc-pinned-row-offset-bottom', below)
+      setPixelProperty(rows[index]!, '--rtc-pinned-row-offset-bottom', below)
       below += heights[index] ?? 0
     }
   }, [containerRef, stickyHeader, stickyFooter])

@@ -81,6 +81,47 @@ export async function headerLabelOverlaps(root: Locator): Promise<string[]> {
 }
 
 /**
+ * Every diagonal header label the table has not made room for.
+ *
+ * A turned label is out of flow, so it sizes nothing: the height its row needs
+ * and the strip it leans into at the end of the table are both measured and
+ * published, and the way that goes wrong is a label drawn outside the box that
+ * was supposed to grow for it. Measured against the table's border box, which
+ * includes the reserved strip, and against the label's own row.
+ *
+ * Returns a description per label, so a failure names the column.
+ */
+export async function diagonalHeaderOverflows(root: Locator): Promise<string[]> {
+  return root.evaluate((element) => {
+    const table = element.querySelector('table.rtc-table')
+    if (!table) return ['no table to measure']
+    const bounds = table.getBoundingClientRect()
+    return Array.from(
+      element.querySelectorAll('thead .rtc-th[data-rtc-header-orientation="diagonal"]'),
+    ).flatMap((cell) => {
+      const content = cell.querySelector('.rtc-th-content')
+      if (!content) return []
+      const id = (cell as HTMLElement).dataset.rtcColumnId
+      // The rect of a rotated element is the box that contains it, which is
+      // exactly the space the table had to find for it.
+      const box = content.getBoundingClientRect()
+      const row = (cell.closest('tr') as HTMLElement).getBoundingClientRect()
+      const found: string[] = []
+      if (box.top < row.top - 1) {
+        found.push(`${id}: stands ${Math.round(row.top - box.top)}px above its row`)
+      }
+      if (box.left < bounds.left - 1) {
+        found.push(`${id}: reaches ${Math.round(bounds.left - box.left)}px past the start of the table`)
+      }
+      if (box.right > bounds.right + 1) {
+        found.push(`${id}: reaches ${Math.round(box.right - bounds.right)}px past the end of the table`)
+      }
+      return found
+    })
+  })
+}
+
+/**
  * The bands of chrome a table is drawing, top to bottom.
  *
  * Named rather than counted, so a failure says which band went missing or was

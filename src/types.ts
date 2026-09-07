@@ -38,6 +38,12 @@ export type DataTableDensity = 'compact' | 'comfortable' | 'spacious'
  */
 export type DataTableLayoutMode = 'semantic' | 'grid' | 'grid-no-grow'
 
+/**
+ * How a header label is set: flat, or turned onto a diagonal so a long label
+ * can sit over a column as narrow as its data. See `headerAngle`.
+ */
+export type DataTableHeaderOrientation = 'horizontal' | 'diagonal'
+
 /** Which editing affordance is presented, mirroring Material React Table's modes. */
 export type DataTableEditMode = 'cell' | 'row' | 'table' | 'modal'
 
@@ -103,6 +109,13 @@ export interface DataTableColumnMeta {
   editSelectOptions?: Array<DataTableSelectOption | string>
   /** Horizontal alignment for header, body and footer cells of this column. */
   align?: 'left' | 'center' | 'right'
+  /**
+   * How this column's header label is set, overriding the table's
+   * `headerOrientation` in both directions: `diagonal` turns one cramped
+   * column in an otherwise flat header, `horizontal` keeps an identifying
+   * column flat in a table of diagonal ones.
+   */
+  headerOrientation?: DataTableHeaderOrientation
   /** Extra class applied to every cell in the column. */
   className?: string
   /** Short help text rendered in the column actions menu. */
@@ -545,6 +558,33 @@ export interface DataTableOptions<TData extends RowData> {
    * its container at any cost.
    */
   enableHeaderContentFit?: boolean
+  /**
+   * Set header labels on a diagonal instead of flat. Defaults to `horizontal`.
+   *
+   * For the tables that are mostly header: twenty checklist columns holding a
+   * tick each, under labels ten times as wide as the tick. Turning the labels
+   * trades the width they wanted for height, and each column goes back to being
+   * as wide as its own data — the header row grows to whatever the longest
+   * label needs, measured, so translation and density are already covered.
+   *
+   * Applies to every data column; the generated select, expand, row-number and
+   * actions columns stay flat, and any column can decide for itself with
+   * `meta.headerOrientation`.
+   */
+  headerOrientation?: DataTableHeaderOrientation
+  /**
+   * The angle a diagonal header is set at, in degrees counter-clockwise from
+   * horizontal. Defaults to 45, and is bounded to 1–90 either way.
+   *
+   * The sign chooses which way the labels climb, and so which end of the table
+   * reserves the strip they lean into: positive climbs towards the end of the
+   * row, negative towards the start. At 90 they stand upright.
+   *
+   * Read by the measurement that sizes the header row, so it belongs here
+   * rather than in `cssVars` — the table publishes it as `--rtc-header-angle`
+   * and overrides an override.
+   */
+  headerAngle?: number
   density?: DataTableDensity
   /** Fixed height for the scroll container, e.g. `'520px'`. Required for virtualization. */
   height?: string | number

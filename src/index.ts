@@ -192,6 +192,7 @@ export type {
   DataTableEditVariant,
   DataTableFilterVariant,
   DataTableHeader,
+  DataTableHeaderOrientation,
   DataTableInitialState,
   DataTableInstance,
   DataTableLayoutMode,

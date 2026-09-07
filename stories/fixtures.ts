@@ -226,6 +226,53 @@ export const groupedHeaderColumns: Array<DataTableColumn<Person, any>> = helper.
   }),
 ])
 
+/**
+ * Labels long enough to be worth turning, over columns that hold a tick.
+ *
+ * The case diagonal headers exist for: flat, these seven columns are as wide as
+ * "Expense policy signed" and the table is nearly all header.
+ */
+const CHECKS = [
+  'Onboarding complete',
+  'Security training',
+  'Hardware assigned',
+  'On the on-call rota',
+  'Manager review done',
+  'Expense policy signed',
+  'Laptop encrypted',
+]
+
+/** Deterministic, like the rest of the fixture — the e2e suite reads these cells. */
+const isChecked = (person: Person, index: number) =>
+  (person.id.charCodeAt(person.id.length - 1) + index * 7) % 3 !== 0
+
+/**
+ * A checklist matrix: two columns that name the row, then one narrow column per
+ * check. Used by the diagonal-header stories, where the two naming columns opt
+ * back out through `meta.headerOrientation`.
+ */
+export const checklistColumns: Array<DataTableColumn<Person, any>> = helper.columns([
+  helper.accessor('firstName', {
+    header: 'First name',
+    size: 140,
+    meta: { headerOrientation: 'horizontal' },
+  }),
+  helper.accessor('department', {
+    header: 'Department',
+    size: 150,
+    meta: { dataType: 'enum', headerOrientation: 'horizontal' },
+  }),
+  ...CHECKS.map((label, index) =>
+    helper.accessor((row) => isChecked(row, index), {
+      id: `check-${index + 1}`,
+      header: label,
+      size: 44,
+      cell: ({ getValue }) => (getValue() ? '✓' : '–'),
+      meta: { dataType: 'boolean', align: 'center' },
+    }),
+  ),
+])
+
 /** Wide column set used by the column-virtualization and pinning stories. */
 export function makeWideColumns(count: number): Array<DataTableColumn<Person, any>> {
   return helper.columns([

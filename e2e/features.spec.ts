@@ -4,6 +4,7 @@ import {
   bodyRows,
   chromeBands,
   columnText,
+  diagonalHeaderOverflows,
   dragTo,
   emptyToolbars,
   filterPopover,
@@ -619,6 +620,114 @@ test.describe('columns', () => {
     }
 
     expect(await headerLabelOverlaps(root)).toEqual([])
+  })
+
+  /**
+   * The trade a diagonal header makes: the label's width becomes the header
+   * row's height, and the column keeps the width of its own data.
+   */
+  test('a diagonal header turns its label instead of widening its column', async ({ page }) => {
+    const root = await openStory(page, 'datatable-06-columns--diagonal-headers')
+
+    const cell = header(root, 'check-6')
+    // "Expense policy signed" over a column declared at 44px. Its flat box is
+    // what the rotation has to find room for, and `offsetWidth`/`offsetHeight`
+    // are the two lengths a transform leaves alone.
+    const label = await cell.locator('.rtc-th-content').evaluate((content: HTMLElement) => ({
+      width: content.offsetWidth,
+      height: content.offsetHeight,
+    }))
+    expect(label.width).toBeGreaterThan(140)
+
+    const width = (await cell.boundingBox())!.width
+    expect(width).toBeLessThan(60)
+    // The body agrees: nothing about the label reached the column's width.
+    const body = (await root
+      .locator('tbody td[data-rtc-column-id="check-6"]')
+      .first()
+      .boundingBox())!.width
+    expect(Math.abs(width - body)).toBeLessThan(2)
+
+    // The header row is what grew instead: at 45° the label rises by its own
+    // length times sin, plus the thickness its box still occupies at the foot.
+    const diagonal = Math.SQRT1_2 * (label.width + label.height)
+    const headHeight = (await root.locator('thead').boundingBox())!.height
+    expect(headHeight).toBeGreaterThanOrEqual(diagonal)
+    // And no further: a header twice the height it needs is a different bug.
+    expect(headHeight).toBeLessThan(diagonal + 40)
+
+    expect(await diagonalHeaderOverflows(root)).toEqual([])
+  })
+
+  /** `meta.headerOrientation` overrides the table, in both directions. */
+  test('a column can keep its header flat in a diagonal table', async ({ page }) => {
+    const root = await openStory(page, 'datatable-06-columns--diagonal-headers')
+
+    await expect(header(root, 'check-1')).toHaveAttribute('data-rtc-header-orientation', 'diagonal')
+    await expect(header(root, 'firstName')).not.toHaveAttribute(
+      'data-rtc-header-orientation',
+      'diagonal',
+    )
+    const transform = await header(root, 'firstName')
+      .locator('.rtc-th-content')
+      .evaluate((content) => getComputedStyle(content).transform)
+    expect(transform).toBe('none')
+  })
+
+  /**
+   * `headerAngle` is signed: it says how far the labels are turned and which
+   * way they climb, and the table reserves the strip they lean into at
+   * whichever end that is.
+   */
+  test('the header angle sets the tilt and the end that makes room', async ({ page }) => {
+    await openStory(page, 'datatable-06-columns--diagonal-header-angles')
+
+    for (const [index, angle] of [45, -45, 90].entries()) {
+      const root = page.locator('.rtc-root').nth(index)
+      await expect(root).toHaveAttribute('data-rtc-header-lean', angle < 0 ? 'start' : 'end')
+
+      const cell = header(root, 'check-1')
+      const turned = await cell.evaluate((element) => {
+        const content = element.querySelector('.rtc-th-content')!
+        const matrix = new DOMMatrix(getComputedStyle(content).transform)
+        const cellBox = element.getBoundingClientRect()
+        const box = content.getBoundingClientRect()
+        return {
+          // CSS angles turn clockwise, `headerAngle` counter-clockwise.
+          angle: Math.round((Math.atan2(-matrix.b, matrix.a) * 180) / Math.PI),
+          pastStart: Math.round(cellBox.left - box.left),
+          pastEnd: Math.round(box.right - cellBox.right),
+        }
+      })
+      expect(turned.angle).toBe(angle)
+
+      // Which side the label leans over, and the strip reserved for it there.
+      const padding = await root
+        .locator('table.rtc-table')
+        .evaluate((element) => ({
+          start: Number.parseFloat(getComputedStyle(element).paddingInlineStart),
+          end: Number.parseFloat(getComputedStyle(element).paddingInlineEnd),
+        }))
+      if (angle === 45) {
+        expect(turned.pastEnd).toBeGreaterThan(40)
+        expect(turned.pastStart).toBeLessThanOrEqual(1)
+        expect(padding.end).toBeGreaterThan(40)
+        expect(padding.start).toBe(0)
+      } else if (angle === -45) {
+        expect(turned.pastStart).toBeGreaterThan(40)
+        expect(turned.pastEnd).toBeLessThanOrEqual(1)
+        expect(padding.start).toBeGreaterThan(40)
+        expect(padding.end).toBe(0)
+      } else {
+        // Upright: the label costs no width at all, so nothing is reserved.
+        expect(turned.pastStart).toBeLessThanOrEqual(1)
+        expect(turned.pastEnd).toBeLessThanOrEqual(1)
+        expect(padding.start).toBe(0)
+        expect(padding.end).toBe(0)
+      }
+
+      expect(await diagonalHeaderOverflows(root)).toEqual([])
+    }
   })
 
   test('header groups span their children', async ({ page }) => {
