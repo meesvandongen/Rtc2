@@ -39,17 +39,6 @@ offset the footer block plus the ones after it. And `sticky` keeps working under
 windowed record is held in flow by a spacer rather than taken out of it, so it
 sticks like any other cell.
 
-Two new theme tokens come with that: `--rtc-shadow-block-start` and
-`--rtc-shadow-block-end`, the edge a *block* of stuck cells draws. Transposed,
-the label block, the footer block and a pinned record section are each one cell
-per band rather than one element, so the edge is drawn once per cell — and
-`--rtc-shadow-pin-*` is not built to be repeated. Its negative spread pulls each
-copy in from all four sides, which upright only keeps the shadow off the cell's
-own left but here also lifts it off that cell's top and bottom: stacked, the run
-came out scalloped, pinched at every row line. The block tokens are the same
-shadow with no spread, so each copy covers its cell's full height and overlaps
-its neighbours across the line, and the run reads as one edge.
-
 `keepPinnedRows` turns with them: a record a filter or a page has dropped stays
 pinned, and a section mode left with both blocks and nothing in between shows
 the empty state as a column between them, spanning every band — the upright

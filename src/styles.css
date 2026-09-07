@@ -109,15 +109,12 @@
   --rtc-cell-bg-grouped: var(--rtc-color-surface-sunken);
 
   /* ----------------------------------------------------------- effects ---- */
-  --rtc-shadow-sticky: 0 1px 0 0 var(--rtc-color-border);
-  --rtc-shadow-pin-start: 4px 0 6px -4px rgb(15 23 42 / 25%);
-  --rtc-shadow-pin-end: -4px 0 6px -4px rgb(15 23 42 / 25%);
-  /* The same edge, for a block that is a run of cells rather than one element —
-     a transposed label, footer or pinned-record block. No spread, so each cell's
-     copy covers its own full height and the run has no waist at the row lines;
-     see the transposed section at the end of this file. */
-  --rtc-shadow-block-start: 3px 0 5px 0 rgb(15 23 42 / 20%);
-  --rtc-shadow-block-end: -3px 0 5px 0 rgb(15 23 42 / 20%);
+  /* Where the scrolling stops: the edge of a pinned block, drawn as a line
+     rather than a shadow. Its own token rather than `--rtc-color-border-strong`
+     because a theme may set that to the ordinary border colour — shadcn's does
+     — and the one line that has to stay legible is this one. Doubled width, so
+     it reads as an edge and not as another column rule. */
+  --rtc-border-pin: calc(var(--rtc-border-width) * 2) solid var(--rtc-color-border-strong);
   --rtc-shadow-menu: 0 8px 28px -8px rgb(15 23 42 / 25%), 0 2px 6px -2px rgb(15 23 42 / 12%);
   --rtc-focus-ring: 0 0 0 2px var(--rtc-color-surface), 0 0 0 4px var(--rtc-color-accent);
   --rtc-transition: 120ms ease;
@@ -191,10 +188,6 @@
     --rtc-row-bg-hover: rgb(255 255 255 / 6%);
     --rtc-row-bg-selected-hover: rgb(96 165 250 / 22%);
     --rtc-cell-bg-selected: rgb(96 165 250 / 26%);
-    --rtc-shadow-pin-start: 4px 0 8px -4px rgb(0 0 0 / 60%);
-    --rtc-shadow-pin-end: -4px 0 8px -4px rgb(0 0 0 / 60%);
-    --rtc-shadow-block-start: 3px 0 6px 0 rgb(0 0 0 / 55%);
-    --rtc-shadow-block-end: -3px 0 6px 0 rgb(0 0 0 / 55%);
     --rtc-shadow-menu: 0 10px 32px -8px rgb(0 0 0 / 65%);
   }
 }
@@ -222,10 +215,6 @@
   --rtc-row-bg-hover: rgb(255 255 255 / 6%);
   --rtc-row-bg-selected-hover: rgb(96 165 250 / 22%);
   --rtc-cell-bg-selected: rgb(96 165 250 / 26%);
-  --rtc-shadow-pin-start: 4px 0 8px -4px rgb(0 0 0 / 60%);
-  --rtc-shadow-pin-end: -4px 0 8px -4px rgb(0 0 0 / 60%);
-  --rtc-shadow-block-start: 3px 0 6px 0 rgb(0 0 0 / 55%);
-  --rtc-shadow-block-end: -3px 0 6px 0 rgb(0 0 0 / 55%);
   --rtc-shadow-menu: 0 10px 32px -8px rgb(0 0 0 / 65%);
 }
 
@@ -613,10 +602,6 @@
   z-index: 3;
 }
 
-.rtc-root[data-rtc-sticky-header="true"] .rtc-thead .rtc-th {
-  box-shadow: var(--rtc-shadow-sticky);
-}
-
 .rtc-root[data-rtc-sticky-footer="true"] .rtc-tfoot {
   position: sticky;
   bottom: 0;
@@ -710,14 +695,25 @@
   inset-inline-end: var(--rtc-pin-offset);
 }
 
-.rtc-th[data-rtc-pin-edge="true"][data-rtc-pinned="start"],
-.rtc-td[data-rtc-pin-edge="true"][data-rtc-pinned="start"] {
-  box-shadow: var(--rtc-shadow-pin-start);
+/* The edge of the pinned block, drawn on its innermost column: a line, not a
+ * shadow. Flat, so the table sits inside a host design system without arguing
+ * with it about elevation — and, unlike a shadow, something a run of cells can
+ * draw. Transposed a pinned block is one cell per band rather than one element,
+ * so its edge is painted once per cell; a blurred shadow drawn that way either
+ * falls short of each cell's top and bottom (scalloped) or spills across them
+ * (a smear along every row line). Borders meet exactly, so the same rule draws
+ * one line either way round.
+ *
+ * `.rtc-root` for the specificity to out-rank the `[data-rtc-borders]` rules,
+ * which would otherwise put an ordinary column rule here — or none at all. */
+.rtc-root .rtc-th[data-rtc-pin-edge="true"][data-rtc-pinned="start"],
+.rtc-root .rtc-td[data-rtc-pin-edge="true"][data-rtc-pinned="start"] {
+  border-inline-end: var(--rtc-border-pin);
 }
 
-.rtc-th[data-rtc-pin-edge="true"][data-rtc-pinned="end"],
-.rtc-td[data-rtc-pin-edge="true"][data-rtc-pinned="end"] {
-  box-shadow: var(--rtc-shadow-pin-end);
+.rtc-root .rtc-th[data-rtc-pin-edge="true"][data-rtc-pinned="end"],
+.rtc-root .rtc-td[data-rtc-pin-edge="true"][data-rtc-pinned="end"] {
+  border-inline-start: var(--rtc-border-pin);
 }
 
 /* A pinned cell inside a selected/striped row must repaint the row colour,
@@ -2371,9 +2367,13 @@
 /* The transpose of the header's bottom border: a strong rule between the label
    block and the records, and another before the footer block. Expressed as the
    first cell after the block rather than the last cell of it, since CSS can
-   name the one and not the other. */
-.rtc-root[data-rtc-transposed="true"] .rtc-th + .rtc-td,
-.rtc-root[data-rtc-transposed="true"] .rtc-td + .rtc-foot-cell {
+   name the one and not the other.
+
+   Unless the block is stuck, in which case its own pin edge is already that
+   line — drawn on the block's last cell instead, one column over. Both would be
+   two lines side by side, since neither is the same element's border. */
+.rtc-root[data-rtc-transposed="true"] .rtc-th:not([data-rtc-pin-edge="true"]) + .rtc-td,
+.rtc-root[data-rtc-transposed="true"] .rtc-td + .rtc-foot-cell:not([data-rtc-pin-edge="true"]) {
   border-inline-start: var(--rtc-border-width) solid var(--rtc-color-border-strong);
 }
 
@@ -2501,41 +2501,13 @@
   background-color: var(--rtc-row-bg-pinned);
 }
 
-/* The edge of a stuck block, which transposed is a run of cells rather than one
- * element: the label block, the footer block and a pinned record section are
- * each one cell per band, stacked.
- *
- * So the shadow is drawn once per cell, and `--rtc-shadow-pin-start` is not
- * built to be repeated. Its `-4px` spread pulls each copy in from all four
- * sides — which upright only has to keep the shadow off the cell's own left,
- * but here also pulls it away from that cell's top and bottom, before the blur
- * softens what is left. Stack those and the run comes out scalloped: a separate
- * shadow per band, pinched at every row line, which is the opposite of the one
- * block edge it is meant to draw.
- *
- * `--rtc-shadow-block-*` is the same shadow with no spread, so each cell's copy
- * covers its own full height and bleeds a little past it. Neighbours overlap
- * across the row line instead of leaving a gap there, and two half-strength
- * overlaps come to within a few percent of one full-strength one — a seam you
- * cannot see, where the waist was plain. The offset and blur are trimmed to
- * keep the reach the pinned columns have, since nothing is being shrunk away
- * from the edge any more.
- *
- * A record pinned in the sticky mode carries no edge and gets none: it is in
- * the order one moment and docked the next, exactly as upright, and what marks
- * it is its background.
- *
- * `:where()` keeps this at the specificity the drop indicators below already
- * out-order, so dragging onto a stuck cell still draws its line. */
-.rtc-root[data-rtc-transposed="true"]
-  :where(.rtc-th, .rtc-td)[data-rtc-pin-edge="true"][data-rtc-pinned="start"] {
-  box-shadow: var(--rtc-shadow-block-start);
-}
+/* The block edge itself is the upright `[data-rtc-pin-edge]` rule's, unchanged:
+   a border meets its neighbours exactly, so a block that is a run of one cell
+   per band draws one line down its side without any transposed help.
 
-.rtc-root[data-rtc-transposed="true"]
-  :where(.rtc-th, .rtc-td)[data-rtc-pin-edge="true"][data-rtc-pinned="end"] {
-  box-shadow: var(--rtc-shadow-block-end);
-}
+   A record pinned in the sticky mode carries no edge and gets none: it is in
+   the order one moment and docked the next, exactly as upright, and what marks
+   it is its background. */
 
 /* A pinned band has to outrank the label block that runs through it. The label
    column is stuck to the inline start with the z-index of a pinned column — 4,
