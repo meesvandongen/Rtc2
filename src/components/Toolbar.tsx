@@ -322,6 +322,7 @@ interface InternalActionSlots {
   filters: boolean
   columns: boolean
   density: boolean
+  transpose: boolean
   fullScreen: boolean
   error: boolean
 }
@@ -344,6 +345,10 @@ function internalActionSlots<TData extends RowData>(
     filters: (options.enableColumnFilters ?? true) && panelAvailable,
     columns: options.enableColumnVisibility ?? true,
     density: options.enableDensityToggle ?? true,
+    // Off by default, and ignored when `transposed` is set: the option pins the
+    // orientation the way `density` does, and a button that cannot change
+    // anything is worse than no button.
+    transpose: (options.enableTransposeToggle ?? false) && options.transposed === undefined,
     fullScreen: options.enableFullScreenToggle ?? true,
     error: !!options.isLoadingError,
   }
@@ -405,6 +410,18 @@ function InternalActions<TData extends RowData>({
         >
           <span data-rtc-action="toggle-density" data-rtc-density-value={table.ui.density}>
             <ui.Icon name="density" />
+          </span>
+        </ui.IconButton>
+      ) : null}
+
+      {slots.transpose ? (
+        <ui.IconButton
+          label={localization.toggleTranspose}
+          active={table.ui.transposed}
+          onClick={() => table.setTransposed((value) => !value)}
+        >
+          <span data-rtc-action="toggle-transpose" data-rtc-transposed={String(table.ui.transposed)}>
+            <ui.Icon name="transpose" />
           </span>
         </ui.IconButton>
       ) : null}

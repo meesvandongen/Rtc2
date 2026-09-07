@@ -56,6 +56,7 @@ const ICONS: Record<RtcIconName, (props: { className?: string }) => ReactNode> =
   filter: Icons.FilterIcon,
   columns: Icons.ColumnsIcon,
   density: Icons.DensityIcon,
+  transpose: Icons.TransposeIcon,
   fullScreen: Icons.FullScreenIcon,
   exitFullScreen: Icons.ExitFullScreenIcon,
   more: Icons.MoreVerticalIcon,

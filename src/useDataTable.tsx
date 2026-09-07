@@ -38,6 +38,7 @@ const DEFAULT_TANSTACK_STATE: DataTableTanStackState = {
 
 const DEFAULT_UI_STATE: DataTableUiState = {
   density: 'comfortable',
+  transposed: false,
   isFullScreen: false,
   showFilterPanel: false,
   showGlobalFilter: false,
@@ -128,6 +129,7 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
     const state: DataTableUiState = {
       ...DEFAULT_UI_STATE,
       density: options.density ?? DEFAULT_UI_STATE.density,
+      transposed: options.transposed ?? DEFAULT_UI_STATE.transposed,
       // The docked panel starts open only when it is the sole filter surface.
       showFilterPanel:
         options.initialState?.showFilterPanel ??
@@ -171,8 +173,9 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
       ...ownUiState,
       ...compact(options.state as Partial<DataTableUiState>),
       ...(options.density ? { density: options.density } : {}),
+      ...(options.transposed !== undefined ? { transposed: options.transposed } : {}),
     }),
-    [ownUiState, options.state, options.density],
+    [ownUiState, options.state, options.density, options.transposed],
   )
 
   const uiRef = useRef(ui)
@@ -462,6 +465,10 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
     (density: DataTableDensity) => setUi('density', density, 'onDensityChange'),
     [setUi],
   )
+  instance.setTransposed = useCallback(
+    (value: boolean | ((old: boolean) => boolean)) => setUi('transposed', value, 'onTransposedChange'),
+    [setUi],
+  )
   instance.setIsFullScreen = useCallback(
     (value: boolean | ((old: boolean) => boolean)) =>
       setUi('isFullScreen', value, 'onIsFullScreenChange'),
@@ -534,7 +541,7 @@ export function useDataTable<TData extends RowData>(options: DataTableOptions<TD
       // not also be rendered here; kept in the body, it stays exactly where it
       // is — the stylesheet holds it against both edges — and only the rows
       // filtering or pagination dropped have to be put back.
-      rows = usesPinnedRowSections(opts)
+      rows = usesPinnedRowSections(opts, uiRef.current.transposed)
         ? rows.filter((row) => !row.getIsPinned())
         : withKeptPinnedRows(current, rows)
     }

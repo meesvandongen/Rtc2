@@ -70,17 +70,22 @@ export function ColumnActionsMenu<TData extends RowData>({
   }
 
   if ((options.enableColumnPinning ?? false) && column.getCanPin()) {
+    // A pinned column sticks to the start or end of a row upright, and to the
+    // top or bottom of the table once it *is* a row. Same state, same command,
+    // and the menu has to say which of the two it will do.
+    const startLabel = table.ui.transposed ? localization.pinToTop : localization.pinToStart
+    const endLabel = table.ui.transposed ? localization.pinToBottom : localization.pinToEnd
     items.push(
       {
         id: 'pin-start',
-        label: pinned === 'start' ? localization.unpin : localization.pinToStart,
+        label: pinned === 'start' ? localization.unpin : startLabel,
         icon: <ui.Icon name="pin" />,
         active: pinned === 'start',
         onSelect: () => column.pin(pinned === 'start' ? false : 'start'),
       },
       {
         id: 'pin-end',
-        label: pinned === 'end' ? localization.unpin : localization.pinToEnd,
+        label: pinned === 'end' ? localization.unpin : endLabel,
         icon: <ui.Icon name="pin" />,
         active: pinned === 'end',
         onSelect: () => column.pin(pinned === 'end' ? false : 'end'),

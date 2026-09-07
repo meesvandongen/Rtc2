@@ -24,9 +24,15 @@ import type { DataTableInstance, DataTableOptions, DataTableRow } from './types'
  */
 export function usesPinnedRowSections<TData extends RowData>(
   options: DataTableOptions<TData>,
+  /** Whether the table is transposed, where a record is a column. */
+  transposed = false,
 ): boolean {
   if (!options.enableRowPinning) return false
   if ((options.rowPinningDisplayMode ?? 'sticky') !== 'sticky') return true
+  // A transposed window is held open by spacers rather than by taking rows out
+  // of flow, so a record inside one is an ordinary cell and sticks like any
+  // other. The reason below does not reach it.
+  if (transposed) return false
   // A virtualized row is positioned absolutely against a spacer the height of
   // the whole scroll range, and an absolutely positioned row cannot also be a
   // sticky one. Rather than let `sticky` quietly do nothing there, the pinned
@@ -115,11 +121,19 @@ export function useStickyPinnedRows<TData extends RowData>(
   containerRef: React.RefObject<HTMLDivElement | null>,
 ) {
   const options = table.dataTableOptions
-  const enabled = !!options.enableRowPinning
+  // Transposed, the rows carrying `data-rtc-row-pinned` are the *bands* — the
+  // columns pinning put at the ends of the band order — so the same
+  // measurement stacks them, and the same stylesheet rules dock them. What it
+  // must not do there is measure a `<thead>`: a transposed table has none, and
+  // nothing is parked at the top edge for a docked band to clear.
+  const transposed = table.ui.transposed
+  const enabled = transposed
+    ? !!options.enableColumnPinning
+    : !!options.enableRowPinning
   // Only a *sticky* header is in the way. One that scrolls with the body leaves
   // the edge of the container free, and a pinned row should take it.
-  const stickyHeader = options.enableStickyHeader ?? false
-  const stickyFooter = options.enableStickyFooter ?? false
+  const stickyHeader = !transposed && (options.enableStickyHeader ?? false)
+  const stickyFooter = !transposed && (options.enableStickyFooter ?? false)
 
   const measure = useCallback(() => {
     const container = containerRef.current
@@ -172,8 +186,11 @@ export function useStickyPinnedRows<TData extends RowData>(
   //
   // Rebound when a section appears or disappears, which is the one thing that
   // adds an element worth observing without resizing anything already observed.
-  const pinning = table.state.rowPinning
-  const sectionKey = `${pinning.top.length}:${pinning.bottom.length}`
+  const rows = table.state.rowPinning
+  const columns = table.state.columnPinning
+  const sectionKey = transposed
+    ? `${columns.start.length}:${columns.end.length}`
+    : `${rows.top.length}:${rows.bottom.length}`
   useEffect(() => {
     if (!enabled) return
     const container = containerRef.current

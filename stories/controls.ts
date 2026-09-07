@@ -54,6 +54,12 @@ export const appearanceArgTypes = {
     options: ['semantic', 'grid', 'grid-no-grow'],
     table: { category: 'Appearance' },
   },
+  transposed: {
+    control: 'boolean',
+    description:
+      'Flips the axes: one row per column, one column per record. Leave the arg unset to keep the toolbar toggle live, the same way `density` works.',
+    table: { category: 'Appearance' },
+  },
   enableStripes: { control: 'boolean', table: { category: 'Appearance' } },
   enableRowHover: { control: 'boolean', table: { category: 'Appearance' } },
   enableBorders: {

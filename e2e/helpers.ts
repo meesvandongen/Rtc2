@@ -209,20 +209,25 @@ export function panelField(root: Locator, columnId: string): Locator {
  * whether the dragged item lands before or after it. The midpoint itself is
  * the boundary between the two halves, so an edge-sensitive test has to aim at
  * a quarter point rather than the centre.
+ *
+ * `axis` says which half: rows stack vertically and columns run across, and a
+ * transposed table swaps the two, so the axis the edge is measured along is a
+ * property of the drag rather than of the kind of thing being dragged.
  */
 export async function dragTo(
   page: Page,
   source: Locator,
   target: Locator,
-  options: { edge?: 'before' | 'after' } = {},
+  options: { edge?: 'before' | 'after'; axis?: 'block' | 'inline' } = {},
 ): Promise<void> {
   const from = await source.boundingBox()
   const to = await target.boundingBox()
   if (!from || !to) throw new Error('drag source or target is not visible')
 
   const fraction = options.edge === 'before' ? 0.25 : options.edge === 'after' ? 0.75 : 0.5
-  const x = to.x + to.width / 2
-  const y = to.y + to.height * fraction
+  const inline = options.axis === 'inline'
+  const x = to.x + to.width * (inline ? fraction : 0.5)
+  const y = to.y + to.height * (inline ? 0.5 : fraction)
 
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
   await page.mouse.down()
