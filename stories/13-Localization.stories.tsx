@@ -51,8 +51,19 @@ const dutch: Partial<DataTableLocalization> = {
   showHideColumns: 'Kolommen tonen/verbergen',
   showHideFilters: 'Filters tonen/verbergen',
   showHideSearch: 'Zoeken tonen/verbergen',
-  sortByColumnAsc: 'Sorteer {column} oplopend',
-  sortByColumnDesc: 'Sorteer {column} aflopend',
+  // Sorting reads four strings, not the two the column menu shows. Once a
+  // column *is* sorted, the header tooltip names the state rather than the
+  // command, so translating only the `sortByColumn…` pair left every sorted
+  // header reading "Sorted by First name ascending" in an otherwise Dutch
+  // table — which is the state a header spends most of its time in.
+  //
+  // The column is what you sort *by*: "Sorteer {column} oplopend" makes the
+  // column the thing being sorted, and Dutch wants "op" to make it the key.
+  // The infinitive is what the rest of the menu entries here use.
+  sortByColumnAsc: 'Oplopend sorteren op {column}',
+  sortByColumnDesc: 'Aflopend sorteren op {column}',
+  sortedByColumnAsc: 'Oplopend gesorteerd op {column}',
+  sortedByColumnDesc: 'Aflopend gesorteerd op {column}',
   toggleDensity: 'Dichtheid wisselen',
   toggleFullScreen: 'Volledig scherm wisselen',
   toggleSelectAll: 'Alles selecteren',

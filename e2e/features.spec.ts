@@ -1709,6 +1709,24 @@ test.describe('localization', () => {
     await expect(menu.getByRole('menuitemcheckbox', { name: 'Acties' })).toBeVisible()
     await expect(menu.getByRole('menuitemcheckbox', { name: 'Selecteren' })).toBeVisible()
   })
+
+  test('the sort tooltip stays translated once the column is sorted', async ({ page }) => {
+    const root = await openStory(page, 'datatable-13-localization--dutch')
+    const sort = header(root, 'firstName').locator('.rtc-th-sort')
+    const tip = header(root, 'firstName').locator('[title]:has(> .rtc-th-sort)')
+
+    // Four strings back this one tooltip, and only the first of them is also
+    // the column menu's: a set that translates `sortByColumn…` alone reads
+    // Dutch until the first click and English for every hover after it. The
+    // exact match is the point — "Sorteer {column} oplopend" would pass a
+    // substring check on the column name while dropping the "op" that makes
+    // the column the sort *key* rather than the thing being sorted.
+    await expect(tip).toHaveAttribute('title', 'Oplopend sorteren op First name')
+    await sort.click()
+    await expect(tip).toHaveAttribute('title', 'Oplopend gesorteerd op First name')
+    await sort.click()
+    await expect(tip).toHaveAttribute('title', 'Aflopend gesorteerd op First name')
+  })
 })
 
 test.describe('state and composition', () => {
