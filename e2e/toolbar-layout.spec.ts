@@ -117,6 +117,21 @@ test.describe('toolbar layout', () => {
   })
 
   /**
+   * The ids the deprecated slots used to fill keep the places they had, which
+   * is what makes migrating one of them the key and nothing else.
+   */
+  test('a registered top-actions item lands where the slot did', async ({ page }) => {
+    const root = await openStory(page, 'datatable-01-basics--custom-toolbar-slots')
+
+    await expect(
+      root.locator('[data-rtc-toolbar="top"] [data-rtc-region="start"] [data-testid="bulk-action"]'),
+    ).toHaveCount(1)
+    await expect(
+      root.locator('[data-rtc-toolbar="bottom"] [data-rtc-region="start"]'),
+    ).toContainText('Updated just now')
+  })
+
+  /**
    * Content of a consumer's own, placed by id rather than appended to the one
    * point its slot is written at.
    */

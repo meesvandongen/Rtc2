@@ -216,8 +216,12 @@ function candidateItems<TData extends RowData>(
   add('error', internal && !!options.isLoadingError)
 
   // Last, so an item with no placement of its own lands at `rest` in the order
-  // it was registered in.
-  for (const id of Object.keys(options.toolbarItems ?? {})) ids.add(id)
+  // it was registered in. A registered `internal-actions` is still the icon
+  // cluster's, and goes when the cluster does.
+  for (const id of Object.keys(options.toolbarItems ?? {})) {
+    if (id === 'internal-actions' && !internal) continue
+    ids.add(id)
+  }
 
   return ids
 }
@@ -258,7 +262,13 @@ function itemNode<TData extends RowData>(
   }
 }
 
-/** A `render*` slot's output, or a `toolbarItems` entry's, evaluated once. */
+/**
+ * A registered item's content, or the deprecated slot's, evaluated once.
+ *
+ * `toolbarItems` is asked first, including for the three ids the slots fill:
+ * migrating a slot is then the key and nothing else, and setting both is not a
+ * silent conflict — the one you added wins.
+ */
 function slotNode<TData extends RowData>(
   table: DataTableInstance<TData>,
   id: string,
@@ -266,19 +276,17 @@ function slotNode<TData extends RowData>(
 ): ReactNode {
   if (!slots.has(id)) {
     const options = table.dataTableOptions
-    const slot = SLOT_ITEMS[id as keyof typeof SLOT_ITEMS]
-    const item = slot ? options[slot]?.({ table }) : resolveCustomItem(table, id)
+    const registered = options.toolbarItems?.[id]
+    const slot = SLOT_ITEMS[id]
+    const item =
+      registered !== undefined
+        ? typeof registered === 'function'
+          ? registered({ table })
+          : registered
+        : slot && options[slot]?.({ table })
     slots.set(id, hasSlotContent(item) ? item : null)
   }
   return slots.get(id) ?? null
-}
-
-function resolveCustomItem<TData extends RowData>(
-  table: DataTableInstance<TData>,
-  id: string,
-): ReactNode {
-  const item = table.dataTableOptions.toolbarItems?.[id]
-  return typeof item === 'function' ? item({ table }) : item
 }
 
 /** How many rows the toolbar would report as selected; `0` when it says nothing. */

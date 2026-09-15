@@ -34,7 +34,7 @@ Each of these has a dedicated story section in the sidebar.
 | States | `isLoading`, `showProgressBars`, `isSaving`, `isLoadingError`, `errorMessage`, `skeletonRowCount`, `renderEmptyState` |
 | i18n | [`localization`](?path=/docs/docs-11-localization--docs) — every string, including filter operator names, per data type where they differ |
 | Clipboard | `enableClickToCopy`, or `meta.enableClickToCopy` per column |
-| Escape hatches | `components`, `classNames`, `cssVars`, `tableProps`, `containerProps`, `rowProps`, `cellProps`, `headCellProps`, `renderTopToolbarActions`, `renderBottomToolbarActions`, `renderToolbarInternalActions`, `renderCaption` |
+| Escape hatches | `components`, `classNames`, `cssVars`, `tableProps`, `containerProps`, `rowProps`, `cellProps`, `headCellProps`, `renderCaption` — and `renderTopToolbarActions`, `renderBottomToolbarActions`, `renderToolbarInternalActions`, deprecated in favour of `toolbarItems` |
 
 ¹ on by default; everything else is opt-in.
 
@@ -74,12 +74,35 @@ goes in each of them, in order.
 Name an occupant to place it — first in the region you name it in — and
 everything you leave unnamed keeps its default place. So the layout above moves
 the search box and adds a button, and the filter chips, the selection count and
-the six icon actions are all still where they were. The ids are `top-actions`,
-`bottom-actions` and `internal-actions` for the three `render*` slots'
-content, then `grouping-chips`, `selection-summary`, `filter-chips`, `search`,
-`pagination`, `search-toggle`, `filter-toggle`, `column-visibility`,
-`density-toggle`, `transpose-toggle`, `fullscreen-toggle` and `error` — plus
-whatever you register in `toolbarItems`.
+the six icon actions are all still where they were.
+
+### Every built-in item
+
+Fifteen ids, plus whatever you register in `toolbarItems`. "Drawn when" is the
+existing option that decides whether the item exists at all — a layout places
+what a table is already drawing and never brings back something a flag turned
+off.
+
+| id | What it is | Default place | Drawn when |
+| --- | --- | --- | --- |
+| `top-actions` | your own content for the top bar | `top` `start` | registered in `toolbarItems` |
+| `grouping-chips` | the drag-to-group drop zone | `top` `start` | `enableGrouping` + `enableGroupingChips` |
+| `selection-summary` | "3 of 50 rows selected" | `top` `start` | `enableRowSelection`, and a row is selected |
+| `filter-chips` | a removable chip per active column filter | `top` `start` | `enableColumnFilters`¹ + `showActiveFilterChips`¹, and a filter is set |
+| `search` | the global search field | `top` `end` | `enableGlobalFilter`¹, and the toggle is on or `enableGlobalFilterToggle={false}` |
+| `pagination` | the pagination nav | `top` and/or `bottom` `end`, per `paginationPosition` | `enablePagination`¹ |
+| `internal-actions` | your own content for the icon cluster | `top` `end`, leading the cluster | registered in `toolbarItems` |
+| `search-toggle` | show/hide the search field | `top` `end`, in the cluster | `enableGlobalFilter`¹ + `enableGlobalFilterToggle`¹ |
+| `filter-toggle` | open the filter panel, or the sheet on a phone | `top` `end`, in the cluster | `enableColumnFilters`¹, and there is a panel or sheet to open |
+| `column-visibility` | the show/hide columns menu | `top` `end`, in the cluster | `enableColumnVisibility`¹ |
+| `density-toggle` | cycle comfortable / compact / spacious | `top` `end`, in the cluster | `enableDensityToggle`¹ |
+| `transpose-toggle` | flip the axes | `top` `end`, in the cluster | `enableTransposeToggle`, and `transposed` is unset |
+| `fullscreen-toggle` | enter and leave full screen | `top` `end`, in the cluster | `enableFullScreenToggle`¹ |
+| `error` | the loading-error alert | `top` `end`, in the cluster | `isLoadingError` |
+| `bottom-actions` | your own content for the bottom bar | `bottom` `start` | registered in `toolbarItems` |
+
+¹ on by default. Every id in the cluster also needs
+`enableToolbarInternalActions`¹, which turns the whole group off at once.
 
 Three things follow from a region being a list rather than a position:
 
@@ -96,13 +119,33 @@ Three things follow from a region being a list rather than a position:
   what the built-in icon actions are, which is why pulling one of them out
   leaves the rest clustered.
 
-`enable*` still decides what exists: a layout places what a table is already
-drawing and never brings back something a flag turned off. An item with no
-default placement — one of your own, registered in `toolbarItems` and named
-nowhere — lands at `rest`, which sits at the end of the top bar unless a region
-asks for it by name. Below `mobileBreakpoint`, `toolbarLayout.narrow` replaces
-whichever bars it names, since the arrangement a phone wants is rarely the wide
-one with a couple of things moved.
+An item with no default placement — one of your own, registered in
+`toolbarItems` and named nowhere — lands at `rest`, which sits at the end of the
+top bar unless a region asks for it by name. Below `mobileBreakpoint`,
+`toolbarLayout.narrow` replaces whichever bars it names, since the arrangement
+a phone wants is rarely the wide one with a couple of things moved.
+
+### Your own content
+
+`toolbarItems` is the way in, and it **replaces the three
+`render*ToolbarActions` slots**, which are deprecated. Each of those appends to
+one fixed point — `renderToolbarInternalActions` could only ever lead the icon
+cluster — where an item registered here can be named in `toolbarLayout` and put
+anywhere, twice if you like.
+
+The three ids those slots filled are registerable, and keep the places the
+slots had, so migrating is the key and nothing else:
+
+```tsx
+// before
+renderTopToolbarActions={({ table }) => <Bulk table={table} />}
+
+// after — same place, and now movable
+toolbarItems={{ 'top-actions': ({ table }) => <Bulk table={table} /> }}
+```
+
+An entry in `toolbarItems` wins over the slot of the same name. A value can be
+a node or a function of the render context, as the slots were.
 
 Nothing empty is ever drawn: a region with no occupants is not rendered, a row
 with no regions goes with it, and a bar left with no rows goes the same way the

@@ -587,11 +587,25 @@ export interface DataTableOptions<TData extends RowData> {
    */
   toolbarLayout?: DataTableToolbarLayout
   /**
-   * Extra toolbar occupants, keyed by an id `toolbarLayout` can place.
+   * Toolbar occupants of your own, keyed by an id `toolbarLayout` can place.
    *
-   * Unlike the `render*ToolbarActions` slots, which append to a fixed point,
-   * an item registered here can go in either bar, in any region, in any order.
-   * One that is never named lands wherever `rest` is.
+   * This is the way to put your own content in a toolbar, and it replaces the
+   * three deprecated `render*ToolbarActions` slots: each of those appends to
+   * one fixed point, while an item registered here goes in either bar, in any
+   * region, in any order. One the layout never names lands wherever `rest` is.
+   *
+   * The three ids those slots fill — `top-actions`, `bottom-actions` and
+   * `internal-actions` — are registerable here too, and keep their default
+   * places, so migrating is the key and nothing else:
+   *
+   * ```tsx
+   * // before
+   * renderTopToolbarActions={({ table }) => <Bulk table={table} />}
+   * // after — same place, and now movable
+   * toolbarItems={{ 'top-actions': ({ table }) => <Bulk table={table} /> }}
+   * ```
+   *
+   * An entry here wins over the slot of the same name.
    */
   toolbarItems?: Record<string, ReactNode | ((ctx: DataTableRenderContext<TData>) => ReactNode)>
   enableDensityToggle?: boolean
@@ -742,8 +756,22 @@ export interface DataTableOptions<TData extends RowData> {
   components?: DataTableComponentsOverride
 
   // ----------------------------------------------------------------- slots ----
+  /**
+   * @deprecated Register it as the `top-actions` item instead:
+   * `toolbarItems={{ 'top-actions': fn }}` renders in the same place and can
+   * then be moved, which this cannot — a slot only ever appends to one point.
+   */
   renderTopToolbarActions?: (ctx: DataTableRenderContext<TData>) => ReactNode
+  /**
+   * @deprecated Register it as the `bottom-actions` item instead:
+   * `toolbarItems={{ 'bottom-actions': fn }}`.
+   */
   renderBottomToolbarActions?: (ctx: DataTableRenderContext<TData>) => ReactNode
+  /**
+   * @deprecated Register it as the `internal-actions` item instead:
+   * `toolbarItems={{ 'internal-actions': fn }}`, which still leads the icon
+   * cluster and, unlike this, can leave it.
+   */
   renderToolbarInternalActions?: (ctx: DataTableRenderContext<TData>) => ReactNode
   renderEmptyState?: (ctx: DataTableRenderContext<TData>) => ReactNode
   /**

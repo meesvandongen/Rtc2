@@ -274,11 +274,11 @@ export const ToolbarLayout: Story = {
 /**
  * Content of your own, addressed by an id rather than appended to a slot.
  *
- * `renderTopToolbarActions` can only put a button at the front of the top bar.
- * An item registered in `toolbarItems` goes wherever the layout says — here
- * one at the far end of the bottom bar, past the pagination, and one centred
- * in the top. An item the layout never names lands at `rest`, which sits at
- * the end of the top bar unless a region asks for it.
+ * The deprecated `renderTopToolbarActions` could only put a button at the front
+ * of the top bar. An item registered in `toolbarItems` goes wherever the layout
+ * says — here one at the far end of the bottom bar, past the pagination, and
+ * one at the start of the top. An item the layout never names lands at `rest`,
+ * which sits at the end of the top bar unless a region asks for it.
  */
 export const ToolbarItems: Story = {
   render: () => (
@@ -418,6 +418,14 @@ export const ErrorState: Story = {
   render: (args) => <DataTable columns={personColumns.slice(0, 5)} data={[]} {...args} />,
 }
 
+/**
+ * The two ids the old `renderTopToolbarActions` and
+ * `renderBottomToolbarActions` slots used to fill, registered as items.
+ *
+ * `top-actions` and `bottom-actions` keep the places those slots had, so
+ * migrating is the key and nothing else — and, unlike a slot, either can then
+ * be named in `toolbarLayout` and moved anywhere.
+ */
 export const CustomToolbarSlots: Story = {
   args: { enableRowSelection: true },
   argTypes: { enableRowSelection: { control: 'boolean', table: { category: 'Behaviour' } } },
@@ -427,19 +435,21 @@ export const CustomToolbarSlots: Story = {
       data={data}
       getRowId={(row) => row.id}
       enableRowSelection={enableRowSelection}
-      renderTopToolbarActions={({ table }) => (
-        <button
-          type="button"
-          className="rtc-button"
-          data-testid="bulk-action"
-          onClick={() =>
-            alert(`${Object.keys(table.state.rowSelection).length} row(s) selected`)
-          }
-        >
-          Bulk action
-        </button>
-      )}
-      renderBottomToolbarActions={() => <span className="rtc-group-count">Updated just now</span>}
+      toolbarItems={{
+        'top-actions': ({ table }) => (
+          <button
+            type="button"
+            className="rtc-button"
+            data-testid="bulk-action"
+            onClick={() =>
+              alert(`${Object.keys(table.state.rowSelection).length} row(s) selected`)
+            }
+          >
+            Bulk action
+          </button>
+        ),
+        'bottom-actions': <span className="rtc-group-count">Updated just now</span>,
+      }}
     />
   ),
 }
