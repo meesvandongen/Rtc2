@@ -97,6 +97,14 @@ function namedIds(rows: DataTableToolbarRow[]): Set<string> {
  * `narrow` replaces a bar rather than merging into it: the arrangement wanted
  * on a phone is usually not the wide one with a couple of things moved, and a
  * bar it leaves out is one the author was happy with at either width.
+ *
+ * It switches on `mobileBreakpoint`, the viewport width the filter drawer
+ * already uses, rather than on the table's own width. A container query would
+ * answer the better question — a 600px table in a wide page has a phone's
+ * problem — but it needs `container-type: inline-size` on the root, which
+ * stops the root sizing to its contents in a shrink-to-fit parent. Two
+ * thresholds that can disagree is the other cost. The regions wrap on their
+ * own, so a narrow table degrades without either.
  */
 function configuredRows<TData extends RowData>(
   options: DataTableOptions<TData>,
@@ -146,6 +154,13 @@ function resolveConfigured(
 
 /**
  * Default nodes for an item the configuration never named.
+ *
+ * The fallback is per item, not per region, and that is the whole of what
+ * makes a layout a patch. The alternative — a region you write replaces that
+ * region, everything displaced falling to `rest` — reads well until the
+ * commonest edit there is: `{ top: { start: ['search'] } }` would sweep the
+ * chips and the selection count to the far end of the bar, because replacing a
+ * region evicts the three occupants you never mentioned.
  *
  * Pruned rather than flattened, so an item left alone keeps not just its
  * region but the cluster it was part of: naming one icon does not scatter the
