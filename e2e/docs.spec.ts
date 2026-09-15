@@ -36,7 +36,21 @@ test.describe('docs pages', () => {
 
       // Not `networkidle`: the MSW-backed stories keep a worker connection
       // open, so it never settles.
-      await page.goto(`/iframe.html?id=${entry.id}&viewMode=docs`, { waitUntil: 'load' })
+      //
+      // Retried because `load` is not the end of the page: Storybook rewrites
+      // the docs URL itself once it has hydrated, and on a page heavy enough
+      // to still be mounting when `goto` resolves, that rewrite lands during
+      // the *next* navigation and aborts it. The interrupting URL is the page
+      // we just left, so asking again from there is all it takes.
+      for (let attempt = 0; ; attempt += 1) {
+        try {
+          await page.goto(`/iframe.html?id=${entry.id}&viewMode=docs`, { waitUntil: 'load' })
+          break
+        } catch (error) {
+          const interrupted = String(error).includes('interrupted by another navigation')
+          if (attempt > 0 || !interrupted) throw error
+        }
+      }
       const blocks = page.locator('.docs-story')
       await expect(blocks).toHaveCount(expected, { timeout: 30_000 })
 
