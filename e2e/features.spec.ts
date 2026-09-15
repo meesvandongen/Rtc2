@@ -58,6 +58,64 @@ test.describe('rendering and appearance', () => {
     await expect(errored.locator('.rtc-error')).toContainText('Could not reach')
   })
 
+  /**
+   * The empty and error states are centred across the whole table, in every
+   * layout mode and whatever they say.
+   *
+   * The grid modes are why this is a test. A row is a flex line there, where
+   * `colSpan` says nothing about width and the state's cell has no column
+   * behind it to take a `--rtc-col-size` from: it shrank to its own message,
+   * which left "No records to display" centred inside a 204px box at the start
+   * of a 1246px table — read as left-aligned, and moved by nothing but the
+   * length of the message — while its 116px of padded text hung out of a row
+   * still sized for one line of data.
+   *
+   * So the message being centred is not enough to assert: it was centred
+   * before, in a box a sixth of the width. The cell has to be the width of the
+   * table, and the row has to be tall enough to hold what is in it.
+   */
+  test('the spanning states are centred across the table in every layout mode', async ({
+    page,
+  }) => {
+    await openStory(page, 'datatable-01-basics--spanning-states')
+
+    const modes = ['semantic', 'grid', 'grid-no-grow'] as const
+    const variants = ['default message', 'localized message', 'renderEmptyState', 'error'] as const
+
+    for (const [modeIndex, mode] of modes.entries()) {
+      for (const [variantIndex, variant] of variants.entries()) {
+        const where = `${mode} — ${variant}`
+        const root = page.locator('.rtc-root').nth(modeIndex * variants.length + variantIndex)
+        await expect(root, where).toHaveAttribute('data-rtc-layout', mode)
+
+        const state = await root.evaluate((element) => {
+          const table = element.querySelector('table.rtc-table')!.getBoundingClientRect()
+          const row = element.querySelector('tbody tr')!.getBoundingClientRect()
+          const cell = element.querySelector('tbody td')!.getBoundingClientRect()
+          const message = element.querySelector('.rtc-empty, .rtc-error')!
+          // The painted text rather than its box: a message centred inside a
+          // box that is itself off to one side is the bug, and the box alone
+          // cannot tell the two apart.
+          const range = document.createRange()
+          range.selectNodeContents(message)
+          const text = range.getBoundingClientRect()
+          return {
+            centreOffset: text.left + text.width / 2 - (table.left + table.width / 2),
+            spanShortfall: table.width - cell.width,
+            overflow: message.getBoundingClientRect().bottom - row.bottom,
+          }
+        })
+
+        expect(Math.abs(state.centreOffset), `${where}: message is off centre`).toBeLessThan(2)
+        expect(
+          Math.abs(state.spanShortfall),
+          `${where}: cell does not span the table`,
+        ).toBeLessThan(2)
+        expect(state.overflow, `${where}: message overflows its row`).toBeLessThan(1)
+      }
+    }
+  })
+
   test('loading state renders skeletons', async ({ page }) => {
     const root = await openStory(page, 'datatable-01-basics--loading-states')
     await expect(root.locator('.rtc-skeleton').first()).toBeVisible()
