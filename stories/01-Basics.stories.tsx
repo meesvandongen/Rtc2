@@ -198,6 +198,114 @@ export const ChromeControls: Story = {
   ),
 }
 
+/** Each arrangement, as the layout that produces it. */
+const layoutCases: Array<{ label: string; options: Partial<DataTableOptions<Person>> }> = [
+  { label: 'the default arrangement', options: {} },
+  {
+    // Naming one occupant moves one occupant: the chips, the alert and the
+    // icon cluster are all still where they were.
+    label: "toolbarLayout={{ top: { start: ['search'] } }}",
+    options: { toolbarLayout: { top: { start: ['search'] } } },
+  },
+  {
+    // What `paginationPosition="top"` says in one word, and the same thing it
+    // means: naming pagination in the top bar gives up its seat in the bottom
+    // one, which empties that bar and removes it.
+    label: "toolbarLayout={{ top: { center: ['pagination'] } }}",
+    options: { toolbarLayout: { top: { center: ['pagination'] } } },
+  },
+  {
+    // A second row is an array. The first row is still the bar — it keeps
+    // every default the second row does not take — and the chips move down
+    // to a line of their own, where a long filter cannot squeeze the search
+    // box.
+    label: 'a row of its own for the filter chips',
+    options: {
+      toolbarLayout: { top: [{}, { start: ['filter-chips'] }] },
+      initialState: { columnFilters: [{ id: 'firstName', value: { op: 'contains', value: 'a' } }] },
+    },
+  },
+  {
+    // A cluster stays a cluster wherever it is put: these three sit at the
+    // icon gap in the bottom bar, and the top bar is left holding the search
+    // box alone.
+    label: 'the icon actions moved to the bottom bar',
+    options: {
+      toolbarLayout: {
+        bottom: {
+          start: [{ group: ['column-visibility', 'density-toggle', 'fullscreen-toggle'] }],
+        },
+      },
+    },
+  },
+]
+
+/**
+ * Where the toolbar's occupants sit, as an ordered list per region.
+ *
+ * Each bar has a `start`, a `center` and an `end`, and takes one row or an
+ * array of them. Name an occupant to place it — first in the region you name
+ * it in — and everything you leave unnamed keeps its default place, so a
+ * layout only has to describe what it moves. An id named twice is drawn twice,
+ * which is all `paginationPosition="both"` ever meant.
+ *
+ * A region with nothing in it is not drawn, and neither is a row, or a bar: the
+ * arrangement never leaves a gap behind.
+ */
+export const ToolbarLayout: Story = {
+  render: () => (
+    <>
+      {layoutCases.map(({ label, options }) => (
+        <div key={label} style={{ marginBottom: 16 }}>
+          <DataTable
+            columns={personColumns.slice(0, 4)}
+            data={data.slice(0, 4)}
+            getRowId={(row) => row.id}
+            caption={label}
+            enableGlobalFilterToggle={false}
+            {...options}
+          />
+        </div>
+      ))}
+    </>
+  ),
+}
+
+/**
+ * Content of your own, addressed by an id rather than appended to a slot.
+ *
+ * `renderTopToolbarActions` can only put a button at the front of the top bar.
+ * An item registered in `toolbarItems` goes wherever the layout says — here
+ * one at the far end of the bottom bar, past the pagination, and one centred
+ * in the top. An item the layout never names lands at `rest`, which sits at
+ * the end of the top bar unless a region asks for it.
+ */
+export const ToolbarItems: Story = {
+  render: () => (
+    <DataTable
+      columns={personColumns.slice(0, 4)}
+      data={data.slice(0, 6)}
+      getRowId={(row) => row.id}
+      toolbarItems={{
+        title: <strong>Team</strong>,
+        export: ({ table }) => (
+          <button
+            type="button"
+            className="rtc-button"
+            onClick={() => alert(`${table.getRowCount()} rows`)}
+          >
+            Export
+          </button>
+        ),
+      }}
+      toolbarLayout={{
+        top: { start: ['title'] },
+        bottom: { end: ['pagination', 'export'] },
+      }}
+    />
+  ),
+}
+
 export const StickyHeaderAndFooter: Story = {
   render: () => (
     <DataTable

@@ -1,6 +1,9 @@
 # Proposal: a configurable toolbar layout
 
-**Status:** draft, two competing designs, neither implemented.
+**Status:** decided — **Proposal B**, shipped as `toolbarLayout`. The
+[record of what was settled](#what-was-decided) is at the end; the two designs
+are kept below as written, since the comparison is the reasoning behind the
+choice.
 **Scope:** where the toolbar's occupants sit. Not what they are, not whether
 they exist — `enable*` already answers that and keeps answering it.
 
@@ -463,6 +466,14 @@ shape of the value.
 
 ## Recommendation
 
+> Not taken. The decision went to B, for the reason the table above puts in its
+> R2 row: ordering comes free with an array, and the uniqueness it gives up in
+> exchange turns out to be a feature — an id named twice is drawn twice, which
+> is what `paginationPosition: 'both'` had needed a special case for. What B
+> was written as still needed one change to hold R1, recorded under
+> [What was decided](#what-was-decided). The recommendation is left as written
+> below.
+
 **Ship A's surface, on B's resolver.**
 
 A is the better *public* option for this library. It is one option with a
@@ -496,28 +507,49 @@ and `top-end`, not `top-left` and `top-right`. The table has a `direction`
 option and its stylesheet is logical-properties throughout; `left` would name
 the trailing edge in RTL and every config in the wild would read backwards.
 
-## Open questions
+## What was decided
 
-1. **`false` vs `enable*`.** A placement of `false` overlaps with the existing
-   flags for the items that have one, and is the only way to hide the ones that
-   do not (`filter-chips` has `showActiveFilterChips`, but `selection-summary`
-   has nothing). Keep both and let `enable*` win, or drop `false` and add the
-   missing flags?
-2. **Narrow threshold.** The CSS uses a container query on the table's own
-   width; `toolbarLayoutNarrow` needs a number to switch on. Reuse
-   `mobileBreakpoint` (viewport, matches the filter drawer) or introduce a
-   table-width threshold that matches the CSS? Two different questions are
-   being asked, and answering them with one number is a bug waiting to happen.
-3. **Does `renderToolbarInternalActions` keep its cluster seat?** Under the
-   proposal it becomes the `internal-actions` item, defaulting to `top-end`
-   where it renders today. But it currently sits *inside* the 4px cluster,
-   ahead of the search toggle. Preserve that exactly, or let it become an
-   ordinary occupant at the bar's own gap?
-4. **Center region, at all?** Nothing in the default layout uses it, and it
-   costs a grid column and a `:has()` rule. It is the one place where the
-   request's enum and the rendered result might not justify each other.
-5. **Do the chips belong in the toolbar?** `grouping-chips` and `filter-chips`
-   are the two occupants that most often want their own row, and the reason B's
-   multi-row support is tempting. An alternative that sidesteps both proposals
-   for this case: a separate, always-full-width chips band between the toolbar
-   and the head, placed by its own option.
+B, as `toolbarLayout`, with one change to how it was written above and an
+answer to each of the open questions.
+
+**The change: `'rest'` is not what makes it a patch.** As proposed, a region
+you write replaces that region's default, and everything displaced falls to
+`'rest'`. That reads well until you try the commonest edit of all — `{ top: {
+start: ['search'] } }` — and find the chips and the selection count swept from
+the start of the bar to the far end, because replacing a region evicted the
+three occupants you never mentioned. So the fallback is per *item*, not per
+region: **an item the layout never names keeps its default place, its default
+order and the cluster it was part of.** Naming one icon leaves the other six
+grouped where they were. `'rest'` survives with the smaller job it actually
+has — the landing spot for items that have no default at all, which in practice
+means the ones registered through `toolbarItems` — and it sits at the end of the
+top bar unless a region asks for it by name. Items named in a region come first
+in it, in the order named; the defaults follow.
+
+The rest of B is as written: a bar takes one row or an array of them (the first
+is the bar and inherits, later rows start empty), `{ group: [...] }` clusters,
+and an id named twice is drawn twice.
+
+1. **`false` vs `enable*`** — dropped. `enable*` is the only way to hide
+   something, so there is one answer to "why is this not drawn" instead of two
+   that can disagree. `selection-summary` is the gap that leaves: it is gated
+   by `enableRowSelection` and nothing finer. If hiding it alone is ever
+   wanted, that is a flag, not a layout value.
+2. **Narrow threshold** — `mobileBreakpoint`, through the existing
+   `useIsMobile`. The container query the CSS sketch used would have meant
+   `container-type: inline-size` on `.rtc-root`, which stops the root sizing to
+   its contents in a shrink-to-fit parent; a layout feature is not worth that
+   risk, and one threshold that already drives the filter drawer beats two that
+   can disagree. Regions still wrap internally, so a narrow table degrades
+   without it.
+3. **`renderToolbarInternalActions`** — keeps its cluster seat exactly: it is
+   the `internal-actions` item, first inside the default `group`, which is
+   where it renders today.
+4. **Center region** — kept. It costs one grid track rather than the `:has()`
+   rule A would have needed, because the regions that draw nothing are absent
+   from the markup instead of present and empty. `{ top: { center:
+   ['pagination'] } }` is a real arrangement, and there is nowhere else to put
+   it.
+5. **A chips band of its own** — not needed. `top: [{}, { start:
+   ['filter-chips'] }]` is the whole of it, which is the multi-row support
+   earning its place rather than a second option to learn.

@@ -30,6 +30,7 @@ Each of these has a dedicated story section in the sidebar.
 | Orientation | `transposed`, `enableTransposeToggle` — one row per column, one column per record, every feature turning with it; see [Transposed](?path=/docs/docs-13-transposed--docs) |
 | Header sizing | `enableHeaderContentFit`¹ — a column is never narrower than its own header |
 | Chrome | `enableTopToolbar`¹, `enableBottomToolbar`¹, `enableToolbarInternalActions`¹, `enableTableHead`¹, `enableTableFooter`¹, `enableDensityToggle`¹, `enableFullScreenToggle`¹, `enableColumnActions`, `enableStickyHeader`, `enableStickyFooter`, `enableStripes`, `enableRowHover`¹, `enableBorders` |
+| Toolbar layout | `toolbarLayout`, `toolbarItems` — where each occupant sits, and content of your own to place beside them |
 | States | `isLoading`, `showProgressBars`, `isSaving`, `isLoadingError`, `errorMessage`, `skeletonRowCount`, `renderEmptyState` |
 | i18n | [`localization`](?path=/docs/docs-11-localization--docs) — every string, including filter operator names, per data type where they differ |
 | Clipboard | `enableClickToCopy`, or `meta.enableClickToCopy` per column |
@@ -54,3 +55,57 @@ anything to hide when a column declares a `footer`; with none, there is no
 `<tfoot>` to begin with. The
 [Chrome story](?path=/story/datatable-01-basics--chrome) shows each choice on
 its own table.
+
+## Where the toolbar's occupants sit
+
+Each bar has a `start`, a `center` and an `end`, and `toolbarLayout` says what
+goes in each of them, in order.
+
+```tsx
+<DataTable
+  toolbarLayout={{
+    top: { start: ['search'] },
+    bottom: { end: ['pagination', 'export'] },
+  }}
+  toolbarItems={{ export: ({ table }) => <ExportButton table={table} /> }}
+/>
+```
+
+Name an occupant to place it — first in the region you name it in — and
+everything you leave unnamed keeps its default place. So the layout above moves
+the search box and adds a button, and the filter chips, the selection count and
+the six icon actions are all still where they were. The ids are `top-actions`,
+`bottom-actions` and `internal-actions` for the three `render*` slots'
+content, then `grouping-chips`, `selection-summary`, `filter-chips`, `search`,
+`pagination`, `search-toggle`, `filter-toggle`, `column-visibility`,
+`density-toggle`, `transpose-toggle`, `fullscreen-toggle` and `error` — plus
+whatever you register in `toolbarItems`.
+
+Three things follow from a region being a list rather than a position:
+
+- **An id named twice is drawn twice.** `{ top: { end: ['pagination'] },
+  bottom: { end: ['pagination'] } }` is what `paginationPosition="both"` means,
+  and naming it in one bar alone gives up its seat in the other.
+- **A bar takes an array of rows.** `top: [{}, { start: ['filter-chips'] }]`
+  keeps the bar as it was and gives the chips a line of their own underneath,
+  where a long filter cannot squeeze the search box. The first row is the bar
+  itself and keeps every default the later rows do not take; a row you add
+  starts empty.
+- **A cluster is an object.** `{ group: ['density-toggle', 'fullscreen-toggle']
+  }` sits at the icon gap rather than the toolbar's, and wraps as one. That is
+  what the built-in icon actions are, which is why pulling one of them out
+  leaves the rest clustered.
+
+`enable*` still decides what exists: a layout places what a table is already
+drawing and never brings back something a flag turned off. An item with no
+default placement — one of your own, registered in `toolbarItems` and named
+nowhere — lands at `rest`, which sits at the end of the top bar unless a region
+asks for it by name. Below `mobileBreakpoint`, `toolbarLayout.narrow` replaces
+whichever bars it names, since the arrangement a phone wants is rarely the wide
+one with a couple of things moved.
+
+Nothing empty is ever drawn: a region with no occupants is not rendered, a row
+with no regions goes with it, and a bar left with no rows goes the same way the
+emptied bars above do. The
+[Toolbar layout story](?path=/story/datatable-01-basics--toolbarlayout) shows
+each arrangement on its own table.

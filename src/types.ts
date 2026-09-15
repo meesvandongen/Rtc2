@@ -231,6 +231,87 @@ export interface DataTableClassNames {
 }
 
 /**
+ * The toolbar occupants a layout can place.
+ *
+ * The three `*-actions` ids are the content of the matching `render*` slot,
+ * which is why a slot's output is placeable rather than pinned to the point it
+ * is written at.
+ */
+export type DataTableToolbarItemId =
+  | 'top-actions'
+  | 'bottom-actions'
+  | 'internal-actions'
+  | 'grouping-chips'
+  | 'selection-summary'
+  | 'filter-chips'
+  | 'search'
+  | 'pagination'
+  | 'search-toggle'
+  | 'filter-toggle'
+  | 'column-visibility'
+  | 'density-toggle'
+  | 'transpose-toggle'
+  | 'fullscreen-toggle'
+  | 'error'
+
+/**
+ * One occupant of a toolbar region.
+ *
+ * A string is an item id — one of the built-in ones, or a key of
+ * `toolbarItems`. `rest` stands for every registered item the layout never
+ * names. An object is a cluster: its members sit together at their own gap and
+ * wrap together.
+ */
+export type DataTableToolbarNode =
+  | DataTableToolbarItemId
+  | 'rest'
+  // `string & {}` keeps a custom id assignable without collapsing the union,
+  // so the built-in ids still autocomplete.
+  | (string & {})
+  | DataTableToolbarGroup
+
+export interface DataTableToolbarGroup {
+  group: DataTableToolbarNode[]
+  /**
+   * `tight` (the default) is the gap the built-in icon cluster uses;
+   * `normal` is the toolbar's own.
+   */
+  gap?: 'tight' | 'normal'
+  /** Surfaces as `data-rtc-toolbar-group`, for styling and tests. */
+  id?: string
+}
+
+/** One row of a toolbar: up to three regions, laid out against the bar. */
+export interface DataTableToolbarRow {
+  start?: DataTableToolbarNode[]
+  center?: DataTableToolbarNode[]
+  end?: DataTableToolbarNode[]
+}
+
+/**
+ * Where the toolbar's occupants sit.
+ *
+ * A bar takes one row, or an array of them. The first row is the bar itself:
+ * a region you name replaces that region, and one you leave out keeps its
+ * default. Any further row is yours alone and starts empty. An item you name
+ * nowhere stays where it was, so a layout only has to describe what it moves —
+ * and an item named twice is drawn twice, which is what
+ * `paginationPosition: 'both'` amounts to.
+ */
+export interface DataTableToolbarLayout {
+  top?: DataTableToolbarRow | DataTableToolbarRow[]
+  bottom?: DataTableToolbarRow | DataTableToolbarRow[]
+  /**
+   * Used instead below `mobileBreakpoint`, per bar: a bar this leaves out
+   * keeps the wide layout.
+   */
+  narrow?: {
+    top?: DataTableToolbarRow | DataTableToolbarRow[]
+    bottom?: DataTableToolbarRow | DataTableToolbarRow[]
+  }
+}
+
+/**
  * The full option surface of `<DataTable />` / `useDataTable()`.
  *
  * Every behaviour is opt-in through an `enable*` flag, every string is
@@ -497,6 +578,22 @@ export interface DataTableOptions<TData extends RowData> {
   enableTopToolbar?: boolean
   enableBottomToolbar?: boolean
   enableToolbarInternalActions?: boolean
+  /**
+   * Where the toolbar's occupants sit, as an ordered list per region.
+   *
+   * Name an occupant to place it; everything you leave unnamed keeps its
+   * default place, so moving one thing moves one thing. See
+   * `DataTableToolbarLayout`.
+   */
+  toolbarLayout?: DataTableToolbarLayout
+  /**
+   * Extra toolbar occupants, keyed by an id `toolbarLayout` can place.
+   *
+   * Unlike the `render*ToolbarActions` slots, which append to a fixed point,
+   * an item registered here can go in either bar, in any region, in any order.
+   * One that is never named lands wherever `rest` is.
+   */
+  toolbarItems?: Record<string, ReactNode | ((ctx: DataTableRenderContext<TData>) => ReactNode)>
   enableDensityToggle?: boolean
   /** Toolbar button that flips the table between upright and transposed. */
   enableTransposeToggle?: boolean

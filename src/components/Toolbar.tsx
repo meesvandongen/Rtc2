@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { RowData } from '@tanstack/react-table'
 
@@ -6,12 +6,28 @@ import { describeFilter } from './FilterEditor'
 import { GroupingChips } from './GroupingChips'
 import { Pagination } from './Pagination'
 import { useComponents, type RtcMenuItem } from './registry'
+import {
+  TOOLBAR_REGIONS,
+  resolveToolbarLayout,
+  type ResolvedToolbarNode,
+  type ToolbarBar,
+} from './toolbarLayout'
 import { formatMessage } from '../locale'
 import { usesFilterDrawer } from '../responsive'
 import { cx, getColumnLabel } from '../utils'
 import type { DataTableDensity, DataTableInstance } from '../types'
 
 const DENSITY_ORDER: DataTableDensity[] = ['comfortable', 'compact', 'spacious']
+
+/** The ids whose content comes from a `render*` slot rather than a component. */
+const SLOT_ITEMS: Record<
+  string,
+  'renderTopToolbarActions' | 'renderBottomToolbarActions' | 'renderToolbarInternalActions' | undefined
+> = {
+  'top-actions': 'renderTopToolbarActions',
+  'bottom-actions': 'renderBottomToolbarActions',
+  'internal-actions': 'renderToolbarInternalActions',
+}
 
 /**
  * Whether a consumer's render slot produced anything to lay out.
@@ -32,48 +48,7 @@ export function TopToolbar<TData extends RowData>({
 }: {
   table: DataTableInstance<TData>
 }) {
-  const options = table.dataTableOptions
-  const actions = options.renderTopToolbarActions?.({ table })
-  const showGroupingChips =
-    (options.enableGrouping ?? false) && (options.enableGroupingChips ?? false)
-  const showPagination =
-    (options.enablePagination ?? true) &&
-    (options.paginationPosition === 'top' || options.paginationPosition === 'both')
-  const internalActions = (options.enableToolbarInternalActions ?? true)
-    ? internalActionSlots(table)
-    : null
-
-  // A toolbar with nothing in it is not an empty bar, it is no bar: the
-  // padding and the divider on their own read as a stray sliver of chrome
-  // rather than as a deliberately blank strip. Every child below decides for
-  // itself whether it appears, so this has to ask the same questions they do —
-  // which is why those questions live in shared predicates.
-  const hasContent =
-    hasSlotContent(actions) ||
-    showGroupingChips ||
-    selectedRowCount(table) > 0 ||
-    showsFilterChips(table) ||
-    showsGlobalFilterField(table) ||
-    showPagination ||
-    (internalActions !== null && hasInternalActions(internalActions))
-  if (!hasContent) return null
-
-  return (
-    <div
-      className={cx('rtc-toolbar', options.classNames?.topToolbar)}
-      data-rtc-position="top"
-      data-rtc-toolbar="top"
-    >
-      {actions}
-      {showGroupingChips ? <GroupingChips table={table} /> : null}
-      <SelectionSummary table={table} />
-      <ActiveFilterChips table={table} />
-      <span className="rtc-toolbar-spacer" />
-      <GlobalFilterField table={table} />
-      {showPagination ? <Pagination table={table} /> : null}
-      {internalActions ? <InternalActions table={table} slots={internalActions} /> : null}
-    </div>
-  )
+  return <Toolbar table={table} bar="top" />
 }
 
 export function BottomToolbar<TData extends RowData>({
@@ -81,28 +56,229 @@ export function BottomToolbar<TData extends RowData>({
 }: {
   table: DataTableInstance<TData>
 }) {
-  const options = table.dataTableOptions
-  const actions = options.renderBottomToolbarActions?.({ table })
-  const showPagination =
-    (options.enablePagination ?? true) && (options.paginationPosition ?? 'bottom') !== 'top'
+  return <Toolbar table={table} bar="bottom" />
+}
 
-  // Pagination is the bottom bar's only built-in occupant, so turning it off
-  // with nothing in `renderBottomToolbarActions` left the table sitting on a
-  // 17px strip of surface under a full-width border — most visible under a
-  // column footer, where it read as a second, empty footer row.
-  if (!hasSlotContent(actions) && !showPagination) return null
+/**
+ * One bar, laid out from `toolbarLayout`.
+ *
+ * A toolbar with nothing in it is not an empty bar, it is no bar: the padding
+ * and the divider on their own read as a stray sliver of chrome rather than as
+ * a deliberately blank strip. So the whole bar is built as values first — a
+ * region with no occupants is dropped, a row with no regions with it, and a bar
+ * with no rows is not rendered at all.
+ */
+function Toolbar<TData extends RowData>({
+  table,
+  bar,
+}: {
+  table: DataTableInstance<TData>
+  bar: ToolbarBar
+}) {
+  const options = table.dataTableOptions
+
+  // Slot content is evaluated at most once per bar, and only for the slots
+  // this bar turns out to hold: `renderToolbarInternalActions` and friends are
+  // consumer functions, and calling one twice to ask a question and then use
+  // the answer is what the resolution pass exists to avoid.
+  const slots = new Map<string, ReactNode>()
+
+  const rows = resolveToolbarLayout(options, {
+    isMobile: table.isMobile,
+    visible: candidateItems(table),
+  })[bar]
+
+  const built = rows
+    .map((row) =>
+      TOOLBAR_REGIONS.map((region) => ({
+        region,
+        children: buildNodes(table, row[region], slots),
+      })).filter((entry) => entry.children.length > 0),
+    )
+    .filter((regions) => regions.length > 0)
+
+  if (built.length === 0) return null
 
   return (
     <div
-      className={cx('rtc-toolbar', options.classNames?.bottomToolbar)}
-      data-rtc-position="bottom"
-      data-rtc-toolbar="bottom"
+      className={cx(
+        'rtc-toolbar',
+        bar === 'top' ? options.classNames?.topToolbar : options.classNames?.bottomToolbar,
+      )}
+      data-rtc-position={bar}
+      data-rtc-toolbar={bar}
     >
-      {actions}
-      <span className="rtc-toolbar-spacer" />
-      {showPagination ? <Pagination table={table} /> : null}
+      {built.map((regions, index) => (
+        <div className="rtc-toolbar-row" key={index}>
+          {regions.map(({ region, children }) => (
+            <div className="rtc-toolbar-region" data-rtc-region={region} key={region}>
+              {children.map(({ key, node }) => (
+                // A keyed fragment rather than a wrapper element: an item sits
+                // in the region's flex flow as itself, with no extra box whose
+                // alignment and margins the region would have to fight.
+                <Fragment key={key}>{node}</Fragment>
+              ))}
+            </div>
+          ))}
+        </div>
+      ))}
     </div>
   )
+}
+
+interface BuiltNode {
+  key: string
+  node: ReactNode
+}
+
+/** Resolved nodes turned into elements, with the ones that draw nothing dropped. */
+function buildNodes<TData extends RowData>(
+  table: DataTableInstance<TData>,
+  nodes: ResolvedToolbarNode[],
+  slots: Map<string, ReactNode>,
+): BuiltNode[] {
+  const built: BuiltNode[] = []
+  nodes.forEach((node, index) => {
+    if (node.kind === 'group') {
+      const children = buildNodes(table, node.nodes, slots)
+      if (children.length === 0) return
+      built.push({
+        key: `group:${node.id ?? index}`,
+        node: (
+          <div
+            className="rtc-toolbar-group"
+            data-rtc-gap={node.gap}
+            data-rtc-toolbar-group={node.id}
+          >
+            {children.map(({ key, node: child }) => (
+              <Fragment key={key}>{child}</Fragment>
+            ))}
+          </div>
+        ),
+      })
+      return
+    }
+    const content = itemNode(table, node.id, slots)
+    if (content !== null) built.push({ key: `${node.id}:${index}`, node: content })
+  })
+  return built
+}
+
+/**
+ * Every item that could draw something, in the order an unplaced one should
+ * fall back to.
+ *
+ * Asked before any slot is called, so the question stays cheap: a slot-backed
+ * id is a candidate whenever its render function exists, and is dropped later
+ * if calling it produced nothing.
+ */
+function candidateItems<TData extends RowData>(
+  table: DataTableInstance<TData>,
+): ReadonlySet<string> {
+  const options = table.dataTableOptions
+  const ids = new Set<string>()
+  const add = (id: string, when: boolean | undefined) => {
+    if (when) ids.add(id)
+  }
+
+  const internal = options.enableToolbarInternalActions ?? true
+  const filterMode = options.filterDisplayMode ?? 'popover'
+  // On a narrow viewport the sheet is the only filter surface worth offering,
+  // so the funnel appears whatever the display mode — including plain
+  // `popover`, whose header buttons sit off-screen the moment the table
+  // scrolls sideways.
+  const panelAvailable =
+    filterMode === 'panel' || filterMode === 'popover-and-panel' || usesFilterDrawer(table)
+
+  add('top-actions', !!options.renderTopToolbarActions)
+  add('bottom-actions', !!options.renderBottomToolbarActions)
+  add('internal-actions', internal && !!options.renderToolbarInternalActions)
+  add('grouping-chips', (options.enableGrouping ?? false) && (options.enableGroupingChips ?? false))
+  add('selection-summary', selectedRowCount(table) > 0)
+  add('filter-chips', showsFilterChips(table))
+  add('search', showsGlobalFilterField(table))
+  add('pagination', options.enablePagination ?? true)
+  add(
+    'search-toggle',
+    internal && (options.enableGlobalFilter ?? true) && (options.enableGlobalFilterToggle ?? true),
+  )
+  add('filter-toggle', internal && (options.enableColumnFilters ?? true) && panelAvailable)
+  add('column-visibility', internal && (options.enableColumnVisibility ?? true))
+  add('density-toggle', internal && (options.enableDensityToggle ?? true))
+  // Off by default, and ignored when `transposed` is set: the option pins the
+  // orientation the way `density` does, and a button that cannot change
+  // anything is worse than no button.
+  add(
+    'transpose-toggle',
+    internal && (options.enableTransposeToggle ?? false) && options.transposed === undefined,
+  )
+  add('fullscreen-toggle', internal && (options.enableFullScreenToggle ?? true))
+  add('error', internal && !!options.isLoadingError)
+
+  // Last, so an item with no placement of its own lands at `rest` in the order
+  // it was registered in.
+  for (const id of Object.keys(options.toolbarItems ?? {})) ids.add(id)
+
+  return ids
+}
+
+/** One item's content, or `null` when it would draw nothing. */
+function itemNode<TData extends RowData>(
+  table: DataTableInstance<TData>,
+  id: string,
+  slots: Map<string, ReactNode>,
+): ReactNode {
+  switch (id) {
+    case 'grouping-chips':
+      return <GroupingChips table={table} />
+    case 'selection-summary':
+      return <SelectionSummary table={table} />
+    case 'filter-chips':
+      return <ActiveFilterChips table={table} />
+    case 'search':
+      return <GlobalFilterField table={table} />
+    case 'pagination':
+      return <Pagination table={table} />
+    case 'search-toggle':
+      return <SearchToggle table={table} />
+    case 'filter-toggle':
+      return <FilterToggle table={table} />
+    case 'column-visibility':
+      return <ColumnVisibilityMenu table={table} />
+    case 'density-toggle':
+      return <DensityToggle table={table} />
+    case 'transpose-toggle':
+      return <TransposeToggle table={table} />
+    case 'fullscreen-toggle':
+      return <FullScreenToggle table={table} />
+    case 'error':
+      return <ToolbarError table={table} />
+    default:
+      return slotNode(table, id, slots)
+  }
+}
+
+/** A `render*` slot's output, or a `toolbarItems` entry's, evaluated once. */
+function slotNode<TData extends RowData>(
+  table: DataTableInstance<TData>,
+  id: string,
+  slots: Map<string, ReactNode>,
+): ReactNode {
+  if (!slots.has(id)) {
+    const options = table.dataTableOptions
+    const slot = SLOT_ITEMS[id as keyof typeof SLOT_ITEMS]
+    const item = slot ? options[slot]?.({ table }) : resolveCustomItem(table, id)
+    slots.set(id, hasSlotContent(item) ? item : null)
+  }
+  return slots.get(id) ?? null
+}
+
+function resolveCustomItem<TData extends RowData>(
+  table: DataTableInstance<TData>,
+  id: string,
+): ReactNode {
+  const item = table.dataTableOptions.toolbarItems?.[id]
+  return typeof item === 'function' ? item({ table }) : item
 }
 
 /** How many rows the toolbar would report as selected; `0` when it says nothing. */
@@ -307,148 +483,106 @@ function SearchModeMenu<TData extends RowData>({ table }: { table: DataTableInst
   )
 }
 
-/**
- * Which of the toolbar's own actions are switched on.
- *
- * Resolved by the toolbar and handed down rather than decided in
- * `InternalActions`, for two reasons: the toolbar has to know whether it is
- * about to render an empty row of chrome before it commits to rendering
- * itself, and `renderToolbarInternalActions` should be called once per render
- * rather than once to ask the question and once to use the answer.
- */
-interface InternalActionSlots {
-  custom: ReactNode
-  search: boolean
-  filters: boolean
-  columns: boolean
-  density: boolean
-  transpose: boolean
-  fullScreen: boolean
-  error: boolean
-}
-
-function internalActionSlots<TData extends RowData>(
-  table: DataTableInstance<TData>,
-): InternalActionSlots {
-  const options = table.dataTableOptions
-  const filterMode = options.filterDisplayMode ?? 'popover'
-  // On a narrow viewport the sheet is the only filter surface worth offering,
-  // so the funnel appears whatever the display mode — including plain
-  // `popover`, whose header buttons sit off-screen the moment the table
-  // scrolls sideways.
-  const panelAvailable =
-    filterMode === 'panel' || filterMode === 'popover-and-panel' || usesFilterDrawer(table)
-
-  return {
-    custom: options.renderToolbarInternalActions?.({ table }),
-    search: (options.enableGlobalFilter ?? true) && (options.enableGlobalFilterToggle ?? true),
-    filters: (options.enableColumnFilters ?? true) && panelAvailable,
-    columns: options.enableColumnVisibility ?? true,
-    density: options.enableDensityToggle ?? true,
-    // Off by default, and ignored when `transposed` is set: the option pins the
-    // orientation the way `density` does, and a button that cannot change
-    // anything is worse than no button.
-    transpose: (options.enableTransposeToggle ?? false) && options.transposed === undefined,
-    fullScreen: options.enableFullScreenToggle ?? true,
-    error: !!options.isLoadingError,
-  }
-}
-
-/** Whether any of them would draw something. */
-function hasInternalActions({ custom, ...flags }: InternalActionSlots): boolean {
-  return hasSlotContent(custom) || Object.values(flags).some(Boolean)
-}
-
-function InternalActions<TData extends RowData>({
-  table,
-  slots,
-}: {
-  table: DataTableInstance<TData>
-  slots: InternalActionSlots
-}) {
+function SearchToggle<TData extends RowData>({ table }: { table: DataTableInstance<TData> }) {
   const ui = useComponents()
-  const options = table.dataTableOptions
-  const { localization } = options
+  const { localization } = table.dataTableOptions
 
   return (
-    <div className="rtc-toolbar-actions">
-      {slots.custom}
+    <ui.IconButton
+      label={localization.showHideSearch}
+      active={table.ui.showGlobalFilter}
+      onClick={() => table.setShowGlobalFilter((value) => !value)}
+    >
+      <span data-rtc-action="toggle-search">
+        <ui.Icon name="search" />
+      </span>
+    </ui.IconButton>
+  )
+}
 
-      {slots.search ? (
-        <ui.IconButton
-          label={localization.showHideSearch}
-          active={table.ui.showGlobalFilter}
-          onClick={() => table.setShowGlobalFilter((value) => !value)}
-        >
-          <span data-rtc-action="toggle-search">
-            <ui.Icon name="search" />
-          </span>
-        </ui.IconButton>
-      ) : null}
+function FilterToggle<TData extends RowData>({ table }: { table: DataTableInstance<TData> }) {
+  const ui = useComponents()
+  const { localization } = table.dataTableOptions
 
-      {slots.filters ? (
-        <ui.IconButton
-          label={localization.showHideFilters}
-          active={table.ui.showFilterPanel}
-          onClick={() => table.setShowFilterPanel((value) => !value)}
-        >
-          <span data-rtc-action="toggle-filters">
-            <ui.Icon name="filter" />
-          </span>
-        </ui.IconButton>
-      ) : null}
+  return (
+    <ui.IconButton
+      label={localization.showHideFilters}
+      active={table.ui.showFilterPanel}
+      onClick={() => table.setShowFilterPanel((value) => !value)}
+    >
+      <span data-rtc-action="toggle-filters">
+        <ui.Icon name="filter" />
+      </span>
+    </ui.IconButton>
+  )
+}
 
-      {slots.columns ? <ColumnVisibilityMenu table={table} /> : null}
+function DensityToggle<TData extends RowData>({ table }: { table: DataTableInstance<TData> }) {
+  const ui = useComponents()
+  const { localization } = table.dataTableOptions
 
-      {slots.density ? (
-        <ui.IconButton
-          label={localization.toggleDensity}
-          onClick={() => {
-            const index = DENSITY_ORDER.indexOf(table.ui.density)
-            table.setDensity(DENSITY_ORDER[(index + 1) % DENSITY_ORDER.length] as DataTableDensity)
-          }}
-        >
-          <span data-rtc-action="toggle-density" data-rtc-density-value={table.ui.density}>
-            <ui.Icon name="density" />
-          </span>
-        </ui.IconButton>
-      ) : null}
+  return (
+    <ui.IconButton
+      label={localization.toggleDensity}
+      onClick={() => {
+        const index = DENSITY_ORDER.indexOf(table.ui.density)
+        table.setDensity(DENSITY_ORDER[(index + 1) % DENSITY_ORDER.length] as DataTableDensity)
+      }}
+    >
+      <span data-rtc-action="toggle-density" data-rtc-density-value={table.ui.density}>
+        <ui.Icon name="density" />
+      </span>
+    </ui.IconButton>
+  )
+}
 
-      {slots.transpose ? (
-        <ui.IconButton
-          label={localization.toggleTranspose}
-          active={table.ui.transposed}
-          onClick={() => table.setTransposed((value) => !value)}
-        >
-          <span data-rtc-action="toggle-transpose" data-rtc-transposed={String(table.ui.transposed)}>
-            <ui.Icon name="transpose" />
-          </span>
-        </ui.IconButton>
-      ) : null}
+function TransposeToggle<TData extends RowData>({ table }: { table: DataTableInstance<TData> }) {
+  const ui = useComponents()
+  const { localization } = table.dataTableOptions
 
-      {slots.fullScreen ? (
-        <ui.IconButton
-          label={localization.toggleFullScreen}
-          active={table.ui.isFullScreen}
-          onClick={() => table.setIsFullScreen((value) => !value)}
-        >
-          <span data-rtc-action="toggle-fullscreen">
-            <ui.Icon name={table.ui.isFullScreen ? 'exitFullScreen' : 'fullScreen'} />
-          </span>
-        </ui.IconButton>
-      ) : null}
+  return (
+    <ui.IconButton
+      label={localization.toggleTranspose}
+      active={table.ui.transposed}
+      onClick={() => table.setTransposed((value) => !value)}
+    >
+      <span data-rtc-action="toggle-transpose" data-rtc-transposed={String(table.ui.transposed)}>
+        <ui.Icon name="transpose" />
+      </span>
+    </ui.IconButton>
+  )
+}
 
-      {slots.error ? (
-        // The icon alone announced nothing: an alert with no text content is
-        // silent to a screen reader and untranslatable to everyone else.
-        <span className="rtc-toolbar-alert" role="alert">
-          <ui.Icon name="alert" />
-          <span className="rtc-visually-hidden">
-            {options.errorMessage ?? localization.errorLoadingData}
-          </span>
-        </span>
-      ) : null}
-    </div>
+function FullScreenToggle<TData extends RowData>({ table }: { table: DataTableInstance<TData> }) {
+  const ui = useComponents()
+  const { localization } = table.dataTableOptions
+
+  return (
+    <ui.IconButton
+      label={localization.toggleFullScreen}
+      active={table.ui.isFullScreen}
+      onClick={() => table.setIsFullScreen((value) => !value)}
+    >
+      <span data-rtc-action="toggle-fullscreen">
+        <ui.Icon name={table.ui.isFullScreen ? 'exitFullScreen' : 'fullScreen'} />
+      </span>
+    </ui.IconButton>
+  )
+}
+
+function ToolbarError<TData extends RowData>({ table }: { table: DataTableInstance<TData> }) {
+  const ui = useComponents()
+  const options = table.dataTableOptions
+
+  return (
+    // The icon alone announced nothing: an alert with no text content is
+    // silent to a screen reader and untranslatable to everyone else.
+    <span className="rtc-toolbar-alert" role="alert">
+      <ui.Icon name="alert" />
+      <span className="rtc-visually-hidden">
+        {options.errorMessage ?? options.localization.errorLoadingData}
+      </span>
+    </span>
   )
 }
 

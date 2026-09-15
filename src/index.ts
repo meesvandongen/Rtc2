@@ -201,6 +201,11 @@ export type {
   DataTableRowRenderContext,
   DataTableSelectOption,
   DataTableTanStackState,
+  DataTableToolbarGroup,
+  DataTableToolbarItemId,
+  DataTableToolbarLayout,
+  DataTableToolbarNode,
+  DataTableToolbarRow,
   DataTableUiState,
 } from './types'
 

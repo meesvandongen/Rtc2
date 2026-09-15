@@ -104,8 +104,9 @@ export async function chromeBands(root: Locator): Promise<string[]> {
  * A toolbar is padding, a divider and a full-width band of surface, so one with
  * no occupant is a sliver of chrome the table has no reason to draw — most
  * visible under a column footer, where it reads as a second, empty footer row.
- * The spacer does not count as an occupant: it is always present, and stretching
- * to fill the row is its whole job.
+ * The rows and regions a layout puts between the bar and its occupants do not
+ * count: an empty one is never rendered, and one holding nothing that draws
+ * collapses to no height along with it.
  *
  * Returns a description per sliver, so a failure names the bar and its height.
  */
@@ -114,7 +115,7 @@ export async function emptyToolbars(root: Locator): Promise<string[]> {
     Array.from(element.querySelectorAll('.rtc-toolbar')).flatMap((toolbar) => {
       const occupied =
         (toolbar.textContent ?? '').trim().length > 0 ||
-        Array.from(toolbar.querySelectorAll('*:not(.rtc-toolbar-spacer)')).some((node) => {
+        Array.from(toolbar.querySelectorAll('*')).some((node) => {
           const box = node.getBoundingClientRect()
           return box.width > 0 && box.height > 0
         })
