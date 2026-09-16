@@ -276,6 +276,78 @@ export const EmptyState: Story = {
 }
 
 /**
+ * Everything the two states can be asked to say.
+ *
+ * The default message, one long enough to be worth translating, one the caller
+ * wrote, and the error — the last being the other state that is one cell across
+ * the whole table rather than anything belonging to a column.
+ */
+const spanningStateVariants: Array<{
+  label: string
+  options: Partial<DataTableOptions<Person>>
+}> = [
+  { label: 'default message', options: {} },
+  {
+    // The message is a translation away from being half again as long, and its
+    // length must not be what decides whether it lands in the middle.
+    label: 'localized message',
+    options: { localization: { noRecordsToDisplay: 'Geen gegevens om weer te geven' } },
+  },
+  {
+    label: 'renderEmptyState',
+    options: {
+      renderEmptyState: () => (
+        <div className="rtc-empty">
+          <strong>Nothing here yet</strong>
+          <div>Add your first record to get started.</div>
+        </div>
+      ),
+    },
+  },
+  {
+    label: 'error',
+    options: { isLoadingError: true, errorMessage: 'Could not reach the employees service.' },
+  },
+]
+
+/**
+ * The empty and error states, in every layout mode.
+ *
+ * Each is one message about the whole table rather than anything belonging to a
+ * column, so each is centred across the full width in all three modes — and
+ * stays centred for a message of any length, translated or written by the
+ * caller.
+ *
+ * The grid modes are what this is here to show. A row is a flex line there and
+ * `colSpan` says nothing about width, so the cell took its width from its own
+ * message and parked it over the first column: centred inside a box a sixth of
+ * the table wide, which reads as left-aligned against the table, with the
+ * message's own height spilling out of a row still sized for one line of data.
+ */
+export const SpanningStates: Story = {
+  render: () => (
+    <>
+      {(['semantic', 'grid', 'grid-no-grow'] as const).flatMap((layoutMode) =>
+        spanningStateVariants.map(({ label, options }) => (
+          <div key={`${layoutMode}-${label}`} style={{ marginBottom: 16 }}>
+            <DataTable
+              columns={personColumns.slice(0, 4)}
+              data={[] as Person[]}
+              layoutMode={layoutMode}
+              enableToolbar={false}
+              enablePagination={false}
+              enableBorders="all"
+              caption={`layoutMode="${layoutMode}" — ${label}`}
+              {...options}
+            />
+          </div>
+        )),
+      )}
+    </>
+  ),
+}
+
+/**
  * Skeletons on a cold load with an empty body; a slim progress bar when
  * `showProgressBars` is set, or when the body already has rows.
  */

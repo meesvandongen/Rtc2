@@ -411,6 +411,19 @@
   min-width: 0;
 }
 
+/* Unless there is no column to be as wide as.
+ *
+ * "As wide as its columns and no wider" is a promise about cells that carry a
+ * column width, and a table can be showing none: an empty or error state is one
+ * cell that takes its width from the line rather than giving the line its width,
+ * and `enableTableHead={false}` takes away the header row that would still have
+ * carried the columns. With nothing left to size it the table collapsed to the
+ * padding around its message and stacked the words down the page. It fills the
+ * container instead, which is what the other two modes do with the same table. */
+.rtc-root[data-rtc-layout="grid-no-grow"] .rtc-table:not(:has([data-rtc-column-id])) {
+  min-width: 100%;
+}
+
 /* --------------------------------------------------------------- cells --- */
 
 .rtc-th,
@@ -2203,6 +2216,55 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* A row standing in for the whole table.
+ *
+ * The empty and error states say one thing about the table rather than anything
+ * about a column, so they are one cell across every column, centred in it. In a
+ * semantic table `colSpan` is the whole of that.
+ *
+ * In the grid modes it says nothing at all: a row there is a flex line, and the
+ * cell is a flex item sized from `--rtc-col-size` — which this one has no
+ * column behind it to carry. It fell back to the width of its own message and
+ * sat over the first column, so "No records to display" was centred inside a
+ * 204px box at the start of a 1246px table, which reads as left-aligned; a
+ * longer translation of it only moved it further along. Filling the line is
+ * what makes `text-align: center` mean *across the table*, and `flex-basis: 0`
+ * rather than the message's own width is what keeps that true of a message of
+ * any length, from any localization or `renderEmptyState`.
+ *
+ * The centring is not conditional on the mode: a `renderEmptyState` returning
+ * bare text or an inline element gets the same treatment as the default
+ * message, which centres itself. */
+.rtc-span-cell {
+  text-align: center;
+}
+
+/* `--rtc-row-height` is a height in a grid layout rather than the floor a
+   semantic table makes of it, and both states are several rows tall: the
+   message is 116px of padded text inside a 44px row, which overflowed the
+   table's own box. The detail panel's row is held open the same way. */
+.rtc-root[data-rtc-layout="grid"] .rtc-span-row,
+.rtc-root[data-rtc-layout="grid-no-grow"] .rtc-span-row {
+  height: auto;
+  min-height: var(--rtc-row-height);
+}
+
+.rtc-root[data-rtc-layout="grid"] .rtc-span-cell,
+.rtc-root[data-rtc-layout="grid-no-grow"] .rtc-span-cell {
+  /* Block, not the flex box the other cells are: whatever `renderEmptyState`
+     returns is laid out as it would be anywhere else, rather than having its
+     children strung across a flex line. */
+  display: block;
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+  /* The same bargain the body cells make, and the detail panel after them: a
+     long message wraps inside the table rather than widening it. A grid table
+     is as wide as the widest line in it, so without this an empty table would
+     be a different width from the same table with rows in it. */
+  contain: inline-size;
 }
 
 .rtc-empty {

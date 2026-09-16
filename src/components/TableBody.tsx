@@ -35,8 +35,8 @@ export function TableBody<TData extends RowData>({
   if (options.isLoadingError) {
     return (
       <tbody className={cx('rtc-tbody', options.classNames?.body)}>
-        <tr className="rtc-tr">
-          <td className="rtc-td" colSpan={columnCount}>
+        <tr className="rtc-tr rtc-span-row">
+          <td className="rtc-td rtc-span-cell" colSpan={columnCount}>
             <div className="rtc-error" role="alert">
               {options.errorMessage ?? localization.errorLoadingData}
             </div>
@@ -122,9 +122,12 @@ export function TableBody<TData extends RowData>({
 
   const body =
     items.length === 0 ? (
+      // `rtc-span-row` / `rtc-span-cell`: one cell standing in for the whole
+      // table rather than for a column, which `colSpan` alone only says in a
+      // semantic table. See the stylesheet.
       <tbody className={cx('rtc-tbody', options.classNames?.body)}>
-        <tr className="rtc-tr">
-          <td className="rtc-td" colSpan={columnCount}>
+        <tr className="rtc-tr rtc-span-row">
+          <td className="rtc-td rtc-span-cell" colSpan={columnCount}>
             {options.renderEmptyState?.({ table }) ?? (
               <div className="rtc-empty">
                 {table.getPreFilteredRowModel().rows.length > 0
