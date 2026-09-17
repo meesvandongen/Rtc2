@@ -258,11 +258,13 @@ export type DataTableToolbarItemId =
  * One occupant of a toolbar region.
  *
  * A string is an item id — one of the built-in ones, or a key of
- * `toolbarItems`. `rest` stands for every occupant the layout leaves without a
- * place: the items you registered and never named, and the built-ins whose
- * default region you wrote over. They arrive in the shape they had, so a
- * cluster moved through `rest` is still a cluster. An object is a cluster of
- * your own: its members sit together at their own gap and wrap together.
+ * `toolbarItems`. `rest` stands for the occupants *this region* would have
+ * held on its own and the layout has not placed elsewhere, in the shape they
+ * had, so a cluster that comes back through `rest` is still a cluster: writing
+ * `['search', 'rest']` puts the search box at the front of a region without
+ * dropping what was already there. It means the same thing in every region, so
+ * several of them compose rather than compete. An object is a cluster of your
+ * own: its members sit together at their own gap and wrap together.
  */
 export type DataTableToolbarNode =
   | DataTableToolbarItemId
@@ -302,8 +304,8 @@ export interface DataTableToolbarRow {
  * A bar takes one row or an array of them. The first row is the bar itself and
  * is the one that inherits; any further row is yours alone and starts empty.
  * An item named twice is drawn twice, which is what `paginationPosition:
- * 'both'` amounts to, and `rest` puts back whatever a rewritten region
- * displaced.
+ * 'both'` amounts to, and `rest` inside a region you write gives that region
+ * back what it would have held.
  */
 export interface DataTableToolbarLayout {
   top?: DataTableToolbarRow | DataTableToolbarRow[]

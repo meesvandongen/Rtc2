@@ -134,16 +134,21 @@ Four things follow from a region being a list rather than a position:
   }` sits at the icon gap rather than the toolbar's, and wraps as one. That is
   what the built-in icon actions are, which is why pulling one of them out
   leaves the rest clustered.
-- **`rest` puts back what a rewritten region displaced.** `{ top: { start:
-  ['search', 'rest'] } }` moves the search box to the front and keeps whatever
-  else the start held, rather than replacing it. Anything of your own that the
-  layout never names goes there too, and each arrives in the shape it had, so
-  a cluster moved through `rest` is still a cluster. Register an item and never
-  name it anywhere and it lands at the end of the top bar.
+- **`rest` gives a region back what it would have held.** `{ top: { start:
+  ['search', 'rest'] } }` moves the search box to the front of the start
+  region and keeps the chips and the selection count that were already there,
+  rather than replacing them. It is scoped to the region it is written in, so
+  it means the same thing everywhere and several of them compose instead of
+  competing — a `rest` in the `start` never reaches into what the `end` says,
+  and two of them do not race for the same occupants. Each comes back in the
+  shape it had, so a cluster returned by `rest` is still a cluster.
 
-Below `mobileBreakpoint`, `toolbarLayout.narrow` replaces whichever bars it
-names, since the arrangement a phone wants is rarely the wide one with a couple
-of things moved.
+Register an item in `toolbarItems` and never name it anywhere and it lands at
+the end of the top bar: it has no default region for a `rest` to hand it back,
+and not drawing it at all would be a silent way to lose it. Below
+`mobileBreakpoint`, `toolbarLayout.narrow` replaces whichever bars it names,
+since the arrangement a phone wants is rarely the wide one with a couple of
+things moved.
 
 ### Your own content
 

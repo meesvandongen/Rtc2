@@ -116,13 +116,24 @@ function configuredRows<TData extends RowData>(
   return asRows(narrow ?? layout?.[bar])
 }
 
-interface ResolveContext {
-  /** Ids that would draw something. */
-  visible: ReadonlySet<string>
-  /** What `rest` stands for: every occupant the layout leaves without a place. */
-  rest: ResolvedToolbarNode[]
-  /** Set once `rest` has been spliced in, so a second `rest` draws nothing. */
-  restUsed: { value: boolean }
+/**
+ * What `rest` stands for in one region, and whether it has been spent.
+ *
+ * Scoped to the region it is written in, not to the layout: a `rest` means the
+ * same thing wherever it appears — the occupants this region holds by default
+ * and the layout has not placed — so several of them compose instead of
+ * competing, and reading one does not mean reading the other regions first.
+ * The alternative, one pool of everything the layout displaced, makes
+ * `{ start: ['search', 'rest'] }` quietly depend on what the *end* region says,
+ * and two `rest`s race for the same items on an order nothing in the
+ * configuration shows.
+ *
+ * Shared across a bar's rows, so the second `rest` in a region draws nothing
+ * rather than a second copy.
+ */
+interface RegionRest {
+  nodes: ResolvedToolbarNode[]
+  used: boolean
 }
 
 /**
@@ -141,24 +152,25 @@ function isWritten(row: DataTableToolbarRow | undefined, region: ToolbarRegion):
 /** Configured nodes, dropping ids that would draw nothing and groups left empty. */
 function resolveConfigured(
   nodes: DataTableToolbarNode[] | undefined,
-  context: ResolveContext,
+  visible: ReadonlySet<string>,
+  rest: RegionRest,
 ): ResolvedToolbarNode[] {
   const resolved: ResolvedToolbarNode[] = []
   for (const node of nodes ?? []) {
     if (isGroup(node)) {
-      const inner = resolveConfigured(node.group, context)
+      const inner = resolveConfigured(node.group, visible, rest)
       if (inner.length > 0) {
         resolved.push({ kind: 'group', id: node.id, gap: node.gap ?? 'tight', nodes: inner })
       }
       continue
     }
     if (node === 'rest') {
-      if (context.restUsed.value) continue
-      context.restUsed.value = true
-      resolved.push(...context.rest)
+      if (rest.used) continue
+      rest.used = true
+      resolved.push(...rest.nodes)
       continue
     }
-    if (context.visible.has(node)) resolved.push({ kind: 'item', id: node })
+    if (visible.has(node)) resolved.push({ kind: 'item', id: node })
   }
   return resolved
 }
@@ -214,34 +226,25 @@ export function resolveToolbarLayout<TData extends RowData>(
   }
 
   const named = namedIds([...configured.top, ...configured.bottom])
+  const unplaced = (id: string) => visible.has(id) && !named.has(id)
 
-  // Which defaults are still standing. Only the first row of a bar inherits —
-  // a row the author added is theirs alone — and only for the regions that row
-  // leaves unwritten.
+  // Only the first row of a bar inherits — a row the author added is theirs
+  // alone — and only for the regions that row leaves unwritten.
   const inherits = (bar: ToolbarBar, region: ToolbarRegion) =>
     !isWritten(configured[bar][0], region)
-  const kept = new Set<string>()
+
+  // One `rest` per region, holding what that region would have drawn on its
+  // own. A region that still inherits has nothing left over: it is already
+  // drawing all of it.
+  const rests = new Map<string, RegionRest>()
   for (const bar of bars) {
     for (const region of TOOLBAR_REGIONS) {
-      if (inherits(bar, region)) collectNamed(defaults[bar][region], kept)
+      rests.set(`${bar}/${region}`, {
+        nodes: inherits(bar, region) ? [] : pruneDefaults(defaults[bar][region], unplaced),
+        used: false,
+      })
     }
   }
-
-  // Everything the layout leaves without a place: the built-ins whose default
-  // region was written over, and the items registered through `toolbarItems`
-  // and never named. Both are what `rest` puts back, the first in the shape
-  // they had.
-  const isDisplaced = (id: string) => visible.has(id) && !named.has(id) && !kept.has(id)
-  const defaulted = namedIds([defaults.top, defaults.bottom])
-  const homeless = [...visible].filter((id) => isDisplaced(id) && !defaulted.has(id))
-  const rest = [
-    ...bars.flatMap((bar) =>
-      TOOLBAR_REGIONS.flatMap((region) => pruneDefaults(defaults[bar][region], isDisplaced)),
-    ),
-    ...homeless.map((id): ResolvedToolbarNode => ({ kind: 'item', id })),
-  ]
-
-  const context: ResolveContext = { visible, rest, restUsed: { value: false } }
 
   const resolved: Record<ToolbarBar, ResolvedToolbarRow[]> = { top: [], bottom: [] }
   for (const bar of bars) {
@@ -252,19 +255,21 @@ export function resolveToolbarLayout<TData extends RowData>(
       const entries = TOOLBAR_REGIONS.map((region): [ToolbarRegion, ResolvedToolbarNode[]] => [
         region,
         index === 0 && inherits(bar, region)
-          ? pruneDefaults(defaults[bar][region], (id) => visible.has(id) && !named.has(id))
-          : resolveConfigured(row?.[region], context),
+          ? pruneDefaults(defaults[bar][region], unplaced)
+          : resolveConfigured(row?.[region], visible, rests.get(`${bar}/${region}`)!),
       ])
       const next = Object.fromEntries(entries) as ResolvedToolbarRow
       if (!isEmptyRow(next)) resolved[bar].push(next)
     }
   }
 
-  // An item of your own the layout never names, with no `rest` to name it
-  // either. The end of the top bar is where the built-in actions sit, so it
-  // lands beside them rather than silently not rendering. A built-in written
-  // out of its region is not put back here: that is the removal.
-  if (!context.restUsed.value && homeless.length > 0) {
+  // An item of your own that the layout never names. It has no default region
+  // for a `rest` to hand it back, so it lands where the built-in actions
+  // already sit rather than silently not rendering. A built-in written out of
+  // its region is not put back here: that is the removal.
+  const defaulted = namedIds([defaults.top, defaults.bottom])
+  const homeless = [...visible].filter((id) => unplaced(id) && !defaulted.has(id))
+  if (homeless.length > 0) {
     const nodes = homeless.map((id): ResolvedToolbarNode => ({ kind: 'item', id }))
     const last = resolved.top.at(-1)
     if (last) last.end.push(...nodes)

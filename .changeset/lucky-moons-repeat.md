@@ -21,8 +21,11 @@ A region you write is exactly what that region holds, so the same sentence both
 places and removes — `top: { end: ['search'] }` puts the search box at the top
 right and leaves the icon cluster out, and `top: { end: [] }` empties the corner
 altogether. A region you do not write keeps its default, so a layout still only
-describes the parts of the bar it cares about, and `rest` puts back whatever a
-rewritten region displaced.
+describes the parts of the bar it cares about, and `rest` gives a region back
+what it would have held: `['search', 'rest']` puts the search box at the front
+without dropping what was beside it. `rest` is scoped to the region it is
+written in, so it means the same thing everywhere and two of them compose
+rather than compete.
 
 An id named twice is drawn twice — which is all `paginationPosition="both"` ever
 meant — a bar takes an array of rows, so the chips can have a line of their own,

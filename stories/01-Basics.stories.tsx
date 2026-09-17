@@ -202,10 +202,27 @@ export const ChromeControls: Story = {
 const layoutCases: Array<{ label: string; options: Partial<DataTableOptions<Person>> }> = [
   { label: 'the default arrangement', options: {} },
   {
-    // The start now holds the search box and nothing else. The end is not
-    // mentioned, so the icon cluster is exactly where it was.
+    // The start now holds the search box and nothing else — the selection
+    // count that region would have drawn is not in the list, so it is not
+    // drawn. The end is not mentioned, so the icon cluster is untouched.
     label: "toolbarLayout={{ top: { start: ['search'] } }}",
-    options: { toolbarLayout: { top: { start: ['search'] } } },
+    options: {
+      toolbarLayout: { top: { start: ['search'] } },
+      enableRowSelection: true,
+      initialState: { rowSelection: { p2: true } },
+    },
+  },
+  {
+    // The same layout with `rest`, which is the other half of writing a
+    // region: the search box goes first and the region keeps what it already
+    // held. Scoped to the region it is written in, so it never reaches into
+    // what another region says.
+    label: "toolbarLayout={{ top: { start: ['search', 'rest'] } }}",
+    options: {
+      toolbarLayout: { top: { start: ['search', 'rest'] } },
+      enableRowSelection: true,
+      initialState: { rowSelection: { p2: true } },
+    },
   },
   {
     // Removal is the same sentence, from the other side: a region you write is

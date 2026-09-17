@@ -52,12 +52,33 @@ test.describe('toolbar layout', () => {
     await expect(root.locator('[data-rtc-toolbar="top"] [data-rtc-region="start"]')).toHaveCount(0)
   })
 
-  /** A written region is what it says; an unwritten one is untouched. */
+  /**
+   * A written region is what it says — the selection count that region would
+   * have drawn is not in the list, so it is not drawn — and an unwritten one is
+   * untouched.
+   */
   test('writing one region leaves the others alone', async ({ page }) => {
     await openStory(page, LAYOUT_STORY)
     const root = table(page, 1)
 
     expect(await regionItems(root, 'top', 'start')).toEqual(['search'])
+    expect(await regionItems(root, 'top', 'end')).toEqual([
+      'column-visibility',
+      'density-toggle',
+      'fullscreen-toggle',
+    ])
+  })
+
+  /**
+   * The same layout with `rest`, which gives the region back what it would
+   * have held — and only what *that* region would have held: the cluster in
+   * the end region is not swept into the start along with it.
+   */
+  test('rest gives a region back its own occupants', async ({ page }) => {
+    await openStory(page, LAYOUT_STORY)
+    const root = table(page, 2)
+
+    expect(await regionItems(root, 'top', 'start')).toEqual(['search', 'selection-summary'])
     expect(await regionItems(root, 'top', 'end')).toEqual([
       'column-visibility',
       'density-toggle',
@@ -72,7 +93,7 @@ test.describe('toolbar layout', () => {
    */
   test('a region leaves out what it does not name', async ({ page }) => {
     await openStory(page, LAYOUT_STORY)
-    const root = table(page, 2)
+    const root = table(page, 3)
 
     expect(await regionItems(root, 'top', 'end')).toEqual([
       'search',
@@ -90,7 +111,7 @@ test.describe('toolbar layout', () => {
    */
   test('pagination named in the top bar leaves the bottom bar empty', async ({ page }) => {
     await openStory(page, LAYOUT_STORY)
-    const root = table(page, 3)
+    const root = table(page, 4)
 
     expect(await regionItems(root, 'top', 'center')).toEqual(['pagination'])
     await expect(root.locator('[data-rtc-toolbar="bottom"]')).toHaveCount(0)
@@ -99,7 +120,7 @@ test.describe('toolbar layout', () => {
   /** A second row is an array, and a first row that writes no region inherits every one. */
   test('a row of its own for the filter chips', async ({ page }) => {
     await openStory(page, LAYOUT_STORY)
-    const root = table(page, 4)
+    const root = table(page, 5)
     const rows = root.locator('[data-rtc-toolbar="top"] .rtc-toolbar-row')
 
     await expect(rows).toHaveCount(2)
@@ -113,7 +134,7 @@ test.describe('toolbar layout', () => {
   /** A cluster stays a cluster wherever it is put, at its own gap. */
   test('the icon actions keep their cluster in the other bar', async ({ page }) => {
     await openStory(page, LAYOUT_STORY)
-    const root = table(page, 5)
+    const root = table(page, 6)
     const group = root.locator('[data-rtc-toolbar="bottom"] .rtc-toolbar-group')
 
     await expect(group).toHaveCount(1)
@@ -129,7 +150,7 @@ test.describe('toolbar layout', () => {
   /** No arrangement leaves a bar, a row or a region behind with nothing in it. */
   test('no arrangement draws an empty bar', async ({ page }) => {
     await openStory(page, LAYOUT_STORY)
-    for (const index of [0, 1, 2, 3, 4, 5]) {
+    for (const index of [0, 1, 2, 3, 4, 5, 6]) {
       expect(await emptyToolbars(table(page, index))).toEqual([])
     }
   })
