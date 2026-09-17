@@ -1,5 +1,5 @@
 ---
-'@mvd/table': minor
+'@mvd/table': major
 ---
 
 Lay the toolbar out yourself with `toolbarLayout`.
@@ -33,25 +33,33 @@ and `{ group: [...] }` keeps a set of icons clustered wherever you put them.
 Below `mobileBreakpoint`, `toolbarLayout.narrow` replaces whichever bars it
 names.
 
-`toolbarItems` registers content of your own under an id the layout can place,
-and **replaces the three `render*ToolbarActions` slots, now deprecated** — each
-of those appends to one fixed point, where a registered item goes anywhere, and
-twice if you like. The ids they filled are registerable and keep the places the
-slots had, so migrating is the key and nothing else:
+`toolbarItems` registers content of your own under an id the layout can place —
+in either bar, in any region, in any order, and twice if you name it twice.
+
+**Breaking: `renderTopToolbarActions`, `renderBottomToolbarActions` and
+`renderToolbarInternalActions` are removed.** Each appended to one fixed point,
+which is the one thing `toolbarItems` does better, so keeping both would have
+been two ways to do it with only one of them able to say where. The ids of the
+same name are a direct swap and carry the place the slot had, so nothing has to
+move with them:
 
 ```tsx
 // before
 renderTopToolbarActions={({ table }) => <Bulk table={table} />}
-// after — same place, and now movable
-toolbarItems={{ 'top-actions': ({ table }) => <Bulk table={table} /> }}
+renderBottomToolbarActions={() => <Updated />}
+renderToolbarInternalActions={({ table }) => <Sync table={table} />}
+
+// after — same places, and now movable
+toolbarItems={{
+  'top-actions': ({ table }) => <Bulk table={table} />,
+  'bottom-actions': <Updated />,
+  'internal-actions': ({ table }) => <Sync table={table} />,
+}}
 ```
 
-The slots still work; an entry in `toolbarItems` wins over the one of the same
-name.
-
-Nothing is rearranged by default and every existing option still means what it
-did. Two structural changes come with it, for anyone styling the bar directly
-rather than through `classNames` and `cssVars`: each bar's occupants now sit in
+Nothing is rearranged by default and every other option still means what it did.
+Two structural changes come with it, for anyone styling the bar directly rather
+than through `classNames` and `cssVars`: each bar's occupants now sit in
 `.rtc-toolbar-row` and `.rtc-toolbar-region` elements, and `.rtc-toolbar-spacer`
 and `.rtc-toolbar-actions` are gone — the regions do the spacing, and a cluster
 is `.rtc-toolbar-group`, whose gap is the new `--rtc-toolbar-group-gap`.

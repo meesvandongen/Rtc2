@@ -156,11 +156,11 @@ test.describe('toolbar layout', () => {
   })
 
   /**
-   * The ids the deprecated slots used to fill keep the places they had, which
-   * is what makes migrating one of them the key and nothing else.
+   * The three ids with a default place carry it on their own: registering one
+   * is enough, with no layout to say where it goes.
    */
-  test('a registered top-actions item lands where the slot did', async ({ page }) => {
-    const root = await openStory(page, 'datatable-01-basics--custom-toolbar-slots')
+  test('a registered top-actions item leads the bar with no layout', async ({ page }) => {
+    const root = await openStory(page, 'datatable-01-basics--custom-toolbar-content')
 
     await expect(
       root.locator('[data-rtc-toolbar="top"] [data-rtc-region="start"] [data-testid="bulk-action"]'),

@@ -34,7 +34,7 @@ Each of these has a dedicated story section in the sidebar.
 | States | `isLoading`, `showProgressBars`, `isSaving`, `isLoadingError`, `errorMessage`, `skeletonRowCount`, `renderEmptyState` |
 | i18n | [`localization`](?path=/docs/docs-11-localization--docs) — every string, including filter operator names, per data type where they differ |
 | Clipboard | `enableClickToCopy`, or `meta.enableClickToCopy` per column |
-| Escape hatches | `components`, `classNames`, `cssVars`, `tableProps`, `containerProps`, `rowProps`, `cellProps`, `headCellProps`, `renderCaption` — and `renderTopToolbarActions`, `renderBottomToolbarActions`, `renderToolbarInternalActions`, deprecated in favour of `toolbarItems` |
+| Escape hatches | `components`, `classNames`, `cssVars`, `tableProps`, `containerProps`, `rowProps`, `cellProps`, `headCellProps`, `renderCaption` |
 
 ¹ on by default; everything else is opt-in.
 
@@ -152,14 +152,28 @@ things moved.
 
 ### Your own content
 
-`toolbarItems` is the way in, and it **replaces the three
-`render*ToolbarActions` slots**, which are deprecated. Each of those appends to
-one fixed point — `renderToolbarInternalActions` could only ever lead the icon
-cluster — where an item registered here can be named in `toolbarLayout` and put
-anywhere, twice if you like.
+`toolbarItems` is the way in. Register content under an id, and
+`toolbarLayout` places it like any built-in — in either bar, in any region, in
+any order, and twice if you name it twice. A value is a node, or a function of
+the render context:
 
-The three ids those slots filled are registerable, and keep the places the
-slots had, so migrating is the key and nothing else:
+```tsx
+toolbarItems={{
+  title: <strong>Team</strong>,
+  export: ({ table }) => <ExportButton table={table} />,
+}}
+toolbarLayout={{ top: { start: ['title', 'rest'] }, bottom: { end: ['pagination', 'export'] } }}
+```
+
+Three ids come with a default place, for content that only wants the one the
+toolbar would have given it: `top-actions` and `bottom-actions` lead their bar,
+and `internal-actions` leads the icon cluster. Registering one of those is
+enough on its own — no layout needed.
+
+These replace the `renderTopToolbarActions`, `renderBottomToolbarActions` and
+`renderToolbarInternalActions` slots, which are **removed**. Each of them
+appended to one fixed point, so the id of the same name is a direct swap that
+can then be moved:
 
 ```tsx
 // before
@@ -168,9 +182,6 @@ renderTopToolbarActions={({ table }) => <Bulk table={table} />}
 // after — same place, and now movable
 toolbarItems={{ 'top-actions': ({ table }) => <Bulk table={table} /> }}
 ```
-
-An entry in `toolbarItems` wins over the slot of the same name. A value can be
-a node or a function of the render context, as the slots were.
 
 Nothing empty is ever drawn: a region with no occupants is not rendered, a row
 with no regions goes with it, and a bar left with no rows goes the same way the

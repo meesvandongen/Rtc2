@@ -301,13 +301,12 @@ export const ToolbarLayout: Story = {
 }
 
 /**
- * Content of your own, addressed by an id rather than appended to a slot.
+ * Content of your own, addressed by an id.
  *
- * The deprecated `renderTopToolbarActions` could only put a button at the front
- * of the top bar. An item registered in `toolbarItems` goes wherever the layout
- * says — here one at the far end of the bottom bar, past the pagination, and
- * one at the start of the top. An item the layout never names lands at `rest`,
- * which sits at the end of the top bar unless a region asks for it.
+ * An item registered in `toolbarItems` goes wherever the layout says — here one
+ * at the far end of the bottom bar, past the pagination, and one at the start
+ * of the top. An item the layout never names lands at the end of the top bar,
+ * since it has no default region of its own for a `rest` to hand it back.
  */
 export const ToolbarItems: Story = {
   render: () => (
@@ -448,14 +447,14 @@ export const ErrorState: Story = {
 }
 
 /**
- * The two ids the old `renderTopToolbarActions` and
- * `renderBottomToolbarActions` slots used to fill, registered as items.
+ * The two ids that come with a default place, for content that only wants the
+ * one the toolbar would have given it.
  *
- * `top-actions` and `bottom-actions` keep the places those slots had, so
- * migrating is the key and nothing else — and, unlike a slot, either can then
- * be named in `toolbarLayout` and moved anywhere.
+ * `top-actions` and `bottom-actions` lead their bar, so registering one is
+ * enough on its own and no layout is needed — and either can still be named in
+ * `toolbarLayout` later and moved anywhere.
  */
-export const CustomToolbarSlots: Story = {
+export const CustomToolbarContent: Story = {
   args: { enableRowSelection: true },
   argTypes: { enableRowSelection: { control: 'boolean', table: { category: 'Behaviour' } } },
   render: ({ enableRowSelection }) => (

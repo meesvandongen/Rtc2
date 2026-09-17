@@ -19,27 +19,17 @@ import type { DataTableDensity, DataTableInstance } from '../types'
 
 const DENSITY_ORDER: DataTableDensity[] = ['comfortable', 'compact', 'spacious']
 
-/** The ids whose content comes from a `render*` slot rather than a component. */
-const SLOT_ITEMS: Record<
-  string,
-  'renderTopToolbarActions' | 'renderBottomToolbarActions' | 'renderToolbarInternalActions' | undefined
-> = {
-  'top-actions': 'renderTopToolbarActions',
-  'bottom-actions': 'renderBottomToolbarActions',
-  'internal-actions': 'renderToolbarInternalActions',
-}
-
 /**
- * Whether a consumer's render slot produced anything to lay out.
+ * Whether a consumer's registered item produced anything to lay out.
  *
- * The values React itself renders as nothing are exactly what a slot returns
+ * The values React itself renders as nothing are exactly what an item returns
  * when it decides not to appear. Anything else counts as content, including an
  * element whose own component renders nothing: the table cannot see inside it,
  * and guessing wrong there would hide a toolbar someone deliberately filled.
  */
-function hasSlotContent(node: ReactNode): boolean {
+function hasItemContent(node: ReactNode): boolean {
   if (node == null || typeof node === 'boolean' || node === '') return false
-  if (Array.isArray(node)) return node.some(hasSlotContent)
+  if (Array.isArray(node)) return node.some(hasItemContent)
   return true
 }
 
@@ -77,11 +67,11 @@ function Toolbar<TData extends RowData>({
 }) {
   const options = table.dataTableOptions
 
-  // Slot content is evaluated at most once per bar, and only for the slots
-  // this bar turns out to hold: `renderToolbarInternalActions` and friends are
-  // consumer functions, and calling one twice to ask a question and then use
-  // the answer is what the resolution pass exists to avoid.
-  const slots = new Map<string, ReactNode>()
+  // A registered item is evaluated at most once per bar, and only when this bar
+  // turns out to hold it: the value is a consumer's function, and calling one
+  // twice to ask a question and then use the answer is what the resolution pass
+  // exists to avoid.
+  const evaluated = new Map<string, ReactNode>()
 
   const rows = resolveToolbarLayout(options, {
     isMobile: table.isMobile,
@@ -92,7 +82,7 @@ function Toolbar<TData extends RowData>({
     .map((row) =>
       TOOLBAR_REGIONS.map((region) => ({
         region,
-        children: buildNodes(table, row[region], slots),
+        children: buildNodes(table, row[region], evaluated),
       })).filter((entry) => entry.children.length > 0),
     )
     .filter((regions) => regions.length > 0)
@@ -135,12 +125,12 @@ interface BuiltNode {
 function buildNodes<TData extends RowData>(
   table: DataTableInstance<TData>,
   nodes: ResolvedToolbarNode[],
-  slots: Map<string, ReactNode>,
+  evaluated: Map<string, ReactNode>,
 ): BuiltNode[] {
   const built: BuiltNode[] = []
   nodes.forEach((node, index) => {
     if (node.kind === 'group') {
-      const children = buildNodes(table, node.nodes, slots)
+      const children = buildNodes(table, node.nodes, evaluated)
       if (children.length === 0) return
       built.push({
         key: `group:${node.id ?? index}`,
@@ -158,7 +148,7 @@ function buildNodes<TData extends RowData>(
       })
       return
     }
-    const content = itemNode(table, node.id, slots)
+    const content = itemNode(table, node.id, evaluated)
     if (content !== null) built.push({ key: `${node.id}:${index}`, node: content })
   })
   return built
@@ -168,9 +158,9 @@ function buildNodes<TData extends RowData>(
  * Every item that could draw something, in the order an unplaced one should
  * fall back to.
  *
- * Asked before any slot is called, so the question stays cheap: a slot-backed
- * id is a candidate whenever its render function exists, and is dropped later
- * if calling it produced nothing.
+ * Asked before any registered item is evaluated, so the question stays cheap: a
+ * registered id is a candidate on the strength of being registered, and is
+ * dropped later if evaluating it produced nothing.
  */
 function candidateItems<TData extends RowData>(
   table: DataTableInstance<TData>,
@@ -190,9 +180,6 @@ function candidateItems<TData extends RowData>(
   const panelAvailable =
     filterMode === 'panel' || filterMode === 'popover-and-panel' || usesFilterDrawer(table)
 
-  add('top-actions', !!options.renderTopToolbarActions)
-  add('bottom-actions', !!options.renderBottomToolbarActions)
-  add('internal-actions', internal && !!options.renderToolbarInternalActions)
   add('grouping-chips', (options.enableGrouping ?? false) && (options.enableGroupingChips ?? false))
   add('selection-summary', selectedRowCount(table) > 0)
   add('filter-chips', showsFilterChips(table))
@@ -215,9 +202,9 @@ function candidateItems<TData extends RowData>(
   add('fullscreen-toggle', internal && (options.enableFullScreenToggle ?? true))
   add('error', internal && !!options.isLoadingError)
 
-  // Last, so an item with no placement of its own lands at `rest` in the order
-  // it was registered in. A registered `internal-actions` is still the icon
-  // cluster's, and goes when the cluster does.
+  // Last, so an item with no placement of its own lands at the end of the top
+  // bar in the order it was registered in. A registered `internal-actions` is
+  // still the icon cluster's, and goes when the cluster does.
   for (const id of Object.keys(options.toolbarItems ?? {})) {
     if (id === 'internal-actions' && !internal) continue
     ids.add(id)
@@ -230,7 +217,7 @@ function candidateItems<TData extends RowData>(
 function itemNode<TData extends RowData>(
   table: DataTableInstance<TData>,
   id: string,
-  slots: Map<string, ReactNode>,
+  evaluated: Map<string, ReactNode>,
 ): ReactNode {
   switch (id) {
     case 'grouping-chips':
@@ -258,35 +245,22 @@ function itemNode<TData extends RowData>(
     case 'error':
       return <ToolbarError table={table} />
     default:
-      return slotNode(table, id, slots)
+      return registeredNode(table, id, evaluated)
   }
 }
 
-/**
- * A registered item's content, or the deprecated slot's, evaluated once.
- *
- * `toolbarItems` is asked first, including for the three ids the slots fill:
- * migrating a slot is then the key and nothing else, and setting both is not a
- * silent conflict — the one you added wins.
- */
-function slotNode<TData extends RowData>(
+/** A `toolbarItems` entry's content, evaluated once per bar. */
+function registeredNode<TData extends RowData>(
   table: DataTableInstance<TData>,
   id: string,
-  slots: Map<string, ReactNode>,
+  evaluated: Map<string, ReactNode>,
 ): ReactNode {
-  if (!slots.has(id)) {
-    const options = table.dataTableOptions
-    const registered = options.toolbarItems?.[id]
-    const slot = SLOT_ITEMS[id]
-    const item =
-      registered !== undefined
-        ? typeof registered === 'function'
-          ? registered({ table })
-          : registered
-        : slot && options[slot]?.({ table })
-    slots.set(id, hasSlotContent(item) ? item : null)
+  if (!evaluated.has(id)) {
+    const item = table.dataTableOptions.toolbarItems?.[id]
+    const content = typeof item === 'function' ? item({ table }) : item
+    evaluated.set(id, hasItemContent(content) ? content : null)
   }
-  return slots.get(id) ?? null
+  return evaluated.get(id) ?? null
 }
 
 /** How many rows the toolbar would report as selected; `0` when it says nothing. */
