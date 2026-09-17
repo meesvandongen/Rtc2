@@ -71,17 +71,33 @@ goes in each of them, in order.
 />
 ```
 
-Name an occupant to place it — first in the region you name it in — and
-everything you leave unnamed keeps its default place. So the layout above moves
-the search box and adds a button, and the filter chips, the selection count and
-the six icon actions are all still where they were.
+**A region you write is exactly what that region holds.** So the layout above
+says the top bar starts with the search box and nothing else, and the bottom
+bar ends with the pagination and then a button — while the regions it does not
+mention, the top `end` among them, keep their defaults: the search toggle, the
+columns menu and the rest of the icon cluster are all still there.
+
+That is also how a layout takes something away. There is no separate verb for
+it, and nothing to keep in step with a list of placements:
+
+```tsx
+// the columns menu and the density toggle, and nothing else in that region
+toolbarLayout={{ top: { end: ['search', { group: ['column-visibility', 'density-toggle'] }] } }}
+
+// no top-right corner at all
+toolbarLayout={{ top: { end: [] } }}
+```
+
+A region with nothing in it is not drawn, and a bar left with no regions goes
+with it — `{ bottom: { start: [], end: [] } }` removes the bottom bar the same
+way emptying it of occupants does.
 
 ### Every built-in item
 
 Fifteen ids, plus whatever you register in `toolbarItems`. "Drawn when" is the
 existing option that decides whether the item exists at all — a layout places
 what a table is already drawing and never brings back something a flag turned
-off.
+off, though it can leave out something a flag turned on.
 
 | id | What it is | Default place | Drawn when |
 | --- | --- | --- | --- |
@@ -104,26 +120,30 @@ off.
 ¹ on by default. Every id in the cluster also needs
 `enableToolbarInternalActions`¹, which turns the whole group off at once.
 
-Three things follow from a region being a list rather than a position:
+Four things follow from a region being a list rather than a position:
 
 - **An id named twice is drawn twice.** `{ top: { end: ['pagination'] },
   bottom: { end: ['pagination'] } }` is what `paginationPosition="both"` means,
   and naming it in one bar alone gives up its seat in the other.
 - **A bar takes an array of rows.** `top: [{}, { start: ['filter-chips'] }]`
-  keeps the bar as it was and gives the chips a line of their own underneath,
-  where a long filter cannot squeeze the search box. The first row is the bar
-  itself and keeps every default the later rows do not take; a row you add
-  starts empty.
+  keeps the bar as it was — the first row writes no region, so every region
+  inherits — and gives the chips a line of their own underneath, where a long
+  filter cannot squeeze the search box. Only that first row inherits; a row you
+  add starts empty.
 - **A cluster is an object.** `{ group: ['density-toggle', 'fullscreen-toggle']
   }` sits at the icon gap rather than the toolbar's, and wraps as one. That is
   what the built-in icon actions are, which is why pulling one of them out
   leaves the rest clustered.
+- **`rest` puts back what a rewritten region displaced.** `{ top: { start:
+  ['search', 'rest'] } }` moves the search box to the front and keeps whatever
+  else the start held, rather than replacing it. Anything of your own that the
+  layout never names goes there too, and each arrives in the shape it had, so
+  a cluster moved through `rest` is still a cluster. Register an item and never
+  name it anywhere and it lands at the end of the top bar.
 
-An item with no default placement — one of your own, registered in
-`toolbarItems` and named nowhere — lands at `rest`, which sits at the end of the
-top bar unless a region asks for it by name. Below `mobileBreakpoint`,
-`toolbarLayout.narrow` replaces whichever bars it names, since the arrangement
-a phone wants is rarely the wide one with a couple of things moved.
+Below `mobileBreakpoint`, `toolbarLayout.narrow` replaces whichever bars it
+names, since the arrangement a phone wants is rarely the wide one with a couple
+of things moved.
 
 ### Your own content
 

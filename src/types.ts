@@ -258,9 +258,11 @@ export type DataTableToolbarItemId =
  * One occupant of a toolbar region.
  *
  * A string is an item id — one of the built-in ones, or a key of
- * `toolbarItems`. `rest` stands for every registered item the layout never
- * names. An object is a cluster: its members sit together at their own gap and
- * wrap together.
+ * `toolbarItems`. `rest` stands for every occupant the layout leaves without a
+ * place: the items you registered and never named, and the built-ins whose
+ * default region you wrote over. They arrive in the shape they had, so a
+ * cluster moved through `rest` is still a cluster. An object is a cluster of
+ * your own: its members sit together at their own gap and wrap together.
  */
 export type DataTableToolbarNode =
   | DataTableToolbarItemId
@@ -291,12 +293,17 @@ export interface DataTableToolbarRow {
 /**
  * Where the toolbar's occupants sit.
  *
- * A bar takes one row, or an array of them. The first row is the bar itself:
- * a region you name replaces that region, and one you leave out keeps its
- * default. Any further row is yours alone and starts empty. An item you name
- * nowhere stays where it was, so a layout only has to describe what it moves —
- * and an item named twice is drawn twice, which is what
- * `paginationPosition: 'both'` amounts to.
+ * **A region you write is exactly what that region holds.** Leave an occupant
+ * out of it and it is not drawn — `start: []` empties the region, and a bar
+ * left with nothing is not drawn either. A region you do not write keeps its
+ * default, minus anything you placed elsewhere, so a layout still only has to
+ * describe the parts of the bar it cares about.
+ *
+ * A bar takes one row or an array of them. The first row is the bar itself and
+ * is the one that inherits; any further row is yours alone and starts empty.
+ * An item named twice is drawn twice, which is what `paginationPosition:
+ * 'both'` amounts to, and `rest` puts back whatever a rewritten region
+ * displaced.
  */
 export interface DataTableToolbarLayout {
   top?: DataTableToolbarRow | DataTableToolbarRow[]
@@ -581,8 +588,8 @@ export interface DataTableOptions<TData extends RowData> {
   /**
    * Where the toolbar's occupants sit, as an ordered list per region.
    *
-   * Name an occupant to place it; everything you leave unnamed keeps its
-   * default place, so moving one thing moves one thing. See
+   * A region you write is exactly what it holds, so a layout both places and
+   * removes; a region you leave out keeps its default. See
    * `DataTableToolbarLayout`.
    */
   toolbarLayout?: DataTableToolbarLayout

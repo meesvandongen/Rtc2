@@ -202,10 +202,22 @@ export const ChromeControls: Story = {
 const layoutCases: Array<{ label: string; options: Partial<DataTableOptions<Person>> }> = [
   { label: 'the default arrangement', options: {} },
   {
-    // Naming one occupant moves one occupant: the chips, the alert and the
-    // icon cluster are all still where they were.
+    // The start now holds the search box and nothing else. The end is not
+    // mentioned, so the icon cluster is exactly where it was.
     label: "toolbarLayout={{ top: { start: ['search'] } }}",
     options: { toolbarLayout: { top: { start: ['search'] } } },
+  },
+  {
+    // Removal is the same sentence, from the other side: a region you write is
+    // all that region holds, so leaving the density and full-screen toggles
+    // out of it is how they go. No second list to keep in step.
+    label: 'two icons instead of five, by writing the region',
+    options: {
+      toolbarLayout: {
+        top: { end: ['search', { group: ['filter-toggle', 'column-visibility'] }] },
+      },
+      filterDisplayMode: 'popover-and-panel',
+    },
   },
   {
     // What `paginationPosition="top"` says in one word, and the same thing it
@@ -215,10 +227,9 @@ const layoutCases: Array<{ label: string; options: Partial<DataTableOptions<Pers
     options: { toolbarLayout: { top: { center: ['pagination'] } } },
   },
   {
-    // A second row is an array. The first row is still the bar — it keeps
-    // every default the second row does not take — and the chips move down
-    // to a line of their own, where a long filter cannot squeeze the search
-    // box.
+    // A second row is an array. The first row writes no region at all, so the
+    // bar keeps everything it had, and the chips move down to a line of their
+    // own, where a long filter cannot squeeze the search box.
     label: 'a row of its own for the filter chips',
     options: {
       toolbarLayout: { top: [{}, { start: ['filter-chips'] }] },
@@ -244,10 +255,11 @@ const layoutCases: Array<{ label: string; options: Partial<DataTableOptions<Pers
  * Where the toolbar's occupants sit, as an ordered list per region.
  *
  * Each bar has a `start`, a `center` and an `end`, and takes one row or an
- * array of them. Name an occupant to place it — first in the region you name
- * it in — and everything you leave unnamed keeps its default place, so a
- * layout only has to describe what it moves. An id named twice is drawn twice,
- * which is all `paginationPosition="both"` ever meant.
+ * array of them. A region you write is exactly what that region holds — which
+ * is how a layout both places and removes — and a region you leave out keeps
+ * its default, so you only describe the parts of the bar you care about. An id
+ * named twice is drawn twice, which is all `paginationPosition="both"` ever
+ * meant, and `rest` puts back whatever a rewritten region displaced.
  *
  * A region with nothing in it is not drawn, and neither is a row, or a bar: the
  * arrangement never leaves a gap behind.

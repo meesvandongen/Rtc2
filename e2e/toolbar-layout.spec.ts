@@ -32,9 +32,9 @@ const LAYOUT_STORY = 'datatable-01-basics--toolbar-layout'
 
 test.describe('toolbar layout', () => {
   /**
-   * The arrangement every other case is a patch over. A layout nobody
-   * configured has to render what the toolbar rendered before layouts existed,
-   * or "keeps its default place" means nothing.
+   * What a table draws when nobody configures a layout: exactly what the
+   * toolbar drew before layouts existed, since every region is unwritten and
+   * every region therefore inherits.
    */
   test('the default arrangement is unchanged', async ({ page }) => {
     await openStory(page, LAYOUT_STORY)
@@ -52,8 +52,8 @@ test.describe('toolbar layout', () => {
     await expect(root.locator('[data-rtc-toolbar="top"] [data-rtc-region="start"]')).toHaveCount(0)
   })
 
-  /** Naming one occupant moves one occupant; the cluster is left alone. */
-  test('naming the search box moves only the search box', async ({ page }) => {
+  /** A written region is what it says; an unwritten one is untouched. */
+  test('writing one region leaves the others alone', async ({ page }) => {
     await openStory(page, LAYOUT_STORY)
     const root = table(page, 1)
 
@@ -66,22 +66,40 @@ test.describe('toolbar layout', () => {
   })
 
   /**
+   * Removal, with no verb of its own: the region names two icons, so the
+   * density and full-screen toggles that a flag still has switched on are not
+   * drawn.
+   */
+  test('a region leaves out what it does not name', async ({ page }) => {
+    await openStory(page, LAYOUT_STORY)
+    const root = table(page, 2)
+
+    expect(await regionItems(root, 'top', 'end')).toEqual([
+      'search',
+      'filter-toggle',
+      'column-visibility',
+    ])
+    // The bar it was not told about is untouched.
+    expect(await regionItems(root, 'bottom', 'end')).toEqual(['pagination'])
+  })
+
+  /**
    * Naming pagination in the top bar gives up its seat in the bottom one,
    * which is the whole of what `paginationPosition="top"` used to say — and
    * the emptied bar goes rather than staying behind as a sliver.
    */
   test('pagination named in the top bar leaves the bottom bar empty', async ({ page }) => {
     await openStory(page, LAYOUT_STORY)
-    const root = table(page, 2)
+    const root = table(page, 3)
 
     expect(await regionItems(root, 'top', 'center')).toEqual(['pagination'])
     await expect(root.locator('[data-rtc-toolbar="bottom"]')).toHaveCount(0)
   })
 
-  /** A second row is an array, and the first row keeps every default it does not take. */
+  /** A second row is an array, and a first row that writes no region inherits every one. */
   test('a row of its own for the filter chips', async ({ page }) => {
     await openStory(page, LAYOUT_STORY)
-    const root = table(page, 3)
+    const root = table(page, 4)
     const rows = root.locator('[data-rtc-toolbar="top"] .rtc-toolbar-row')
 
     await expect(rows).toHaveCount(2)
@@ -95,7 +113,7 @@ test.describe('toolbar layout', () => {
   /** A cluster stays a cluster wherever it is put, at its own gap. */
   test('the icon actions keep their cluster in the other bar', async ({ page }) => {
     await openStory(page, LAYOUT_STORY)
-    const root = table(page, 4)
+    const root = table(page, 5)
     const group = root.locator('[data-rtc-toolbar="bottom"] .rtc-toolbar-group')
 
     await expect(group).toHaveCount(1)
@@ -111,7 +129,7 @@ test.describe('toolbar layout', () => {
   /** No arrangement leaves a bar, a row or a region behind with nothing in it. */
   test('no arrangement draws an empty bar', async ({ page }) => {
     await openStory(page, LAYOUT_STORY)
-    for (const index of [0, 1, 2, 3, 4]) {
+    for (const index of [0, 1, 2, 3, 4, 5]) {
       expect(await emptyToolbars(table(page, index))).toEqual([])
     }
   })

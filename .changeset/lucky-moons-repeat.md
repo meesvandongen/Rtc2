@@ -17,12 +17,18 @@ what goes in each of them, in order:
 />
 ```
 
-Name an occupant to place it; everything you leave unnamed keeps its default
-place, so a layout only has to describe what it moves. An id named twice is
-drawn twice — which is all `paginationPosition="both"` ever meant — a bar takes
-an array of rows, so the chips can have a line of their own, and
-`{ group: [...] }` keeps a set of icons clustered wherever you put them. Below
-`mobileBreakpoint`, `toolbarLayout.narrow` replaces whichever bars it names.
+A region you write is exactly what that region holds, so the same sentence both
+places and removes — `top: { end: ['search'] }` puts the search box at the top
+right and leaves the icon cluster out, and `top: { end: [] }` empties the corner
+altogether. A region you do not write keeps its default, so a layout still only
+describes the parts of the bar it cares about, and `rest` puts back whatever a
+rewritten region displaced.
+
+An id named twice is drawn twice — which is all `paginationPosition="both"` ever
+meant — a bar takes an array of rows, so the chips can have a line of their own,
+and `{ group: [...] }` keeps a set of icons clustered wherever you put them.
+Below `mobileBreakpoint`, `toolbarLayout.narrow` replaces whichever bars it
+names.
 
 `toolbarItems` registers content of your own under an id the layout can place,
 and **replaces the three `render*ToolbarActions` slots, now deprecated** — each
