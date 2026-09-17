@@ -14,7 +14,7 @@ import { catalogueEntries } from './helpers'
  * Whether a page renders at all is `catalogue.spec.ts`; this is only layout.
  */
 test.describe('docs pages', () => {
-  // One page load per stories file, each mounting every story in it.
+  // One page per stories file, each mounting every story in it.
   test.setTimeout(600_000)
 
   test('every story example has height on its docs page', async ({ page }) => {
@@ -34,45 +34,41 @@ test.describe('docs pages', () => {
       const expected =
         entries.filter((other) => other.type === 'story' && other.title === entry.title).length + 1
 
-      // Not `networkidle`: the MSW-backed stories keep a worker connection
-      // open, so it never settles.
-      //
-      // Retried because `load` is not the end of the page: Storybook rewrites
-      // the docs URL itself once it has hydrated, and on a page heavy enough
-      // to still be mounting when `goto` resolves, that rewrite lands during
-      // the *next* navigation and aborts it. The interrupting URL is the page
-      // we just left, so asking again from there is all it takes.
-      for (let attempt = 0; ; attempt += 1) {
-        try {
-          await page.goto(`/iframe.html?id=${entry.id}&viewMode=docs`, { waitUntil: 'load' })
-          break
-        } catch (error) {
-          const interrupted = String(error).includes('interrupted by another navigation')
-          if (attempt > 0 || !interrupted) throw error
-        }
-      }
-      const blocks = page.locator('.docs-story')
-      await expect(blocks).toHaveCount(expected, { timeout: 30_000 })
+      // A page of its own per entry, rather than one page walked through them
+      // all. `load` is not the end of a docs page: Storybook rewrites the URL
+      // itself once it has hydrated, and on a page still mounting when `goto`
+      // resolves that rewrite lands during the *next* navigation and aborts
+      // it. Closing the page first leaves nothing to do the interrupting.
+      const docsPage = await page.context().newPage()
+      try {
+        // Not `networkidle`: the MSW-backed stories keep a worker connection
+        // open, so it never settles.
+        await docsPage.goto(`/iframe.html?id=${entry.id}&viewMode=docs`, { waitUntil: 'load' })
+        const blocks = docsPage.locator('.docs-story')
+        await expect(blocks).toHaveCount(expected, { timeout: 30_000 })
 
-      // The containers appear before their stories mount, so poll rather than
-      // measure once. A rendered example is hundreds of pixels tall; the
-      // threshold only has to separate "laid out" from "collapsed".
-      let short: string[] = []
-      await expect
-        .poll(
-          async () => {
-            const heights = await blocks.evaluateAll((nodes) =>
-              nodes.map((node) => Math.round(node.getBoundingClientRect().height)),
-            )
-            short = heights.flatMap((height, position) =>
-              height < 40 ? [`${entry.id}[${position}]: ${height}px`] : [],
-            )
-            return short.length
-          },
-          { timeout: 30_000 },
-        )
-        .toBe(0)
-        .catch(() => collapsed.push(...short))
+        // The containers appear before their stories mount, so poll rather than
+        // measure once. A rendered example is hundreds of pixels tall; the
+        // threshold only has to separate "laid out" from "collapsed".
+        let short: string[] = []
+        await expect
+          .poll(
+            async () => {
+              const heights = await blocks.evaluateAll((nodes) =>
+                nodes.map((node) => Math.round(node.getBoundingClientRect().height)),
+              )
+              short = heights.flatMap((height, position) =>
+                height < 40 ? [`${entry.id}[${position}]: ${height}px`] : [],
+              )
+              return short.length
+            },
+            { timeout: 30_000 },
+          )
+          .toBe(0)
+          .catch(() => collapsed.push(...short))
+      } finally {
+        await docsPage.close()
+      }
     }
     expect(collapsed).toEqual([])
   })
