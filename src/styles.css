@@ -79,6 +79,7 @@
   --rtc-cell-padding-y: var(--rtc-cell-padding-y-comfortable);
 
   --rtc-toolbar-gap: 8px;
+  --rtc-toolbar-group-gap: 4px;
   --rtc-toolbar-padding: 8px;
   --rtc-control-height: 32px;
   --rtc-icon-size: 16px;
@@ -1010,12 +1011,73 @@
 
 .rtc-toolbar {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  flex-direction: column;
   gap: var(--rtc-toolbar-gap);
   padding: var(--rtc-toolbar-padding);
   background: var(--rtc-color-surface);
   flex: 0 0 auto;
+}
+
+/* Three tracks, so the centre region is centred against the bar rather than
+   against whatever the start region happens to hold. The outer tracks are
+   `minmax(0, …)` so a crowded bar wraps inside its regions instead of
+   overflowing the table. */
+.rtc-toolbar-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--rtc-toolbar-gap);
+}
+
+/* With no centre region there is nothing to hold in the middle, and symmetric
+   tracks then cost more than they buy: an absent start region is absent from
+   the markup, but its `1fr` track still claims its half of the free space, so
+   a bar holding only its end would wrap that region in two well before it had
+   to. A flex line instead, where the end takes what the start does not. */
+.rtc-toolbar-row:not(:has(> [data-rtc-region="center"])) {
+  display: flex;
+}
+
+.rtc-toolbar-row:not(:has(> [data-rtc-region="center"])) > [data-rtc-region="end"] {
+  flex: 1 1 auto;
+}
+
+.rtc-toolbar-region {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--rtc-toolbar-gap);
+  min-width: 0;
+}
+
+/* Placed explicitly, since the regions that draw nothing are absent from the
+   markup rather than present and empty. Grid columns follow the writing
+   direction, so `1` is the inline start in RTL too. */
+.rtc-toolbar-region[data-rtc-region="start"] {
+  grid-column: 1;
+}
+
+.rtc-toolbar-region[data-rtc-region="center"] {
+  grid-column: 2;
+  justify-content: center;
+}
+
+.rtc-toolbar-region[data-rtc-region="end"] {
+  grid-column: 3;
+  justify-content: flex-end;
+}
+
+/* A cluster: its members sit at their own gap and wrap together. `tight` is
+   the gap the built-in icon actions have always used. */
+.rtc-toolbar-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--rtc-toolbar-group-gap);
+}
+
+.rtc-toolbar-group[data-rtc-gap="normal"] {
+  gap: var(--rtc-toolbar-gap);
 }
 
 .rtc-toolbar[data-rtc-position="top"] {
@@ -1024,16 +1086,6 @@
 
 .rtc-toolbar[data-rtc-position="bottom"] {
   border-top: var(--rtc-border-width) solid var(--rtc-color-border);
-}
-
-.rtc-toolbar-spacer {
-  flex: 1 1 auto;
-}
-
-.rtc-toolbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
 }
 
 .rtc-toolbar-alert {
@@ -1228,10 +1280,16 @@
 
 /* ------------------------------------------------------------- search ---- */
 
+/* Sized from its minimum and grown into whatever the region has left, rather
+   than from its maximum: a flex line wraps on an item's base size but only
+   shrinks it afterwards, so a search box that starts at 280px takes a line of
+   its own the moment the bar is 20px short — where one that starts at 180px
+   gives those pixels back to the toolbar and stays beside the icons. */
 .rtc-search {
   position: relative;
   display: flex;
   align-items: center;
+  flex: 1 1 180px;
   min-width: 180px;
   max-width: 280px;
 }
@@ -2113,12 +2171,14 @@
 
 /* --------------------------------------------------------- pagination ---- */
 
+/* No `margin-inline-start: auto` here: pushing itself to the far end was the
+   spacer trick done locally, and the toolbar region it sits in now decides
+   where it goes. */
 .rtc-pagination {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: var(--rtc-toolbar-gap);
-  margin-inline-start: auto;
   color: var(--rtc-color-text-muted);
   font-size: var(--rtc-font-size-sm);
 }

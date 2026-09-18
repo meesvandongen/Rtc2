@@ -12,7 +12,7 @@ Each of these has a dedicated story section in the sidebar.
 | Column filtering | `enableColumnFilters`¹, `filterDisplayMode` (`popover` \| `panel` \| `popover-and-panel` \| `none`), `filterPanelPosition`, `enableFilterModes`, `showActiveFilterChips`¹, `manualFiltering`, `enableMultipleFilterConditions`, `dataTypes`, `filterNow`, 9 built-in [data types](?path=/docs/docs-05-filter-data-types--docs), `enableMobileFilterDrawer`¹, `mobileBreakpoint` |
 | Global filtering | `enableGlobalFilter`¹, `globalFilterFn`, `enableGlobalFilterModes`, `globalFilterModeOptions`, `enableGlobalFilterToggle`¹ |
 | Faceting | `enableFaceting`¹ — auto-populates select/autocomplete/checkbox filter options |
-| Pagination | `enablePagination`¹, `paginationDisplayMode`, `paginationPosition`, `pageSizeOptions`, `manualPagination`, `rowCount`, `pageCount`, `autoResetPageIndex` |
+| Pagination | `enablePagination`¹, `paginationDisplayMode`, `pageSizeOptions`, `manualPagination`, `rowCount`, `pageCount`, `autoResetPageIndex` — where the control sits is `toolbarLayout`'s |
 | Row selection | `enableRowSelection` (bool or predicate), `enableMultiRowSelection`¹, `enableSubRowSelection`¹, `enableSelectAll`¹, `selectDisplayMode` (`checkbox` \| `radio` \| `switch`), `enableClickToSelect` |
 | Cell selection | `enableCellSelection`, `enableCellRangeSelection`, `enableMultiCellRangeSelection` |
 | Column visibility | `enableColumnVisibility`¹, `enableHiding`¹ |
@@ -30,10 +30,11 @@ Each of these has a dedicated story section in the sidebar.
 | Orientation | `transposed`, `enableTransposeToggle` — one row per column, one column per record, every feature turning with it; see [Transposed](?path=/docs/docs-13-transposed--docs) |
 | Header sizing | `enableHeaderContentFit`¹ — a column is never narrower than its own header |
 | Chrome | `enableTopToolbar`¹, `enableBottomToolbar`¹, `enableToolbarInternalActions`¹, `enableTableHead`¹, `enableTableFooter`¹, `enableDensityToggle`¹, `enableFullScreenToggle`¹, `enableColumnActions`, `enableStickyHeader`, `enableStickyFooter`, `enableStripes`, `enableRowHover`¹, `enableBorders` |
+| Toolbar layout | `toolbarLayout`, `toolbarItems` — where each occupant sits, and content of your own to place beside them |
 | States | `isLoading`, `showProgressBars`, `isSaving`, `isLoadingError`, `errorMessage`, `skeletonRowCount`, `renderEmptyState` |
 | i18n | [`localization`](?path=/docs/docs-11-localization--docs) — every string, including filter operator names, per data type where they differ |
 | Clipboard | `enableClickToCopy`, or `meta.enableClickToCopy` per column |
-| Escape hatches | `components`, `classNames`, `cssVars`, `tableProps`, `containerProps`, `rowProps`, `cellProps`, `headCellProps`, `renderTopToolbarActions`, `renderBottomToolbarActions`, `renderToolbarInternalActions`, `renderCaption` |
+| Escape hatches | `components`, `classNames`, `cssVars`, `tableProps`, `containerProps`, `rowProps`, `cellProps`, `headCellProps`, `renderCaption` |
 
 ¹ on by default; everything else is opt-in.
 
@@ -54,3 +55,138 @@ anything to hide when a column declares a `footer`; with none, there is no
 `<tfoot>` to begin with. The
 [Chrome story](?path=/story/datatable-01-basics--chrome) shows each choice on
 its own table.
+
+## Where the toolbar's occupants sit
+
+Each bar has a `start`, a `center` and an `end`, and `toolbarLayout` says what
+goes in each of them, in order.
+
+```tsx
+<DataTable
+  toolbarLayout={{
+    top: { start: ['search'] },
+    bottom: { end: ['pagination', 'export'] },
+  }}
+  toolbarItems={{ export: ({ table }) => <ExportButton table={table} /> }}
+/>
+```
+
+**A region you write is exactly what that region holds.** So the layout above
+says the top bar starts with the search box and nothing else, and the bottom
+bar ends with the pagination and then a button — while the regions it does not
+mention, the top `end` among them, keep their defaults: the search toggle, the
+columns menu and the rest of the icon cluster are all still there.
+
+That is also how a layout takes something away. There is no separate verb for
+it, and nothing to keep in step with a list of placements:
+
+```tsx
+// the columns menu and the density toggle, and nothing else in that region
+toolbarLayout={{ top: { end: ['search', { group: ['column-visibility', 'density-toggle'] }] } }}
+
+// no top-right corner at all
+toolbarLayout={{ top: { end: [] } }}
+```
+
+A region with nothing in it is not drawn, and a bar left with no regions goes
+with it — `{ bottom: { start: [], end: [] } }` removes the bottom bar the same
+way emptying it of occupants does.
+
+### Every built-in item
+
+Fifteen ids, plus whatever you register in `toolbarItems`. "Drawn when" is the
+existing option that decides whether the item exists at all — a layout places
+what a table is already drawing and never brings back something a flag turned
+off, though it can leave out something a flag turned on.
+
+| id | What it is | Default place | Drawn when |
+| --- | --- | --- | --- |
+| `top-actions` | your own content for the top bar | `top` `start` | registered in `toolbarItems` |
+| `grouping-chips` | the drag-to-group drop zone | `top` `start` | `enableGrouping` + `enableGroupingChips` |
+| `selection-summary` | "3 of 50 rows selected" | `top` `start` | `enableRowSelection`, and a row is selected |
+| `filter-chips` | a removable chip per active column filter | `top` `start` | `enableColumnFilters`¹ + `showActiveFilterChips`¹, and a filter is set |
+| `search` | the global search field | `top` `end` | `enableGlobalFilter`¹, and the toggle is on or `enableGlobalFilterToggle={false}` |
+| `pagination` | the pagination nav | `bottom` `end` | `enablePagination`¹ |
+| `internal-actions` | your own content for the icon cluster | `top` `end`, leading the cluster | registered in `toolbarItems` |
+| `search-toggle` | show/hide the search field | `top` `end`, in the cluster | `enableGlobalFilter`¹ + `enableGlobalFilterToggle`¹ |
+| `filter-toggle` | open the filter panel, or the sheet on a phone | `top` `end`, in the cluster | `enableColumnFilters`¹, and there is a panel or sheet to open |
+| `column-visibility` | the show/hide columns menu | `top` `end`, in the cluster | `enableColumnVisibility`¹ |
+| `density-toggle` | cycle comfortable / compact / spacious | `top` `end`, in the cluster | `enableDensityToggle`¹ |
+| `transpose-toggle` | flip the axes | `top` `end`, in the cluster | `enableTransposeToggle`, and `transposed` is unset |
+| `fullscreen-toggle` | enter and leave full screen | `top` `end`, in the cluster | `enableFullScreenToggle`¹ |
+| `error` | the loading-error alert | `top` `end`, in the cluster | `isLoadingError` |
+| `bottom-actions` | your own content for the bottom bar | `bottom` `start` | registered in `toolbarItems` |
+
+¹ on by default. Every id in the cluster also needs
+`enableToolbarInternalActions`¹, which turns the whole group off at once.
+
+Four things follow from a region being a list rather than a position:
+
+- **An id named twice is drawn twice.** `{ top: { end: ['rest', 'pagination'] },
+  bottom: { end: ['pagination'] } }` puts the pagination in both bars, and
+  naming it in one bar alone moves it there — it gives up the seat it had in the
+  other rather than being drawn twice. This is the whole of where the control
+  goes; there is no separate option for it.
+- **A bar takes an array of rows.** `top: [{}, { start: ['filter-chips'] }]`
+  keeps the bar as it was — the first row writes no region, so every region
+  inherits — and gives the chips a line of their own underneath, where a long
+  filter cannot squeeze the search box. Only that first row inherits; a row you
+  add starts empty.
+- **A cluster is an object.** `{ group: ['density-toggle', 'fullscreen-toggle']
+  }` sits at the icon gap rather than the toolbar's, and wraps as one. That is
+  what the built-in icon actions are, which is why pulling one of them out
+  leaves the rest clustered.
+- **`rest` gives a region back what it would have held.** `{ top: { start:
+  ['search', 'rest'] } }` moves the search box to the front of the start
+  region and keeps the chips and the selection count that were already there,
+  rather than replacing them. It is scoped to the region it is written in, so
+  it means the same thing everywhere and several of them compose instead of
+  competing — a `rest` in the `start` never reaches into what the `end` says,
+  and two of them do not race for the same occupants. Each comes back in the
+  shape it had, so a cluster returned by `rest` is still a cluster.
+
+Register an item in `toolbarItems` and never name it anywhere and it lands at
+the end of the top bar: it has no default region for a `rest` to hand it back,
+and not drawing it at all would be a silent way to lose it. Below
+`mobileBreakpoint`, `toolbarLayout.narrow` replaces whichever bars it names,
+since the arrangement a phone wants is rarely the wide one with a couple of
+things moved.
+
+### Your own content
+
+`toolbarItems` is the way in. Register content under an id, and
+`toolbarLayout` places it like any built-in — in either bar, in any region, in
+any order, and twice if you name it twice. A value is a node, or a function of
+the render context:
+
+```tsx
+toolbarItems={{
+  title: <strong>Team</strong>,
+  export: ({ table }) => <ExportButton table={table} />,
+}}
+toolbarLayout={{ top: { start: ['title', 'rest'] }, bottom: { end: ['pagination', 'export'] } }}
+```
+
+Three ids come with a default place, for content that only wants the one the
+toolbar would have given it: `top-actions` and `bottom-actions` lead their bar,
+and `internal-actions` leads the icon cluster. Registering one of those is
+enough on its own — no layout needed.
+
+These replace the `renderTopToolbarActions`, `renderBottomToolbarActions` and
+`renderToolbarInternalActions` slots, which are **removed**. Each of them
+appended to one fixed point, so the id of the same name is a direct swap that
+can then be moved:
+
+```tsx
+// before
+renderTopToolbarActions={({ table }) => <Bulk table={table} />}
+
+// after — same place, and now movable
+toolbarItems={{ 'top-actions': ({ table }) => <Bulk table={table} /> }}
+```
+
+Nothing empty is ever drawn: a region with no occupants is not rendered, a row
+with no regions goes with it, and a bar left with no rows goes the same way the
+emptied bars above do. The
+[Toolbar layout story](?path=/story/datatable-01-basics--toolbarlayout) shows
+each arrangement on its own table.

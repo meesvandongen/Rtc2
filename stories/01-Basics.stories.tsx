@@ -198,6 +198,142 @@ export const ChromeControls: Story = {
   ),
 }
 
+/** Each arrangement, as the layout that produces it. */
+const layoutCases: Array<{ label: string; options: Partial<DataTableOptions<Person>> }> = [
+  { label: 'the default arrangement', options: {} },
+  {
+    // The start now holds the search box and nothing else — the selection
+    // count that region would have drawn is not in the list, so it is not
+    // drawn. The end is not mentioned, so the icon cluster is untouched.
+    label: "toolbarLayout={{ top: { start: ['search'] } }}",
+    options: {
+      toolbarLayout: { top: { start: ['search'] } },
+      enableRowSelection: true,
+      initialState: { rowSelection: { p2: true } },
+    },
+  },
+  {
+    // The same layout with `rest`, which is the other half of writing a
+    // region: the search box goes first and the region keeps what it already
+    // held. Scoped to the region it is written in, so it never reaches into
+    // what another region says.
+    label: "toolbarLayout={{ top: { start: ['search', 'rest'] } }}",
+    options: {
+      toolbarLayout: { top: { start: ['search', 'rest'] } },
+      enableRowSelection: true,
+      initialState: { rowSelection: { p2: true } },
+    },
+  },
+  {
+    // Removal is the same sentence, from the other side: a region you write is
+    // all that region holds, so leaving the density and full-screen toggles
+    // out of it is how they go. No second list to keep in step.
+    label: 'two icons instead of five, by writing the region',
+    options: {
+      toolbarLayout: {
+        top: { end: ['search', { group: ['filter-toggle', 'column-visibility'] }] },
+      },
+      filterDisplayMode: 'popover-and-panel',
+    },
+  },
+  {
+    // Where the pagination goes is this and nothing else. Naming it in the
+    // top bar gives up its seat in the bottom one, which empties that bar and
+    // removes it.
+    label: "toolbarLayout={{ top: { center: ['pagination'] } }}",
+    options: { toolbarLayout: { top: { center: ['pagination'] } } },
+  },
+  {
+    // A second row is an array. The first row writes no region at all, so the
+    // bar keeps everything it had, and the chips move down to a line of their
+    // own, where a long filter cannot squeeze the search box.
+    label: 'a row of its own for the filter chips',
+    options: {
+      toolbarLayout: { top: [{}, { start: ['filter-chips'] }] },
+      initialState: { columnFilters: [{ id: 'firstName', value: { op: 'contains', value: 'a' } }] },
+    },
+  },
+  {
+    // A cluster stays a cluster wherever it is put: these three sit at the
+    // icon gap in the bottom bar, and the top bar is left holding the search
+    // box alone.
+    label: 'the icon actions moved to the bottom bar',
+    options: {
+      toolbarLayout: {
+        bottom: {
+          start: [{ group: ['column-visibility', 'density-toggle', 'fullscreen-toggle'] }],
+        },
+      },
+    },
+  },
+]
+
+/**
+ * Where the toolbar's occupants sit, as an ordered list per region.
+ *
+ * Each bar has a `start`, a `center` and an `end`, and takes one row or an
+ * array of them. A region you write is exactly what that region holds — which
+ * is how a layout both places and removes — and a region you leave out keeps
+ * its default, so you only describe the parts of the bar you care about. An id
+ * named twice is drawn twice — `pagination` in both bars is how it goes in both
+ * — and `rest` gives a region back what it would have held.
+ *
+ * A region with nothing in it is not drawn, and neither is a row, or a bar: the
+ * arrangement never leaves a gap behind.
+ */
+export const ToolbarLayout: Story = {
+  render: () => (
+    <>
+      {layoutCases.map(({ label, options }) => (
+        <div key={label} style={{ marginBottom: 16 }}>
+          <DataTable
+            columns={personColumns.slice(0, 4)}
+            data={data.slice(0, 4)}
+            getRowId={(row) => row.id}
+            caption={label}
+            enableGlobalFilterToggle={false}
+            {...options}
+          />
+        </div>
+      ))}
+    </>
+  ),
+}
+
+/**
+ * Content of your own, addressed by an id.
+ *
+ * An item registered in `toolbarItems` goes wherever the layout says — here one
+ * at the far end of the bottom bar, past the pagination, and one at the start
+ * of the top. An item the layout never names lands at the end of the top bar,
+ * since it has no default region of its own for a `rest` to hand it back.
+ */
+export const ToolbarItems: Story = {
+  render: () => (
+    <DataTable
+      columns={personColumns.slice(0, 4)}
+      data={data.slice(0, 6)}
+      getRowId={(row) => row.id}
+      toolbarItems={{
+        title: <strong>Team</strong>,
+        export: ({ table }) => (
+          <button
+            type="button"
+            className="rtc-button"
+            onClick={() => alert(`${table.getRowCount()} rows`)}
+          >
+            Export
+          </button>
+        ),
+      }}
+      toolbarLayout={{
+        top: { start: ['title'] },
+        bottom: { end: ['pagination', 'export'] },
+      }}
+    />
+  ),
+}
+
 export const StickyHeaderAndFooter: Story = {
   render: () => (
     <DataTable
@@ -382,7 +518,15 @@ export const ErrorState: Story = {
   render: (args) => <DataTable columns={personColumns.slice(0, 5)} data={[]} {...args} />,
 }
 
-export const CustomToolbarSlots: Story = {
+/**
+ * The two ids that come with a default place, for content that only wants the
+ * one the toolbar would have given it.
+ *
+ * `top-actions` and `bottom-actions` lead their bar, so registering one is
+ * enough on its own and no layout is needed — and either can still be named in
+ * `toolbarLayout` later and moved anywhere.
+ */
+export const CustomToolbarContent: Story = {
   args: { enableRowSelection: true },
   argTypes: { enableRowSelection: { control: 'boolean', table: { category: 'Behaviour' } } },
   render: ({ enableRowSelection }) => (
@@ -391,19 +535,21 @@ export const CustomToolbarSlots: Story = {
       data={data}
       getRowId={(row) => row.id}
       enableRowSelection={enableRowSelection}
-      renderTopToolbarActions={({ table }) => (
-        <button
-          type="button"
-          className="rtc-button"
-          data-testid="bulk-action"
-          onClick={() =>
-            alert(`${Object.keys(table.state.rowSelection).length} row(s) selected`)
-          }
-        >
-          Bulk action
-        </button>
-      )}
-      renderBottomToolbarActions={() => <span className="rtc-group-count">Updated just now</span>}
+      toolbarItems={{
+        'top-actions': ({ table }) => (
+          <button
+            type="button"
+            className="rtc-button"
+            data-testid="bulk-action"
+            onClick={() =>
+              alert(`${Object.keys(table.state.rowSelection).length} row(s) selected`)
+            }
+          >
+            Bulk action
+          </button>
+        ),
+        'bottom-actions': <span className="rtc-group-count">Updated just now</span>,
+      }}
     />
   ),
 }
