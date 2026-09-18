@@ -23,11 +23,6 @@ const paginationArgTypes = {
     description: '`default` (arrows), `pages` (numbered) and `simple` (prev/next only).',
     table: { category: 'Pagination' },
   },
-  paginationPosition: {
-    control: 'select',
-    options: ['top', 'bottom', 'both'],
-    table: { category: 'Pagination' },
-  },
   pageSizeOptions: {
     control: 'object',
     description: 'Page sizes offered by the page-size select. The first value is the initial page size.',
@@ -56,7 +51,6 @@ export const Basic: Story = {
   args: {
     enablePagination: true,
     paginationDisplayMode: 'default',
-    paginationPosition: 'bottom',
     isLoading: false,
     showProgressBars: false,
     isSaving: false,
@@ -95,9 +89,14 @@ export const DisplayModes: Story = {
   ),
 }
 
+/**
+ * Where the control goes is the toolbar layout's to say: name `pagination` in
+ * a region of the top bar and it moves there, giving up the seat it had in the
+ * bottom one. Name it in both and it is drawn in both.
+ */
 export const PaginationOnTop: Story = {
   args: {
-    paginationPosition: 'top',
+    toolbarLayout: { top: { end: ['rest', 'pagination'] } },
     enableBottomToolbar: false,
     pageSizeOptions: [5, 10, 20],
     isLoading: false,

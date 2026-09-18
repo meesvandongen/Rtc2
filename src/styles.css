@@ -1006,15 +1006,27 @@
 }
 
 /* Three tracks, so the centre region is centred against the bar rather than
-   against whatever the start region happens to hold. A region with nothing in
-   it is not rendered at all and its track collapses with it, and the outer
-   tracks are `minmax(0, …)` so a crowded bar wraps inside its regions instead
-   of overflowing the table. */
+   against whatever the start region happens to hold. The outer tracks are
+   `minmax(0, …)` so a crowded bar wraps inside its regions instead of
+   overflowing the table. */
 .rtc-toolbar-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, auto) minmax(0, 1fr);
   align-items: center;
   gap: var(--rtc-toolbar-gap);
+}
+
+/* With no centre region there is nothing to hold in the middle, and symmetric
+   tracks then cost more than they buy: an absent start region is absent from
+   the markup, but its `1fr` track still claims its half of the free space, so
+   a bar holding only its end would wrap that region in two well before it had
+   to. A flex line instead, where the end takes what the start does not. */
+.rtc-toolbar-row:not(:has(> [data-rtc-region="center"])) {
+  display: flex;
+}
+
+.rtc-toolbar-row:not(:has(> [data-rtc-region="center"])) > [data-rtc-region="end"] {
+  flex: 1 1 auto;
 }
 
 .rtc-toolbar-region {

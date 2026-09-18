@@ -106,8 +106,8 @@ test.describe('toolbar layout', () => {
 
   /**
    * Naming pagination in the top bar gives up its seat in the bottom one,
-   * which is the whole of what `paginationPosition="top"` used to say — and
-   * the emptied bar goes rather than staying behind as a sliver.
+   * which is the whole of where the control goes now — and the emptied bar
+   * goes rather than staying behind as a sliver.
    */
   test('pagination named in the top bar leaves the bottom bar empty', async ({ page }) => {
     await openStory(page, LAYOUT_STORY)

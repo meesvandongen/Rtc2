@@ -1,5 +1,5 @@
 ---
-'@mvd/table': major
+'@mvd/table': minor
 ---
 
 Lay the toolbar out yourself with `toolbarLayout`.
@@ -27,14 +27,25 @@ without dropping what was beside it. `rest` is scoped to the region it is
 written in, so it means the same thing everywhere and two of them compose
 rather than compete.
 
-An id named twice is drawn twice — which is all `paginationPosition="both"` ever
-meant — a bar takes an array of rows, so the chips can have a line of their own,
-and `{ group: [...] }` keeps a set of icons clustered wherever you put them.
-Below `mobileBreakpoint`, `toolbarLayout.narrow` replaces whichever bars it
-names.
+An id named twice is drawn twice, a bar takes an array of rows, so the chips can
+have a line of their own, and `{ group: [...] }` keeps a set of icons clustered
+wherever you put them. Below `mobileBreakpoint`, `toolbarLayout.narrow` replaces
+whichever bars it names.
 
 `toolbarItems` registers content of your own under an id the layout can place —
 in either bar, in any region, in any order, and twice if you name it twice.
+
+**Breaking: `paginationPosition` is removed.** Where the pagination control
+sits is the layout's to say, and the three values it offered are three things a
+layout already spells: name `pagination` in a region of the top bar to move it
+there, in both bars to draw it in both, and leave it alone for the bottom bar it
+has always defaulted to.
+
+```tsx
+paginationPosition="top"   →  toolbarLayout={{ top: { end: ['rest', 'pagination'] } }}
+paginationPosition="both"  →  toolbarLayout={{ top: { end: ['rest', 'pagination'] },
+                                              bottom: { end: ['pagination'] } }}
+```
 
 **Breaking: `renderTopToolbarActions`, `renderBottomToolbarActions` and
 `renderToolbarInternalActions` are removed.** Each appended to one fixed point,

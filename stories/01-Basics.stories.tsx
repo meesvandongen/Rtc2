@@ -237,9 +237,9 @@ const layoutCases: Array<{ label: string; options: Partial<DataTableOptions<Pers
     },
   },
   {
-    // What `paginationPosition="top"` says in one word, and the same thing it
-    // means: naming pagination in the top bar gives up its seat in the bottom
-    // one, which empties that bar and removes it.
+    // Where the pagination goes is this and nothing else. Naming it in the
+    // top bar gives up its seat in the bottom one, which empties that bar and
+    // removes it.
     label: "toolbarLayout={{ top: { center: ['pagination'] } }}",
     options: { toolbarLayout: { top: { center: ['pagination'] } } },
   },
@@ -275,8 +275,8 @@ const layoutCases: Array<{ label: string; options: Partial<DataTableOptions<Pers
  * array of them. A region you write is exactly what that region holds — which
  * is how a layout both places and removes — and a region you leave out keeps
  * its default, so you only describe the parts of the bar you care about. An id
- * named twice is drawn twice, which is all `paginationPosition="both"` ever
- * meant, and `rest` puts back whatever a rewritten region displaced.
+ * named twice is drawn twice — `pagination` in both bars is how it goes in both
+ * — and `rest` gives a region back what it would have held.
  *
  * A region with nothing in it is not drawn, and neither is a row, or a bar: the
  * arrangement never leaves a gap behind.

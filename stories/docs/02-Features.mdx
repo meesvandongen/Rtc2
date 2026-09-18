@@ -12,7 +12,7 @@ Each of these has a dedicated story section in the sidebar.
 | Column filtering | `enableColumnFilters`¹, `filterDisplayMode` (`popover` \| `panel` \| `popover-and-panel` \| `none`), `filterPanelPosition`, `enableFilterModes`, `showActiveFilterChips`¹, `manualFiltering`, `enableMultipleFilterConditions`, `dataTypes`, `filterNow`, 9 built-in [data types](?path=/docs/docs-05-filter-data-types--docs), `enableMobileFilterDrawer`¹, `mobileBreakpoint` |
 | Global filtering | `enableGlobalFilter`¹, `globalFilterFn`, `enableGlobalFilterModes`, `globalFilterModeOptions`, `enableGlobalFilterToggle`¹ |
 | Faceting | `enableFaceting`¹ — auto-populates select/autocomplete/checkbox filter options |
-| Pagination | `enablePagination`¹, `paginationDisplayMode`, `paginationPosition`, `pageSizeOptions`, `manualPagination`, `rowCount`, `pageCount`, `autoResetPageIndex` |
+| Pagination | `enablePagination`¹, `paginationDisplayMode`, `pageSizeOptions`, `manualPagination`, `rowCount`, `pageCount`, `autoResetPageIndex` — where the control sits is `toolbarLayout`'s |
 | Row selection | `enableRowSelection` (bool or predicate), `enableMultiRowSelection`¹, `enableSubRowSelection`¹, `enableSelectAll`¹, `selectDisplayMode` (`checkbox` \| `radio` \| `switch`), `enableClickToSelect` |
 | Cell selection | `enableCellSelection`, `enableCellRangeSelection`, `enableMultiCellRangeSelection` |
 | Column visibility | `enableColumnVisibility`¹, `enableHiding`¹ |
@@ -106,7 +106,7 @@ off, though it can leave out something a flag turned on.
 | `selection-summary` | "3 of 50 rows selected" | `top` `start` | `enableRowSelection`, and a row is selected |
 | `filter-chips` | a removable chip per active column filter | `top` `start` | `enableColumnFilters`¹ + `showActiveFilterChips`¹, and a filter is set |
 | `search` | the global search field | `top` `end` | `enableGlobalFilter`¹, and the toggle is on or `enableGlobalFilterToggle={false}` |
-| `pagination` | the pagination nav | `top` and/or `bottom` `end`, per `paginationPosition` | `enablePagination`¹ |
+| `pagination` | the pagination nav | `bottom` `end` | `enablePagination`¹ |
 | `internal-actions` | your own content for the icon cluster | `top` `end`, leading the cluster | registered in `toolbarItems` |
 | `search-toggle` | show/hide the search field | `top` `end`, in the cluster | `enableGlobalFilter`¹ + `enableGlobalFilterToggle`¹ |
 | `filter-toggle` | open the filter panel, or the sheet on a phone | `top` `end`, in the cluster | `enableColumnFilters`¹, and there is a panel or sheet to open |
@@ -122,9 +122,11 @@ off, though it can leave out something a flag turned on.
 
 Four things follow from a region being a list rather than a position:
 
-- **An id named twice is drawn twice.** `{ top: { end: ['pagination'] },
-  bottom: { end: ['pagination'] } }` is what `paginationPosition="both"` means,
-  and naming it in one bar alone gives up its seat in the other.
+- **An id named twice is drawn twice.** `{ top: { end: ['rest', 'pagination'] },
+  bottom: { end: ['pagination'] } }` puts the pagination in both bars, and
+  naming it in one bar alone moves it there — it gives up the seat it had in the
+  other rather than being drawn twice. This is the whole of where the control
+  goes; there is no separate option for it.
 - **A bar takes an array of rows.** `top: [{}, { start: ['filter-chips'] }]`
   keeps the bar as it was — the first row writes no region, so every region
   inherits — and gives the chips a line of their own underneath, where a long

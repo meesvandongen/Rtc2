@@ -33,32 +33,17 @@ function asRows(
 /**
  * The layout a table has before anything is configured.
  *
- * Written out rather than derived, because it is also the contract: an item
- * the configuration never names is drawn from here, so this is what "stays
- * where it was" means. The order within each region is the order the toolbar
- * rendered before the layout existed.
- *
- * Pagination is the one part that reads an option, since `paginationPosition`
- * decides which bars its default placement covers. Everything else is placed
- * unconditionally here and dropped later if it would draw nothing.
+ * A constant, and the contract: an occupant a configuration never names is
+ * drawn from here, so this is what "keeps its default" means. The order within
+ * each region is the order the toolbar rendered in before layouts existed, and
+ * nothing here reads an option — an occupant a flag has switched off is dropped
+ * later, when the question is which of them would draw anything.
  */
-function defaultRow<TData extends RowData>(
-  bar: ToolbarBar,
-  options: DataTableOptions<TData>,
-): DataTableToolbarRow {
-  const position = options.paginationPosition
-  if (bar === 'bottom') {
-    return {
-      start: ['bottom-actions'],
-      end: (position ?? 'bottom') === 'top' ? [] : ['pagination'],
-    }
-  }
-
-  return {
+const DEFAULT_ROWS: Record<ToolbarBar, DataTableToolbarRow> = {
+  top: {
     start: ['top-actions', 'grouping-chips', 'selection-summary', 'filter-chips'],
     end: [
       'search',
-      ...(position === 'top' || position === 'both' ? (['pagination'] as const) : []),
       {
         id: 'internal-actions',
         gap: 'tight',
@@ -74,7 +59,11 @@ function defaultRow<TData extends RowData>(
         ],
       },
     ],
-  }
+  },
+  bottom: {
+    start: ['bottom-actions'],
+    end: ['pagination'],
+  },
 }
 
 /** Every item id the configuration mentions, including inside groups. */
@@ -212,14 +201,14 @@ function isEmptyRow(row: ResolvedToolbarRow): boolean {
  *
  * Both bars are resolved together because a placement is not bar-local: an
  * item named in the top bar has to lose its default seat in the bottom one,
- * which is the whole of what `paginationPosition: 'top'` used to mean.
+ * which is how naming `pagination` in the top bar moves it there rather than
+ * drawing a second copy.
  */
 export function resolveToolbarLayout<TData extends RowData>(
   options: DataTableOptions<TData>,
   { isMobile, visible }: { isMobile: boolean; visible: ReadonlySet<string> },
 ): Record<ToolbarBar, ResolvedToolbarRow[]> {
   const bars: ToolbarBar[] = ['top', 'bottom']
-  const defaults = { top: defaultRow('top', options), bottom: defaultRow('bottom', options) }
   const configured = {
     top: configuredRows(options, 'top', isMobile),
     bottom: configuredRows(options, 'bottom', isMobile),
@@ -240,7 +229,7 @@ export function resolveToolbarLayout<TData extends RowData>(
   for (const bar of bars) {
     for (const region of TOOLBAR_REGIONS) {
       rests.set(`${bar}/${region}`, {
-        nodes: inherits(bar, region) ? [] : pruneDefaults(defaults[bar][region], unplaced),
+        nodes: inherits(bar, region) ? [] : pruneDefaults(DEFAULT_ROWS[bar][region], unplaced),
         used: false,
       })
     }
@@ -255,7 +244,7 @@ export function resolveToolbarLayout<TData extends RowData>(
       const entries = TOOLBAR_REGIONS.map((region): [ToolbarRegion, ResolvedToolbarNode[]] => [
         region,
         index === 0 && inherits(bar, region)
-          ? pruneDefaults(defaults[bar][region], unplaced)
+          ? pruneDefaults(DEFAULT_ROWS[bar][region], unplaced)
           : resolveConfigured(row?.[region], visible, rests.get(`${bar}/${region}`)!),
       ])
       const next = Object.fromEntries(entries) as ResolvedToolbarRow
@@ -267,7 +256,7 @@ export function resolveToolbarLayout<TData extends RowData>(
   // for a `rest` to hand it back, so it lands where the built-in actions
   // already sit rather than silently not rendering. A built-in written out of
   // its region is not put back here: that is the removal.
-  const defaulted = namedIds([defaults.top, defaults.bottom])
+  const defaulted = namedIds([DEFAULT_ROWS.top, DEFAULT_ROWS.bottom])
   const homeless = [...visible].filter((id) => unplaced(id) && !defaulted.has(id))
   if (homeless.length > 0) {
     const nodes = homeless.map((id): ResolvedToolbarNode => ({ kind: 'item', id }))

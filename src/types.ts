@@ -303,9 +303,9 @@ export interface DataTableToolbarRow {
  *
  * A bar takes one row or an array of them. The first row is the bar itself and
  * is the one that inherits; any further row is yours alone and starts empty.
- * An item named twice is drawn twice, which is what `paginationPosition:
- * 'both'` amounts to, and `rest` inside a region you write gives that region
- * back what it would have held.
+ * An item named twice is drawn twice — `pagination` in both bars is how it goes
+ * in both — and `rest` inside a region you write gives that region back what it
+ * would have held.
  */
 export interface DataTableToolbarLayout {
   top?: DataTableToolbarRow | DataTableToolbarRow[]
@@ -449,8 +449,6 @@ export interface DataTableOptions<TData extends RowData> {
 
   enablePagination?: boolean
   paginationDisplayMode?: 'default' | 'pages' | 'simple'
-  /** Position of the pagination control. */
-  paginationPosition?: 'top' | 'bottom' | 'both'
   pageSizeOptions?: number[]
   /** Server-side pagination: the component stops slicing rows itself. */
   manualPagination?: boolean
