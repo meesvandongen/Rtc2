@@ -36,8 +36,11 @@ function revealMode(cell: HTMLElement): string | undefined {
 
 function peeks(cell: HTMLElement): boolean {
   const mode = revealMode(cell)
-  return mode === 'peek' || mode === 'peek-wheel' || mode === 'peek-scroll'
+  return mode === 'peek' || mode === 'peek-wheel' || mode === 'peek-native' || mode === 'peek-scroll'
 }
+
+/** What a click on a covered cell should reach rather than the cell itself. */
+const CONTROL = 'button, a[href], input, select, textarea, summary, [role="button"], [tabindex]:not([tabindex="-1"])'
 
 /** A wheel event's vertical distance in pixels, whatever unit it came in. */
 function wheelPixels(event: WheelEvent, page: number): number {
@@ -110,6 +113,18 @@ function rowBackground(cell: HTMLElement): string | null {
  * since the page last scrolled: one that opened because the table slid a
  * long note under a still pointer was never pointed at.
  *
+ * `peek-native` hands the scrolling back to the browser. The peek cannot be
+ * the thing that scrolls — it is in the top layer, and a fixed-position box
+ * chains its overscroll straight to the page, past the table's own scroll
+ * container — so a proxy does it instead: an invisible scroll container laid
+ * over the peeked cell, inside its `<td>`, with a spacer that gives it the
+ * peek's scroll range. The wheel over the cell scrolls the proxy natively,
+ * with the browser's momentum, latching and `overscroll-behavior`, and chains
+ * where the cell itself would have — into the table, then the page — and the
+ * peek follows the proxy's `scrollTop`. Being inside the `<td>`, the proxy
+ * passes presses, clicks and double-clicks on to the cell and its row by
+ * bubbling; only a control inside the cell has to be handed its click.
+ *
  * `appearance` decides how the copy is drawn. The cell's own bounds, relative
  * to the peek, reach the stylesheet as custom properties, which is what lets
  * `outlined` and `glass` mark where the cell ends and the overflow begins —
@@ -165,9 +180,27 @@ export function CellOverflowReveal({
     let pointer = { x: Number.NaN, y: Number.NaN }
     let pointerAtScroll = pointer
     let edgeTimer: ReturnType<typeof setTimeout> | null = null
+
+    // The `peek-native` scroll proxy; see the component's comment.
+    const proxy = document.createElement('div')
+    proxy.className = 'rtc-cell-peek-proxy'
+    proxy.setAttribute('aria-hidden', 'true')
+    const spacer = document.createElement('div')
+    proxy.append(spacer)
+    // Set while a press that landed on the proxy is still going: the proxy has
+    // to outlive the peek until the click it started has been delivered.
+    let pressedProxy: HTMLElement | null = null
+
+    const isProxyRecord = (record: MutationRecord) =>
+      record.target === proxy ||
+      proxy.contains(record.target) ||
+      (record.type === 'childList' &&
+        [...record.addedNodes, ...record.removedNodes].every((node) => node === proxy))
+
     const observer = new MutationObserver((records) => {
-      // The peek is inside the root too, and drawing it is a mutation.
-      if (frame || records.every((record) => peek.contains(record.target))) return
+      // The peek is inside the root too, and drawing it is a mutation; so is
+      // placing the proxy in its cell.
+      if (frame || records.every((record) => peek.contains(record.target) || isProxyRecord(record))) return
       frame = requestAnimationFrame(() => {
         frame = 0
         if (shown) render(shown)
@@ -194,8 +227,39 @@ export function CellOverflowReveal({
       hide()
     }
 
+    const removeProxy = () => {
+      if (!proxy.isConnected) return
+      if (pressedProxy) {
+        // Out of the way of the rest of the press, but still in the cell so the
+        // click it becomes is still the cell's.
+        proxy.style.pointerEvents = 'none'
+        return
+      }
+      proxy.remove()
+      proxy.style.pointerEvents = ''
+    }
+
+    /** Lay the proxy over `cell` with the peek's scroll range, or take it away. */
+    const placeProxy = (cell: HTMLElement) => {
+      const range = peek.scrollHeight - peek.clientHeight
+      if (revealMode(cell) !== 'peek-native' || range <= 0) {
+        removeProxy()
+        return
+      }
+      if (proxy.parentElement !== cell) cell.append(proxy)
+      proxy.style.pointerEvents = ''
+      proxy.setAttribute(
+        'data-rtc-peek-overscroll',
+        overscrollRef.current === 'contain' ? 'contain' : 'auto',
+      )
+      proxy.toggleAttribute('data-rtc-idle', !aimed)
+      spacer.style.height = `${proxy.clientHeight + range}px`
+      proxy.scrollTop = peek.scrollTop
+    }
+
     const hide = () => {
       cancel()
+      removeProxy()
       if (!shown) return
       shown = null
       drawnFrom = null
@@ -234,7 +298,8 @@ export function CellOverflowReveal({
       peek.replaceChildren(content)
       peek.inert = !scrollable
       peek.toggleAttribute('data-rtc-scrollable', scrollable)
-      peek.toggleAttribute('data-rtc-wheel', revealMode(cell) === 'peek-wheel')
+      const wheels = revealMode(cell) === 'peek-wheel' || revealMode(cell) === 'peek-native'
+      peek.toggleAttribute('data-rtc-wheel', wheels)
 
       const style = getComputedStyle(cell)
       const rect = cell.getBoundingClientRect()
@@ -303,7 +368,7 @@ export function CellOverflowReveal({
         // A peek that scrolls can keep its text starting where the cell's
         // does and scroll to the rest, as long as the room below is worth
         // having; one that cannot scroll has to slide up to show it at all.
-        const scrolls = revealMode(cell) === 'peek-wheel' || scrollable
+        const scrolls = wheels || scrollable
         if (scrolls && below >= Math.min(height, PEEK_MIN_ROOM)) {
           peek.style.maxHeight = `${below}px`
         } else {
@@ -320,6 +385,7 @@ export function CellOverflowReveal({
       peek.style.setProperty('--rtc-peek-cell-w', `${rect.width}px`)
       peek.style.setProperty('--rtc-peek-cell-h', `${rect.height}px`)
       peek.scrollTop = scrollTop
+      placeProxy(cell)
     }
 
     const show = (cell: HTMLElement) => {
@@ -408,10 +474,34 @@ export function CellOverflowReveal({
     // A press is the reader acting on the cell, and whatever it starts — an
     // edit, a selection, a copy — should not happen behind a copy of it.
     const onPointerDown = (event: PointerEvent) => {
+      // The press lands on the proxy's spacer, as often as not.
+      if (event.target instanceof Node && proxy.contains(event.target)) pressedProxy = shown
       // Inside a `peek-scroll`: selecting its text, or dragging its scrollbar.
       if (!inPeek(event.target)) dismiss()
     }
+    const onPointerUp = () => {
+      if (!pressedProxy) return
+      // After the click this press turns into, which is dispatched in the same
+      // task as the release.
+      setTimeout(() => {
+        pressedProxy = null
+        if (!shown || proxy.parentElement !== shown) removeProxy()
+      })
+    }
     const onClick = (event: MouseEvent) => {
+      if (pressedProxy && event.target instanceof Node && pressedProxy.contains(event.target)) {
+        // A click through the proxy already reached the cell and its row by
+        // bubbling. A control inside the cell — the copy button, a link — was
+        // under the proxy, and is the one thing that has to be handed it.
+        const cell = pressedProxy
+        const underneath = document.elementFromPoint(event.clientX, event.clientY)
+        const control = underneath instanceof Element ? underneath.closest<HTMLElement>(CONTROL) : null
+        if (control && control !== cell && cell.contains(control)) {
+          event.stopPropagation()
+          control.click()
+        }
+        return
+      }
       if (!inPeek(event.target)) return
       // A click that selected something was the reader selecting it.
       const selection = document.getSelection()
@@ -471,11 +561,18 @@ export function CellOverflowReveal({
       pointer = { x: event.clientX, y: event.clientY }
       // Real movement only: a browser re-hovering whatever a scroll slid under
       // a still pointer reports a move to where the pointer already was.
-      if (!aimed && (pointer.x !== pointerAtScroll.x || pointer.y !== pointerAtScroll.y)) aimed = true
+      if (!aimed && (pointer.x !== pointerAtScroll.x || pointer.y !== pointerAtScroll.y)) {
+        aimed = true
+        proxy.removeAttribute('data-rtc-idle')
+      }
     }
     // Positioned against the viewport, so any scroll anywhere leaves it behind
     // — except its own, which is the reader reading it.
     const onScroll = (event: Event) => {
+      if (event.target === proxy) {
+        peek.scrollTop = proxy.scrollTop
+        return
+      }
       if (inPeek(event.target)) return
       aimed = false
       pointerAtScroll = pointer
@@ -487,6 +584,7 @@ export function CellOverflowReveal({
     root.addEventListener('focusin', onFocusIn)
     root.addEventListener('focusout', onFocusOut)
     root.addEventListener('pointerdown', onPointerDown)
+    window.addEventListener('pointerup', onPointerUp, true)
     root.addEventListener('click', onClick)
     root.addEventListener('keydown', onKeyDown)
     // Not passive: claiming the wheel for the peek means keeping it from the table.
@@ -503,6 +601,9 @@ export function CellOverflowReveal({
       root.removeEventListener('focusin', onFocusIn)
       root.removeEventListener('focusout', onFocusOut)
       root.removeEventListener('pointerdown', onPointerDown)
+      window.removeEventListener('pointerup', onPointerUp, true)
+      pressedProxy = null
+      proxy.remove()
       root.removeEventListener('click', onClick)
       root.removeEventListener('keydown', onKeyDown)
       root.removeEventListener('wheel', onWheel)

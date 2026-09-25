@@ -2267,6 +2267,36 @@
   scrollbar-width: thin;
 }
 
+/* `peek-native`'s scroll proxy: an invisible scroll container over the
+   peeked cell, inside its `<td>`, which the wheel scrolls natively and the
+   peek follows (`CellOverflowReveal`). It has to be a real, user-scrollable
+   box for the browser to latch it and to honour `overscroll-behavior`, and it
+   has to be inside the cell for its overscroll to chain into the table rather
+   than straight to the page. Nothing of it is seen: no background, and its
+   scrollbar hidden — the peek shows its own. */
+.rtc-cell-peek-proxy {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow-y: auto;
+  overscroll-behavior: auto;
+  scrollbar-width: none;
+}
+
+.rtc-cell-peek-proxy::-webkit-scrollbar {
+  display: none;
+}
+
+.rtc-cell-peek-proxy[data-rtc-peek-overscroll="contain"] {
+  overscroll-behavior: contain;
+}
+
+/* A peek the table slid under a still pointer: the wheel is the table's until
+   the pointer moves. */
+.rtc-cell-peek-proxy[data-rtc-idle] {
+  pointer-events: none;
+}
+
 /* `peek-scroll`: the same copy, made reachable. It scrolls rather than cuts,
    and lets its text be selected. What its wheel does at the end is
    `cellPeekOverscroll`: a real scroll container, the browser already latches

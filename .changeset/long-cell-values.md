@@ -22,6 +22,9 @@ of the value is no longer out of reach:
 - **`cellOverflowReveal: 'peek-wheel'`** keeps the peek click-through, so the
   cells around it hover and click as normal, and lets the wheel scroll a long
   value while the pointer stays on its own cell.
+- **`cellOverflowReveal: 'peek-native'`** is `peek-wheel` with the browser
+  doing the scrolling, through an invisible scroll container over the peeked
+  cell, so momentum, latching and `overscroll-behavior` are the browser's own.
 - **`cellPeekAppearance`** (experimental) draws the peek `solid`, `outlined`
   or `glass`; the latter two mark where the cell ends and the overflow begins.
 - **`cellPeekOverscroll`** (experimental) decides what the wheel does at the

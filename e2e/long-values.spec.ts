@@ -350,6 +350,94 @@ test.describe('long values', () => {
     await expect.poll(() => scrollTop(container)).toBeGreaterThan(before)
   })
 
+  test('`peek-native` scrolls through a proxy over its own cell, and the peek follows it', async ({ page }) => {
+    const { table, notes, peek, container } = await openOverscrollPeek(page, 4)
+    const proxy = notes.locator('.rtc-cell-peek-proxy')
+    await expect(proxy).toHaveCount(1)
+    // Exactly the cell, and with the peek's scroll range.
+    const [cellBox, proxyBox] = [(await notes.boundingBox())!, (await proxy.boundingBox())!]
+    expect(Math.abs(proxyBox.x - cellBox.x)).toBeLessThanOrEqual(1)
+    expect(Math.abs(proxyBox.width - cellBox.width)).toBeLessThanOrEqual(1)
+    const range = (element: Element) => element.scrollHeight - element.clientHeight
+    expect(await proxy.evaluate(range)).toBe(await peek.evaluate(range))
+
+    await page.mouse.wheel(0, 100)
+    await expect.poll(() => scrollTop(peek)).toBeGreaterThan(0)
+    expect(await scrollTop(peek)).toBe(await scrollTop(proxy))
+    expect(await scrollTop(container)).toBe(0)
+
+    // The cells around it are not covered.
+    const amountBox = (await cell(table, 'amount').boundingBox())!
+    const hit = await page.evaluate(
+      ([x, y]) => document.elementFromPoint(x!, y!)?.closest('td')?.dataset.rtcColumnId,
+      [amountBox.x + 10, amountBox.y + amountBox.height / 2],
+    )
+    expect(hit).toBe('amount')
+  })
+
+  test('`peek-native` with `contain` keeps every flick from the table', async ({ page }) => {
+    const { peek, container } = await openOverscrollPeek(page, 4)
+    await flick(page)
+    await expect.poll(() => atEnd(peek)).toBe(true)
+    await page.waitForTimeout(500)
+    await flick(page, 3)
+    await expect(peek).toBeVisible()
+    expect(await scrollTop(container)).toBe(0)
+  })
+
+  test('`peek-native` with `auto` overscrolls into the table, not straight to the page', async ({ page }) => {
+    // Headless Chromium treats every synthetic wheel event as a scroll of its
+    // own, so there is no flick for the browser to latch here: the handover
+    // comes within the first one. What is being checked is where it goes.
+    const { container } = await openOverscrollPeek(page, 3)
+    await flick(page)
+    await expect.poll(() => scrollTop(container)).toBeGreaterThan(0)
+  })
+
+  test('a click through the proxy reaches the row, and a control in the cell', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    const { table, notes, peek } = await openOverscrollPeek(page, 4)
+    const row = table.locator('tbody tr').first()
+
+    // On the cell's padding: nothing but the cell there, so the row hears it.
+    const box = (await notes.boundingBox())!
+    await page.mouse.click(box.x + 4, box.y + box.height / 2)
+    await expect(row).toHaveAttribute('data-rtc-selected', 'true')
+    await expect(peek).toBeHidden()
+    await expect(notes.locator('.rtc-cell-peek-proxy')).toHaveCount(0)
+
+    // On the copy button, which the proxy covered while the peek was open.
+    await page.mouse.move(box.x + box.width / 2, box.y - 30)
+    await notes.hover()
+    await expect(peek).toBeVisible()
+    await expect(notes.locator('.rtc-cell-peek-proxy')).toHaveCount(1)
+    const button = (await notes.locator('[data-rtc-copy-cell]').boundingBox())!
+    await page.mouse.click(button.x + button.width / 2, button.y + button.height / 2)
+    // The value itself, line breaks and all; the cell shows it on one line.
+    const squash = (text: string) => text.replace(/\s+/g, ' ').trim()
+    const expected = squash(await notes.innerText())
+    await expect
+      .poll(async () => squash(await page.evaluate(() => navigator.clipboard.readText())))
+      .toBe(expected)
+    // The copy button keeps the click from the row, as it does uncovered.
+    await expect(row).toHaveAttribute('data-rtc-selected', 'true')
+  })
+
+  test('a double-click through the proxy opens the cell editor', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 500 })
+    await openStory(page, 'datatable-19-long-values--peek-overscroll&args=enableEditing:!true')
+    const table = page.locator('.rtc-root').nth(4)
+    await table.scrollIntoViewIfNeeded()
+    const notes = cell(table, 'notes')
+    await notes.hover()
+    await expect(table.locator('.rtc-cell-peek')).toBeVisible()
+    await expect(notes.locator('.rtc-cell-peek-proxy')).toHaveCount(1)
+
+    const box = (await notes.boundingBox())!
+    await page.mouse.dblclick(box.x + 4, box.y + box.height / 2)
+    await expect(notes.locator('input, textarea')).toBeFocused()
+  })
+
   test('a value that fits never peeks', async ({ page }) => {
     const root = await openStory(page, 'datatable-19-long-values--playground')
     const amount = cell(root, 'amount')

@@ -151,6 +151,13 @@ export type DataTableCellOverflow = 'truncate' | 'wrap' | 'clamp'
  *   pointer stays on its own cell. The cells around it are hovered and
  *   clicked as if it were not there; at the end of the value the wheel goes
  *   back to scrolling the table.
+ * - `peek-native` — `peek-wheel` with the browser doing the scrolling. While
+ *   the peek has more to show, an invisible scroll container the size of the
+ *   cell sits inside it, and the peek follows that container's scroll. So the
+ *   wheel gets the browser's own momentum, latching and `overscroll-behavior`,
+ *   and hands over to the table's own scroll container when it is done. The
+ *   cell underneath still hears its clicks through its own `<td>`; a control
+ *   inside it, such as the click-to-copy button, is passed the click.
  * - `peek-scroll` — the same, but it can be pointed at: it scrolls when the
  *   value is taller than it, and its text can be selected. The price is that
  *   while it is open it covers the cell and whatever it overlaps; a plain
@@ -159,7 +166,13 @@ export type DataTableCellOverflow = 'truncate' | 'wrap' | 'clamp'
  * - `title` — the browser's own tooltip, via a `title` set on demand.
  * - `none` — the value stays cut.
  */
-export type DataTableCellOverflowReveal = 'peek' | 'peek-wheel' | 'peek-scroll' | 'title' | 'none'
+export type DataTableCellOverflowReveal =
+  | 'peek'
+  | 'peek-wheel'
+  | 'peek-native'
+  | 'peek-scroll'
+  | 'title'
+  | 'none'
 
 /**
  * How a peek is drawn. Experimental: one of these is meant to become the only
@@ -186,9 +199,11 @@ export type DataTableCellPeekAppearance = 'solid' | 'outlined' | 'glass'
  *   that started in the peek stays with the peek until it ends, momentum and
  *   all, and it is the next gesture that scrolls the table.
  *
- * For `peek-wheel` all three are the table's own logic. A `peek-scroll` is a
- * real scroll container, and the browser latches it natively: `contain` sets
- * `overscroll-behavior: contain` on it, and the other two leave it at `auto`.
+ * For `peek-wheel` all three are the table's own logic. `peek-native` and
+ * `peek-scroll` scroll a real scroll container, which the browser latches
+ * itself: `contain` sets `overscroll-behavior: contain` on it, and the other
+ * two leave it at `auto` — where a wheel stays with the peek until the pointer
+ * moves or the wheel rests, and the next one goes to the table.
  */
 export type DataTableCellPeekOverscroll = 'chain' | 'contain' | 'latch'
 

@@ -20,7 +20,7 @@ Each of these has a dedicated story section in the sidebar.
 | Column pinning | `enableColumnPinning` — start/end, sticky with an edge border (`--rtc-border-pin`) |
 | Row pinning | `enableRowPinning` (bool or predicate) — pin/unpin from each row's overflow menu, `rowPinningDisplayMode` (`sticky`, which keeps a row in the order and docks it at whichever edge it would leave, \| `top` \| `bottom` \| `top-and-bottom`, which lift rows into a section), `keepPinnedRows`¹ — a pinned row survives the filter or page that drops it |
 | Column resizing | `enableColumnResizing`, `columnResizeMode`, `columnResizeDirection`, keyboard-operable grips, double-click a grip or "Fit to content" in the column menu to fit a column to its values |
-| Long values | `cellOverflow` (`truncate` \| `wrap` \| `clamp`), `cellMaxLines`, `cellOverflowReveal` (`peek`¹ \| `peek-wheel` \| `peek-scroll` \| `title` \| `none`), `cellPeekAppearance` and `cellPeekOverscroll` (experimental), each overridable per column in `meta` — see [Long values](#long-values) |
+| Long values | `cellOverflow` (`truncate` \| `wrap` \| `clamp`), `cellMaxLines`, `cellOverflowReveal` (`peek`¹ \| `peek-wheel` \| `peek-native` \| `peek-scroll` \| `title` \| `none`), `cellPeekAppearance` and `cellPeekOverscroll` (experimental), each overridable per column in `meta` — see [Long values](#long-values) |
 | Grouping | `enableGrouping`, `enableGroupingChips` (drag-to-group), `groupedColumnMode` |
 | Aggregation | `enableAggregation`¹, per-column `aggregationFn` + `aggregatedCell` |
 | Expanding | `enableExpanding`, `enableExpandAll`¹, `getRowCanExpand`, `paginateExpandedRows`¹, `renderDetailPanel` |
@@ -63,6 +63,10 @@ was cut.
   flick carry on into the table. A peek only takes the wheel once the pointer
   has moved since the table last scrolled, so pausing on a long note while
   scrolling the table doesn't catch the next flick.
+  `cellOverflowReveal: 'peek-native'` is the same peek with the browser doing
+  the scrolling: an invisible scroll container laid over the peeked cell
+  takes the wheel, and the peek follows it, so momentum, latching and
+  `overscroll-behavior` are the browser's own.
   `cellOverflowReveal: 'peek-scroll'` is
   the variant for values that run to paragraphs: it takes the pointer, so it
   stays open while you move onto it, scrolls without scrolling the table, and
