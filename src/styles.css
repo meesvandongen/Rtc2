@@ -2157,8 +2157,28 @@
   /* Measured from the border edge, which is where the cell's bounds are
      measured from too. */
   background-origin: border-box;
-  box-shadow: var(--rtc-shadow-menu);
+  --rtc-peek-shadow: var(--rtc-shadow-menu);
+  box-shadow: var(--rtc-peek-shadow);
+  transition: box-shadow 120ms ease-out;
   pointer-events: none;
+}
+
+/* The edge a held-back wheel ran into (`cellPeekOverscroll: 'contain'` or
+   `'latch'`), marked for a moment: without it a wheel that does nothing reads
+   as a wheel that is broken. An inset shadow, because a scroll container
+   paints it on its own box rather than on the content that moves. */
+.rtc-cell-peek[data-rtc-peek-edge="end"] {
+  box-shadow: var(--rtc-peek-shadow), inset 0 -3px 0 var(--rtc-color-accent);
+}
+
+.rtc-cell-peek[data-rtc-peek-edge="start"] {
+  box-shadow: var(--rtc-peek-shadow), inset 0 3px 0 var(--rtc-color-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rtc-cell-peek {
+    transition: none;
+  }
 }
 
 /* `cellPeekAppearance`, which is experimental: the two looks that mark the
@@ -2223,7 +2243,7 @@
   --rtc-peek-beyond: color-mix(in srgb, var(--rtc-color-surface) 72%, transparent);
   -webkit-backdrop-filter: blur(3px);
   backdrop-filter: blur(3px);
-  box-shadow: 0 8px 24px -12px rgb(15 23 42 / 30%);
+  --rtc-peek-shadow: 0 8px 24px -12px rgb(15 23 42 / 30%);
 }
 
 .rtc-cell-peek[data-rtc-open] {
@@ -2248,15 +2268,20 @@
 }
 
 /* `peek-scroll`: the same copy, made reachable. It scrolls rather than cuts,
-   keeps its scroll to itself — reaching the end must not scroll the table
-   underneath, which would put the peek away mid-read — and lets its text be
-   selected. */
+   and lets its text be selected. What its wheel does at the end is
+   `cellPeekOverscroll`: a real scroll container, the browser already latches
+   it — a gesture that started in it stays in it — so `chain` and `latch`
+   leave that alone, and only `contain` keeps every gesture from the table. */
 .rtc-cell-peek[data-rtc-scrollable] {
   pointer-events: auto;
   overflow-y: auto;
-  overscroll-behavior: contain;
+  overscroll-behavior: auto;
   user-select: text;
   cursor: text;
+}
+
+.rtc-cell-peek[data-rtc-scrollable][data-rtc-peek-overscroll="contain"] {
+  overscroll-behavior: contain;
 }
 
 .rtc-cell-peek > .rtc-cell-inner {

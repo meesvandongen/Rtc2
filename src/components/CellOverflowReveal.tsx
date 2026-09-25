@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 
 import { cellValueElement, isCellValueTruncated } from '../cellOverflow'
-import type { DataTableCellPeekAppearance } from '../types'
+import type { DataTableCellPeekAppearance, DataTableCellPeekOverscroll } from '../types'
 
 /** How long the pointer rests on a cut-short cell before it opens out. */
 const PEEK_DELAY_MS = 400
@@ -11,6 +11,15 @@ const PEEK_DELAY_MS = 400
  * along a row would meet the full delay at every cell.
  */
 const PEEK_GRACE_MS = 300
+/**
+ * A pause in wheel events this long ends a gesture. Longer than the gap
+ * between a trackpad's momentum events, which keep coming for a second or
+ * more after the fingers lift, and shorter than a reader's pause between two
+ * deliberate flicks.
+ */
+const WHEEL_GESTURE_GAP_MS = 250
+/** How long the edge a held-back wheel ran into stays marked. */
+const EDGE_MARK_MS = 350
 /** Room below a cell a scrolling peek will settle for rather than move up. */
 const PEEK_MIN_ROOM = 120
 /** Widest a peek grows, before the viewport has its say. */
@@ -91,6 +100,16 @@ function rowBackground(cell: HTMLElement): string | null {
  * direction; at either end it lets the event through, so the table scrolls
  * (and the peek goes) exactly as it would have without one.
  *
+ * What the wheel does at the end of the value is `overscroll`'s to say, and
+ * turns on telling one wheel gesture from the next: events closer together
+ * than `WHEEL_GESTURE_GAP_MS` are one gesture, momentum included, and each
+ * gesture has an owner — the peek or the table — from its first event. A
+ * gesture the table owns stays the table's, which is also what keeps a peek
+ * that opened under a pointer resting mid-scroll from catching the rest of
+ * that scroll. And a peek claims no wheel at all until the pointer has moved
+ * since the page last scrolled: one that opened because the table slid a
+ * long note under a still pointer was never pointed at.
+ *
  * `appearance` decides how the copy is drawn. The cell's own bounds, relative
  * to the peek, reach the stylesheet as custom properties, which is what lets
  * `outlined` and `glass` mark where the cell ends and the overflow begins —
@@ -103,11 +122,17 @@ function rowBackground(cell: HTMLElement): string | null {
 export function CellOverflowReveal({
   rootRef,
   appearance,
+  overscroll,
 }: {
   rootRef: React.RefObject<HTMLDivElement | null>
   appearance: DataTableCellPeekAppearance
+  overscroll: DataTableCellPeekOverscroll
 }) {
   const peekRef = useRef<HTMLDivElement>(null)
+  // Read by the listeners, which are installed once; a new strategy should
+  // not tear them down and lose the gesture in progress.
+  const overscrollRef = useRef(overscroll)
+  overscrollRef.current = overscroll
 
   useEffect(() => {
     const root = rootRef.current
@@ -131,6 +156,15 @@ export function CellOverflowReveal({
     let timer: ReturnType<typeof setTimeout> | null = null
     let frame = 0
     let closedAt = Number.NEGATIVE_INFINITY
+    // The wheel gesture in progress, and who it belongs to.
+    let gesture: { owner: 'peek' | 'table'; lastAt: number } | null = null
+    // Whether the pointer has moved since the page last scrolled, told by
+    // where it is rather than by `movementX`, which synthetic and re-hover
+    // events report as nothing.
+    let aimed = true
+    let pointer = { x: Number.NaN, y: Number.NaN }
+    let pointerAtScroll = pointer
+    let edgeTimer: ReturnType<typeof setTimeout> | null = null
     const observer = new MutationObserver((records) => {
       // The peek is inside the root too, and drawing it is a mutation.
       if (frame || records.every((record) => peek.contains(record.target))) return
@@ -389,20 +423,63 @@ export function CellOverflowReveal({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') dismiss()
     }
+    /** Mark the edge a held-back wheel ran into, so it does not feel like a dead wheel. */
+    const markEdge = (edge: 'start' | 'end') => {
+      peek.setAttribute('data-rtc-peek-edge', edge)
+      if (edgeTimer) clearTimeout(edgeTimer)
+      edgeTimer = setTimeout(() => peek.removeAttribute('data-rtc-peek-edge'), EDGE_MARK_MS)
+    }
+
     const onWheel = (event: WheelEvent) => {
-      if (!shown || revealMode(shown) !== 'peek-wheel' || ownCell(event.target) !== shown) return
-      const range = peek.scrollHeight - peek.clientHeight
-      if (range <= 0) return
-      const next = Math.min(range, Math.max(0, peek.scrollTop + wheelPixels(event, peek.clientHeight)))
-      // At the end already: the wheel is the table's again.
-      if (Math.abs(next - peek.scrollTop) < 1) return
-      event.preventDefault()
-      peek.scrollTop = next
+      const now = performance.now()
+      const continuing = gesture && now - gesture.lastAt < WHEEL_GESTURE_GAP_MS ? gesture : null
+      const own = (owner: 'peek' | 'table') => {
+        gesture = { owner, lastAt: now }
+      }
+
+      const delta = wheelPixels(event, peek.clientHeight)
+      const onPeek =
+        !!shown && revealMode(shown) === 'peek-wheel' && ownCell(event.target) === shown && delta !== 0
+      const range = onPeek ? peek.scrollHeight - peek.clientHeight : 0
+      // Not a peek that can take the wheel, or one nobody pointed at, or a
+      // gesture the table already owns: the table's.
+      if (!onPeek || range <= 0 || !aimed || continuing?.owner === 'table') {
+        own('table')
+        return
+      }
+
+      const next = Math.min(range, Math.max(0, peek.scrollTop + delta))
+      if (Math.abs(next - peek.scrollTop) >= 1) {
+        event.preventDefault()
+        peek.scrollTop = next
+        own('peek')
+        return
+      }
+
+      // At the edge, with the wheel still pushing past it.
+      const strategy = overscrollRef.current
+      const holds = strategy === 'contain' || (strategy === 'latch' && continuing?.owner === 'peek')
+      if (holds) {
+        event.preventDefault()
+        markEdge(delta > 0 ? 'end' : 'start')
+        own('peek')
+      } else {
+        own('table')
+      }
+    }
+    const onPointerMove = (event: PointerEvent) => {
+      pointer = { x: event.clientX, y: event.clientY }
+      // Real movement only: a browser re-hovering whatever a scroll slid under
+      // a still pointer reports a move to where the pointer already was.
+      if (!aimed && (pointer.x !== pointerAtScroll.x || pointer.y !== pointerAtScroll.y)) aimed = true
     }
     // Positioned against the viewport, so any scroll anywhere leaves it behind
     // — except its own, which is the reader reading it.
     const onScroll = (event: Event) => {
-      if (!inPeek(event.target)) hide()
+      if (inPeek(event.target)) return
+      aimed = false
+      pointerAtScroll = pointer
+      hide()
     }
 
     root.addEventListener('pointerover', onPointerOver)
@@ -414,6 +491,7 @@ export function CellOverflowReveal({
     root.addEventListener('keydown', onKeyDown)
     // Not passive: claiming the wheel for the peek means keeping it from the table.
     root.addEventListener('wheel', onWheel, { passive: false })
+    root.addEventListener('pointermove', onPointerMove)
     window.addEventListener('scroll', onScroll, true)
     window.addEventListener('resize', hide)
 
@@ -428,6 +506,8 @@ export function CellOverflowReveal({
       root.removeEventListener('click', onClick)
       root.removeEventListener('keydown', onKeyDown)
       root.removeEventListener('wheel', onWheel)
+      root.removeEventListener('pointermove', onPointerMove)
+      if (edgeTimer) clearTimeout(edgeTimer)
       window.removeEventListener('scroll', onScroll, true)
       window.removeEventListener('resize', hide)
     }
@@ -438,6 +518,7 @@ export function CellOverflowReveal({
       ref={peekRef}
       className="rtc-cell-peek"
       data-rtc-peek-appearance={appearance}
+      data-rtc-peek-overscroll={overscroll}
       aria-hidden="true"
     />
   )

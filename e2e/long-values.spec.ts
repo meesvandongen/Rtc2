@@ -243,6 +243,113 @@ test.describe('long values', () => {
     }
   })
 
+  /**
+   * Opens the long note in row `row` of the `index`th table of the overscroll
+   * story, with the pointer resting on it.
+   */
+  async function openOverscrollPeek(page: import('@playwright/test').Page, index: number, row = 0) {
+    // Short enough that the note overflows its peek wherever the table sits:
+    // a peek with room for the whole note has nothing to scroll.
+    await page.setViewportSize({ width: 1280, height: 500 })
+    await openStory(page, 'datatable-19-long-values--peek-overscroll')
+    const table = page.locator('.rtc-root').nth(index)
+    await table.scrollIntoViewIfNeeded()
+    const notes = cell(table, 'notes', row)
+    const peek = table.locator('.rtc-cell-peek')
+    const container = table.locator('.rtc-container')
+    await notes.hover()
+    await expect(peek).toBeVisible()
+    const box = (await notes.boundingBox())!
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    expect(await peek.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true)
+    return { table, notes, peek, container }
+  }
+
+  /** One flick: wheel events close enough together to be one gesture. */
+  async function flick(page: import('@playwright/test').Page, events = 10) {
+    for (let index = 0; index < events; index++) {
+      await page.mouse.wheel(0, 150)
+      await page.waitForTimeout(16)
+    }
+  }
+
+  const scrollTop = (locator: import('@playwright/test').Locator) =>
+    locator.evaluate((element) => element.scrollTop)
+  const atEnd = (locator: import('@playwright/test').Locator) =>
+    locator.evaluate((element) => element.scrollTop + element.clientHeight >= element.scrollHeight - 1)
+
+  test('`chain` carries the rest of a flick on into the table', async ({ page }) => {
+    const { peek, container } = await openOverscrollPeek(page, 0)
+    await flick(page)
+    await expect.poll(() => scrollTop(container)).toBeGreaterThan(0)
+    await expect(peek).toBeHidden()
+  })
+
+  test('`contain` never passes the wheel on, and marks the edge', async ({ page }) => {
+    const { peek, container } = await openOverscrollPeek(page, 1)
+    await flick(page)
+    expect(await atEnd(peek)).toBe(true)
+    await expect(peek).toHaveAttribute('data-rtc-peek-edge', 'end')
+    expect(await scrollTop(container)).toBe(0)
+
+    // A second flick, after a pause: still held.
+    await page.waitForTimeout(500)
+    await flick(page, 3)
+    await expect(peek).toBeVisible()
+    expect(await scrollTop(container)).toBe(0)
+  })
+
+  test('`latch` keeps a flick in the peek, and gives the next one to the table', async ({ page }) => {
+    const { peek, container } = await openOverscrollPeek(page, 2)
+    await flick(page)
+    expect(await atEnd(peek)).toBe(true)
+    await expect(peek).toHaveAttribute('data-rtc-peek-edge', 'end')
+    expect(await scrollTop(container)).toBe(0)
+    await expect(peek).toBeVisible()
+
+    await page.waitForTimeout(500)
+    await flick(page, 3)
+    await expect.poll(() => scrollTop(container)).toBeGreaterThan(0)
+    await expect(peek).toBeHidden()
+  })
+
+  test('a peek the table slid under a still pointer does not catch the wheel', async ({ page }) => {
+    const { table, notes, peek, container } = await openOverscrollPeek(page, 2)
+    const start = (await notes.boundingBox())!
+    const [pointerX, pointerY] = [start.x + start.width / 2, start.y + start.height / 2]
+    // Slide the next long note (two rows down) under the pointer without
+    // moving it, as scrolling the table past it would.
+    const rows = table.locator('tbody tr')
+    const offset = await rows.nth(2).evaluate(
+      (row, first) => row.getBoundingClientRect().top - first!.getBoundingClientRect().top,
+      await rows.nth(0).elementHandle(),
+    )
+    await container.evaluate((element, by) => (element.scrollTop = by), offset)
+    await expect(peek).toBeHidden()
+
+    // A browser re-hovers what is now under a still pointer with pointer
+    // events at the same spot. Headless Chromium does not do it after a
+    // programmatic scroll, so the test sends them itself.
+    const box = (await cell(table, 'notes', 2).boundingBox())!
+    await cell(table, 'notes', 2).evaluate(
+      (element, [x, y]) => {
+        for (const type of ['pointerover', 'pointermove']) {
+          element.dispatchEvent(
+            new PointerEvent(type, { bubbles: true, clientX: x, clientY: y, pointerType: 'mouse' }),
+          )
+        }
+      },
+      [pointerX, pointerY],
+    )
+    expect(Math.abs(box.y + box.height / 2 - pointerY)).toBeLessThan(box.height / 2)
+    await expect(peek).toBeVisible()
+
+    const before = await scrollTop(container)
+    await page.waitForTimeout(400)
+    await page.mouse.wheel(0, 100)
+    await expect.poll(() => scrollTop(container)).toBeGreaterThan(before)
+  })
+
   test('a value that fits never peeks', async ({ page }) => {
     const root = await openStory(page, 'datatable-19-long-values--playground')
     const amount = cell(root, 'amount')

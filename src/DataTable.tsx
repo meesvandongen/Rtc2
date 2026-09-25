@@ -425,7 +425,11 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
         {filterDrawer ? <DataTableFilterDrawer table={table} /> : null}
 
         {revealsOverflow ? (
-          <CellOverflowReveal rootRef={rootRef} appearance={options.cellPeekAppearance ?? 'solid'} />
+          <CellOverflowReveal
+            rootRef={rootRef}
+            appearance={options.cellPeekAppearance ?? 'solid'}
+            overscroll={options.cellPeekOverscroll ?? 'latch'}
+          />
         ) : null}
       </div>
 

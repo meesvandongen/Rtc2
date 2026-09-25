@@ -24,6 +24,10 @@ of the value is no longer out of reach:
   value while the pointer stays on its own cell.
 - **`cellPeekAppearance`** (experimental) draws the peek `solid`, `outlined`
   or `glass`; the latter two mark where the cell ends and the overflow begins.
+- **`cellPeekOverscroll`** (experimental) decides what the wheel does at the
+  end of a scrolling peek: `latch` (the default) keeps a flick that started in
+  the peek in the peek and gives the next one to the table, `contain` never
+  passes it on, and `chain` lets it carry on into the table.
 - **`cellOverflow`** chooses `truncate` (the default), `wrap`, or `clamp` to
   `cellMaxLines` lines. All three options can be set per column in `meta`
   (`meta.cellOverflow`, `meta.cellMaxLines`, `meta.cellOverflowReveal`), which

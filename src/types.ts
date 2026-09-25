@@ -174,6 +174,24 @@ export type DataTableCellOverflowReveal = 'peek' | 'peek-wheel' | 'peek-scroll' 
  */
 export type DataTableCellPeekAppearance = 'solid' | 'outlined' | 'glass'
 
+/**
+ * What the wheel does once a scrolling peek has reached the end of its value.
+ * Experimental, like `DataTableCellPeekAppearance`: one is meant to stay.
+ *
+ * - `chain` — the rest of the wheel goes to the table, momentum included, and
+ *   the table scrolling puts the peek away.
+ * - `contain` — never passed on while the pointer is on the peeked cell: the
+ *   edge is marked instead, and scrolling the table means moving off it.
+ * - `latch` — the browser's own rule for nested scrolling: a wheel gesture
+ *   that started in the peek stays with the peek until it ends, momentum and
+ *   all, and it is the next gesture that scrolls the table.
+ *
+ * For `peek-wheel` all three are the table's own logic. A `peek-scroll` is a
+ * real scroll container, and the browser latches it natively: `contain` sets
+ * `overscroll-behavior: contain` on it, and the other two leave it at `auto`.
+ */
+export type DataTableCellPeekOverscroll = 'chain' | 'contain' | 'latch'
+
 export type DataTableColumn<TData extends RowData, TValue = unknown> = ColumnDef<DataTableFeatures, TData, TValue>
 export type DataTableRow<TData extends RowData> = Row<DataTableFeatures, TData>
 export type DataTableCell<TData extends RowData, TValue = unknown> = Cell<DataTableFeatures, TData, TValue>
@@ -577,6 +595,11 @@ export interface DataTableOptions<TData extends RowData> {
   cellOverflowReveal?: DataTableCellOverflowReveal
   /** How a peek is drawn. Experimental; defaults to `solid`. See `DataTableCellPeekAppearance`. */
   cellPeekAppearance?: DataTableCellPeekAppearance
+  /**
+   * What the wheel does at the end of a scrolling peek. Experimental; defaults
+   * to `latch`. See `DataTableCellPeekOverscroll`.
+   */
+  cellPeekOverscroll?: DataTableCellPeekOverscroll
 
   enableColumnVisibility?: boolean
   enableHiding?: boolean

@@ -7,6 +7,7 @@ import {
   type DataTableCellOverflow,
   type DataTableCellOverflowReveal,
   type DataTableCellPeekAppearance,
+  type DataTableCellPeekOverscroll,
 } from '../src'
 import { currency, makePeople } from './fixtures'
 
@@ -101,6 +102,12 @@ const overflowArgTypes = {
     description: 'How a peek is drawn — experimental. `outlined` and `glass` mark the cell\'s own bounds.',
     table: { category: 'Long values' },
   },
+  cellPeekOverscroll: {
+    control: 'inline-radio',
+    options: ['chain', 'contain', 'latch'] satisfies DataTableCellPeekOverscroll[],
+    description: 'What the wheel does at the end of a scrolling peek — experimental.',
+    table: { category: 'Long values' },
+  },
   enableColumnResizing: {
     control: 'boolean',
     description: 'Double-click a column edge, or use the column menu, to fit it to its content.',
@@ -139,6 +146,7 @@ export const Playground: Story = {
     cellMaxLines: 2,
     cellOverflowReveal: 'peek',
     cellPeekAppearance: 'solid',
+    cellPeekOverscroll: 'latch',
     enableColumnResizing: true,
     enableEditing: false,
     editMode: 'cell',
@@ -359,6 +367,51 @@ export const PeekAppearance: Story = {
             enableStripes
             enableBorders="all"
             caption={`cellPeekAppearance="${appearance}" — ${caption}`}
+          />
+        </div>
+      ))}
+    </>
+  ),
+}
+
+/**
+ * What the wheel does once a `peek-wheel` has been read to the end —
+ * experimental, to pick one.
+ *
+ * Each table here scrolls inside its own 300px, which is the scroll a reader
+ * least wants to lose their place in. Rest on a long note and flick the wheel
+ * (a trackpad shows it best): the first flick scrolls the note, and what
+ * happens when it runs out is the difference.
+ *
+ * | | at the end, same flick | next flick | to scroll the table |
+ * | --- | --- | --- | --- |
+ * | `chain` | carries on into the table | table | keep scrolling |
+ * | `contain` | stops, edge marked | stops, edge marked | move off the cell |
+ * | `latch` | stops, edge marked | table | flick again |
+ */
+export const PeekOverscroll: Story = {
+  render: () => (
+    <>
+      {(
+        [
+          ['chain', 'The rest of the flick, momentum and all, scrolls the table and closes the peek'],
+          ['contain', 'Never passed on: the edge is marked, and scrolling the table means moving off the cell'],
+          ['latch', 'A flick that started in the note ends in the note; the next one scrolls the table'],
+        ] as Array<[DataTableCellPeekOverscroll, string]>
+      ).map(([overscroll, caption]) => (
+        <div key={overscroll} style={{ marginBottom: 24 }}>
+          <DataTable
+            columns={withNotesReveal('peek-wheel')}
+            data={longNotes.slice(0, 10)}
+            getRowId={(row) => row.id}
+            cellPeekOverscroll={overscroll}
+            cellPeekAppearance="outlined"
+            height={300}
+            enableStickyHeader
+            enableToolbar={false}
+            enablePagination={false}
+            enableBorders="all"
+            caption={`cellPeekOverscroll="${overscroll}" — ${caption}`}
           />
         </div>
       ))}
