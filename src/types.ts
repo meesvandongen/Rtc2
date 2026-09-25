@@ -114,7 +114,40 @@ export interface DataTableColumnMeta {
    * can opt in without turning the whole table into buttons.
    */
   enableClickToCopy?: boolean
+  /** How this column lays out a value too long for it. Overrides the table-level `cellOverflow`. */
+  cellOverflow?: DataTableCellOverflow
+  /** Lines a `clamp` cell shows before it truncates. Overrides the table-level `cellMaxLines`. */
+  cellMaxLines?: number
+  /**
+   * How this column shows the whole of a value it had to cut short. Overrides
+   * the table-level `cellOverflowReveal`.
+   */
+  cellOverflowReveal?: DataTableCellOverflowReveal
 }
+
+/**
+ * What a body cell does with a value wider than its column.
+ *
+ * - `truncate` — one line, cut with an ellipsis. Rows keep one height and a
+ *   column's width never depends on its data.
+ * - `wrap` — as many lines as the value needs. The row grows to fit.
+ * - `clamp` — wraps up to `cellMaxLines` lines, then truncates the last one.
+ */
+export type DataTableCellOverflow = 'truncate' | 'wrap' | 'clamp'
+
+/**
+ * How a cell that had to cut its value short shows the rest of it.
+ *
+ * Only cells that are actually cut short are affected: the check runs when the
+ * pointer or the focus arrives, against the rendered layout, so a value that
+ * fits never gets a tooltip that repeats it.
+ *
+ * - `peek` — the cell opens out over its neighbours, showing the whole value
+ *   in place, on hover and on keyboard focus.
+ * - `title` — the browser's own tooltip, via a `title` set on demand.
+ * - `none` — the value stays cut.
+ */
+export type DataTableCellOverflowReveal = 'peek' | 'title' | 'none'
 
 export type DataTableColumn<TData extends RowData, TValue = unknown> = ColumnDef<DataTableFeatures, TData, TValue>
 export type DataTableRow<TData extends RowData> = Row<DataTableFeatures, TData>
@@ -493,6 +526,30 @@ export interface DataTableOptions<TData extends RowData> {
    * (pointer-down) and `editMode: 'cell'` (double-click) are untouched.
    */
   enableClickToCopy?: boolean
+
+  /**
+   * What a body cell does with a value wider than its column. Defaults to
+   * `truncate`; set it per column with `meta.cellOverflow`, which is usually
+   * where it belongs — one prose column wrapping is a readable table, every
+   * column wrapping is a wall of text. See `DataTableCellOverflow`.
+   *
+   * `wrap` and `clamp` make row heights depend on the data. A virtualized body
+   * measures each row as it mounts, so it copes; the one place it does not is
+   * Firefox, where rows are not measured and keep their estimated height.
+   */
+  cellOverflow?: DataTableCellOverflow
+  /** Lines a `clamp` cell shows before it truncates. Defaults to `2`. */
+  cellMaxLines?: number
+  /**
+   * How a cell that had to cut its value short shows the rest of it. Defaults
+   * to `peek`. See `DataTableCellOverflowReveal`.
+   *
+   * Nothing is hidden from assistive technology either way: truncation is
+   * visual only, and the cell's text is the whole value. The peek itself is
+   * `aria-hidden` and ignores the pointer, so it never takes a click, a hover
+   * or a focus from the cells underneath it.
+   */
+  cellOverflowReveal?: DataTableCellOverflowReveal
 
   enableColumnVisibility?: boolean
   enableHiding?: boolean

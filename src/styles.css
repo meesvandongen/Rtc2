@@ -2084,16 +2084,115 @@
   white-space: nowrap;
 }
 
+/* Long values.
+ *
+ * `truncate` is the rule above and needs no attribute. The other two let the
+ * value onto more lines, which is also why they break anywhere: a URL or a
+ * hash has no spaces, and a value that cannot break is one that still runs out
+ * of the cell. The click-to-copy button inside a value clips on its own, so it
+ * follows the value it sits in. */
+.rtc-td[data-rtc-overflow] .rtc-cell-value,
+.rtc-td[data-rtc-overflow] .rtc-copy-cell {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.rtc-td[data-rtc-overflow="wrap"] .rtc-cell-value,
+.rtc-td[data-rtc-overflow="wrap"] .rtc-copy-cell {
+  overflow: visible;
+}
+
+.rtc-td[data-rtc-overflow="clamp"] .rtc-cell-value,
+.rtc-td[data-rtc-overflow="clamp"] .rtc-copy-cell {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--rtc-cell-max-lines, 2);
+  line-clamp: var(--rtc-cell-max-lines, 2);
+}
+
+/* A wrapping cell is taller than one line, and the row has to be allowed to
+   follow it. A table row already treats its height as a floor; a grid row is
+   a flex container, where `height` is exactly that height, so the floor is
+   restated for the rows that need it. */
+.rtc-root[data-rtc-layout="grid"] .rtc-tr:has(> .rtc-td[data-rtc-overflow]),
+.rtc-root[data-rtc-layout="grid-no-grow"] .rtc-tr:has(> .rtc-td[data-rtc-overflow]) {
+  height: auto;
+  min-height: var(--rtc-row-height);
+}
+
+/* Held for one synchronous read by `fitColumnToContent`: every value back on
+   one line, so a wrapping column reports how wide it would like to be rather
+   than that it fits exactly as wrapped. Laid out, never painted. */
+.rtc-root[data-rtc-measuring] .rtc-td .rtc-cell-value,
+.rtc-root[data-rtc-measuring] .rtc-td .rtc-copy-cell {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  -webkit-line-clamp: none;
+  line-clamp: none;
+}
+
+/* The peek: a cut-short cell opened out over its neighbours.
+ *
+ * `CellOverflowReveal` copies the cell's font, padding, alignment and row
+ * colour onto it and lays it exactly over the cell, so the value reads as
+ * carrying on past the edge it was cut at. The row colour is painted over the
+ * table surface rather than instead of it — the same two layers as the header,
+ * for the same reason: a selected or hovered row is translucent, and a peek
+ * painted with it alone would let the next cell show through. */
+.rtc-cell-peek {
+  display: none;
+  position: fixed;
+  inset: auto;
+  z-index: 1000;
+  box-sizing: border-box;
+  margin: 0;
+  align-items: center;
+  max-height: min(320px, 60vh);
+  overflow: hidden;
+  border: var(--rtc-border-width, 1px) solid var(--rtc-color-border-strong);
+  border-radius: var(--rtc-radius-sm);
+  background-color: var(--rtc-color-surface);
+  box-shadow: var(--rtc-shadow-menu);
+  pointer-events: none;
+}
+
+.rtc-cell-peek[data-rtc-open] {
+  display: flex;
+}
+
+.rtc-cell-peek > .rtc-cell-inner {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.rtc-cell-peek .rtc-cell-value,
+.rtc-cell-peek .rtc-copy-cell {
+  display: block;
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  -webkit-line-clamp: none;
+  line-clamp: none;
+}
+
 /* Click-to-copy.
  *
  * The value has to keep reading as data, not as a control: a cell that looks
  * like a button in every row turns the table into a wall of chrome. So the
  * affordance is underline-on-hover and nothing else, and the button carries no
  * padding of its own — an opted-in column has to line up with the columns
- * beside it, which are plain text. */
+ * beside it, which are plain text.
+ *
+ * A block container rather than `inline-flex`, which is what makes the
+ * ellipsis appear: `text-overflow` applies to a block's own lines, and in a
+ * flex container the text is an anonymous flex item, so a long value was cut
+ * off mid-letter with no sign that anything was missing. Top-aligned, because
+ * an inline-block that clips its overflow puts its baseline at its bottom edge
+ * and would otherwise sit a line higher than the text beside it. */
 .rtc-copy-cell {
-  display: inline-flex;
-  align-items: center;
+  display: inline-block;
+  vertical-align: top;
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
