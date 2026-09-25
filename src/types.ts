@@ -146,6 +146,11 @@ export type DataTableCellOverflow = 'truncate' | 'wrap' | 'clamp'
  *   in place, on hover and on keyboard focus. It is a picture of the value:
  *   it takes no pointer events, so it never stands between the reader and a
  *   cell, and what does not fit its maximum height is cut.
+ * - `peek-wheel` — the plain peek, still a picture that takes no pointer
+ *   events, but a value taller than it scrolls with the wheel while the
+ *   pointer stays on its own cell. The cells around it are hovered and
+ *   clicked as if it were not there; at the end of the value the wheel goes
+ *   back to scrolling the table.
  * - `peek-scroll` — the same, but it can be pointed at: it scrolls when the
  *   value is taller than it, and its text can be selected. The price is that
  *   while it is open it covers the cell and whatever it overlaps; a plain
@@ -154,7 +159,20 @@ export type DataTableCellOverflow = 'truncate' | 'wrap' | 'clamp'
  * - `title` — the browser's own tooltip, via a `title` set on demand.
  * - `none` — the value stays cut.
  */
-export type DataTableCellOverflowReveal = 'peek' | 'peek-scroll' | 'title' | 'none'
+export type DataTableCellOverflowReveal = 'peek' | 'peek-wheel' | 'peek-scroll' | 'title' | 'none'
+
+/**
+ * How a peek is drawn. Experimental: one of these is meant to become the only
+ * look, and the option to go with the others.
+ *
+ * - `solid` — one opaque surface in the row's colour, with a border and a
+ *   shadow. Where the cell ends and the overflow begins is not marked.
+ * - `outlined` — the cell's own bounds ringed in the accent colour, and the
+ *   part beyond them on the sunken surface, so it reads as an extension.
+ * - `glass` — the cell's own bounds opaque, and the part beyond them
+ *   translucent over a blur, so the cells underneath stay in view.
+ */
+export type DataTableCellPeekAppearance = 'solid' | 'outlined' | 'glass'
 
 export type DataTableColumn<TData extends RowData, TValue = unknown> = ColumnDef<DataTableFeatures, TData, TValue>
 export type DataTableRow<TData extends RowData> = Row<DataTableFeatures, TData>
@@ -557,6 +575,8 @@ export interface DataTableOptions<TData extends RowData> {
    * or a focus from the cells underneath it.
    */
   cellOverflowReveal?: DataTableCellOverflowReveal
+  /** How a peek is drawn. Experimental; defaults to `solid`. See `DataTableCellPeekAppearance`. */
+  cellPeekAppearance?: DataTableCellPeekAppearance
 
   enableColumnVisibility?: boolean
   enableHiding?: boolean

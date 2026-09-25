@@ -19,6 +19,11 @@ of the value is no longer out of reach:
   values that run to paragraphs: it stays open under the pointer, scrolls
   without scrolling the table, and its text can be selected. A plain click on
   it closes it and reaches the cell underneath.
+- **`cellOverflowReveal: 'peek-wheel'`** keeps the peek click-through, so the
+  cells around it hover and click as normal, and lets the wheel scroll a long
+  value while the pointer stays on its own cell.
+- **`cellPeekAppearance`** (experimental) draws the peek `solid`, `outlined`
+  or `glass`; the latter two mark where the cell ends and the overflow begins.
 - **`cellOverflow`** chooses `truncate` (the default), `wrap`, or `clamp` to
   `cellMaxLines` lines. All three options can be set per column in `meta`
   (`meta.cellOverflow`, `meta.cellMaxLines`, `meta.cellOverflowReveal`), which

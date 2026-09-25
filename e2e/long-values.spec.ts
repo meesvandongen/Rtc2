@@ -145,6 +145,104 @@ test.describe('long values', () => {
     await expect(title.locator('input')).toBeFocused()
   })
 
+  test('`peek-wheel` scrolls under the wheel over its own cell, and stays click-through', async ({ page }) => {
+    await openStory(page, 'datatable-19-long-values--peek-interaction')
+    const table = page.locator('.rtc-root').nth(1)
+    await expect(table).toContainText('cellOverflowReveal="peek-wheel"')
+    await table.scrollIntoViewIfNeeded()
+    const notes = cell(table, 'notes')
+    const peek = table.locator('.rtc-cell-peek')
+
+    await notes.hover()
+    await expect(peek).toBeVisible()
+    expect(await peek.evaluate((element) => getComputedStyle(element).pointerEvents)).toBe('none')
+    expect(await peek.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true)
+
+    const pageScroll = await page.evaluate(() => window.scrollY)
+    const box = (await notes.boundingBox())!
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    await page.mouse.wheel(0, 120)
+    await expect.poll(() => peek.evaluate((element) => element.scrollTop)).toBeGreaterThan(0)
+    await expect(peek).toBeVisible()
+    // The wheel went to the peek, not the page.
+    expect(await page.evaluate(() => window.scrollY)).toBe(pageScroll)
+
+    // The cell beside it is under the peek, and is still what the pointer finds.
+    const amount = cell(table, 'amount')
+    const amountBox = (await amount.boundingBox())!
+    const hit = await page.evaluate(
+      ([x, y]) => document.elementFromPoint(x!, y!)?.closest('td')?.dataset.rtcColumnId,
+      [amountBox.x + 10, amountBox.y + amountBox.height / 2],
+    )
+    expect(hit).toBe('amount')
+    await amount.hover()
+    await expect(peek).toBeHidden()
+  })
+
+  test('`peek-wheel` gives the wheel back once the value has been read to the end', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 480 })
+    await openStory(page, 'datatable-19-long-values--peek-interaction')
+    const table = page.locator('.rtc-root').nth(1)
+    await table.scrollIntoViewIfNeeded()
+    const notes = cell(table, 'notes')
+    const peek = table.locator('.rtc-cell-peek')
+    await notes.hover()
+    await expect(peek).toBeVisible()
+    await peek.evaluate((element) => (element.scrollTop = element.scrollHeight))
+
+    const pageScroll = await page.evaluate(() => window.scrollY)
+    await page.mouse.wheel(0, 120)
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(pageScroll)
+    await expect(peek).toBeHidden()
+  })
+
+  test('a scrolling peek near the bottom starts where its cell does', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 480 })
+    await openStory(page, 'datatable-19-long-values--peek-interaction')
+    const table = page.locator('.rtc-root').nth(1)
+    const notes = cell(table, 'notes')
+    // Put the cell 200px above the bottom of the viewport.
+    await notes.evaluate((element) => {
+      const top = element.getBoundingClientRect().top + window.scrollY
+      window.scrollTo(0, top - (window.innerHeight - 200))
+    })
+    await page.waitForTimeout(100)
+    const peek = table.locator('.rtc-cell-peek')
+    await notes.hover()
+    await expect(peek).toBeVisible()
+
+    const cellBox = (await notes.boundingBox())!
+    const peekBox = (await peek.boundingBox())!
+    expect(Math.abs(peekBox.y - cellBox.y)).toBeLessThanOrEqual(1)
+    expect(peekBox.y + peekBox.height).toBeLessThanOrEqual(480)
+    expect(await peek.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true)
+  })
+
+  test('`outlined` and `glass` are told where the cell is inside the peek', async ({ page }) => {
+    await openStory(page, 'datatable-19-long-values--peek-appearance')
+    for (const [index, appearance] of [[0, 'solid'], [1, 'outlined'], [2, 'glass']] as const) {
+      const table = page.locator('.rtc-root').nth(index)
+      await table.scrollIntoViewIfNeeded()
+      await page.mouse.move(0, 0)
+      const notes = cell(table, 'notes')
+      const peek = table.locator('.rtc-cell-peek')
+      await notes.hover()
+      await expect(peek).toBeVisible()
+      await expect(peek).toHaveAttribute('data-rtc-peek-appearance', appearance)
+
+      const cellBox = (await notes.boundingBox())!
+      const peekBox = (await peek.boundingBox())!
+      const bounds = await peek.evaluate((element) => {
+        const style = (element as HTMLElement).style
+        return ['x', 'y', 'w', 'h'].map((key) => parseFloat(style.getPropertyValue(`--rtc-peek-cell-${key}`)))
+      })
+      expect(bounds[0]).toBeCloseTo(cellBox.x - peekBox.x, 0)
+      expect(bounds[1]).toBeCloseTo(cellBox.y - peekBox.y, 0)
+      expect(bounds[2]).toBeCloseTo(cellBox.width, 0)
+      expect(bounds[3]).toBeCloseTo(cellBox.height, 0)
+    }
+  })
+
   test('a value that fits never peeks', async ({ page }) => {
     const root = await openStory(page, 'datatable-19-long-values--playground')
     const amount = cell(root, 'amount')

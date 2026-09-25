@@ -3,8 +3,10 @@ import type { Meta, StoryObj } from '@storybook/react-vite'
 import {
   createDataTableColumnHelper,
   DataTable,
+  dataTableThemes,
   type DataTableCellOverflow,
   type DataTableCellOverflowReveal,
+  type DataTableCellPeekAppearance,
 } from '../src'
 import { currency, makePeople } from './fixtures'
 
@@ -88,9 +90,15 @@ const overflowArgTypes = {
   },
   cellOverflowReveal: {
     control: 'inline-radio',
-    options: ['peek', 'peek-scroll', 'title', 'none'] satisfies DataTableCellOverflowReveal[],
+    options: ['peek', 'peek-wheel', 'peek-scroll', 'title', 'none'] satisfies DataTableCellOverflowReveal[],
     description:
       'How a cut-short cell shows the rest of its value. Per column: `meta.cellOverflowReveal`.',
+    table: { category: 'Long values' },
+  },
+  cellPeekAppearance: {
+    control: 'inline-radio',
+    options: ['solid', 'outlined', 'glass'] satisfies DataTableCellPeekAppearance[],
+    description: 'How a peek is drawn — experimental. `outlined` and `glass` mark the cell\'s own bounds.',
     table: { category: 'Long values' },
   },
   enableColumnResizing: {
@@ -130,6 +138,7 @@ export const Playground: Story = {
     cellOverflow: 'truncate',
     cellMaxLines: 2,
     cellOverflowReveal: 'peek',
+    cellPeekAppearance: 'solid',
     enableColumnResizing: true,
     enableEditing: false,
     editMode: 'cell',
@@ -251,6 +260,109 @@ export const ScrollablePeek: Story = {
       enableRowSelection
       enableClickToSelect
     />
+  ),
+}
+
+/** The notes column set to a reveal mode, over the paragraph-length notes. */
+const withNotesReveal = (cellOverflowReveal: DataTableCellOverflowReveal) =>
+  ticketColumns.map((column) =>
+    (column as { accessorKey?: string }).accessorKey === 'notes'
+      ? { ...column, meta: { ...column.meta, cellOverflowReveal } }
+      : column,
+  )
+
+/**
+ * The three peeks side by side, over notes too long for any of them.
+ *
+ * Try the same things on each: rest on a long note, then turn the wheel; move
+ * from the note onto the Amount cell beside it; click the note while it is
+ * open.
+ *
+ * | | `peek` | `peek-wheel` | `peek-scroll` |
+ * | --- | --- | --- | --- |
+ * | Takes the pointer | no | no | yes |
+ * | Reads past 320px | no — cut | wheel, over its own cell | wheel or scrollbar, anywhere on it |
+ * | Neighbours hover and click normally | yes | yes | no, while it covers them |
+ * | Text can be selected | no | no | yes |
+ * | Wheel at the end of the value | scrolls the table | scrolls the table | stays in the peek |
+ */
+export const PeekInteraction: Story = {
+  render: () => (
+    <>
+      {(
+        [
+          ['peek', 'A picture of the value: nothing can be done with it, and what does not fit is cut'],
+          ['peek-wheel', 'Still a picture, but the wheel scrolls it while the pointer stays on its own cell'],
+          ['peek-scroll', 'Takes the pointer: scroll or select anywhere on it, at the price of covering its neighbours'],
+        ] as Array<[DataTableCellOverflowReveal, string]>
+      ).map(([reveal, caption]) => (
+        <div key={reveal} style={{ marginBottom: 24 }}>
+          <DataTable
+            columns={withNotesReveal(reveal)}
+            data={longNotes.slice(0, 4)}
+            getRowId={(row) => row.id}
+            enableToolbar={false}
+            enablePagination={false}
+            enableRowSelection
+            enableClickToSelect
+            enableBorders="all"
+            caption={`notes: cellOverflowReveal="${reveal}" — ${caption}`}
+          />
+        </div>
+      ))}
+    </>
+  ),
+}
+
+/**
+ * The three looks side by side — experimental, to pick one.
+ *
+ * `solid` is the peek as it stands: one surface, so the overflow reads as the
+ * cell grown larger, and where the cell ended is lost. `outlined` rings the
+ * cell's own bounds and tints what lies beyond them. `glass` keeps the cell
+ * opaque and makes the overflow translucent over a blur, so the cells it
+ * covers stay faintly in view. The marking is a background layer, so it stays
+ * put while a `peek-wheel` scrolls — which is what the notes column here uses.
+ */
+export const PeekAppearance: Story = {
+  args: { theme: 'default' },
+  argTypes: {
+    theme: {
+      control: 'select',
+      options: ['default', ...Object.keys(dataTableThemes)],
+      description: 'A theme preset, to see each look on a dark surface too (`linear`).',
+      table: { category: 'Appearance' },
+    },
+  },
+  render: (args) => (
+    <>
+      {(
+        [
+          ['solid', 'One surface; the cell\'s own bounds are not marked'],
+          ['outlined', 'The cell ringed in the accent; the overflow tinted as its extension'],
+          ['glass', 'The cell opaque; the overflow translucent over the cells it covers'],
+        ] as Array<[DataTableCellPeekAppearance, string]>
+      ).map(([appearance, caption]) => (
+        <div key={appearance} style={{ marginBottom: 24 }}>
+          <DataTable
+            columns={withNotesReveal('peek-wheel')}
+            data={longNotes.slice(0, 4)}
+            getRowId={(row) => row.id}
+            cellPeekAppearance={appearance}
+            cssVars={
+              args.theme === 'default'
+                ? undefined
+                : dataTableThemes[args.theme as keyof typeof dataTableThemes]
+            }
+            enableToolbar={false}
+            enablePagination={false}
+            enableStripes
+            enableBorders="all"
+            caption={`cellPeekAppearance="${appearance}" — ${caption}`}
+          />
+        </div>
+      ))}
+    </>
   ),
 }
 

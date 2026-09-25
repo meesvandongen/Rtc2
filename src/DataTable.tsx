@@ -424,7 +424,9 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
             attribute and the density the table was given. */}
         {filterDrawer ? <DataTableFilterDrawer table={table} /> : null}
 
-        {revealsOverflow ? <CellOverflowReveal rootRef={rootRef} /> : null}
+        {revealsOverflow ? (
+          <CellOverflowReveal rootRef={rootRef} appearance={options.cellPeekAppearance ?? 'solid'} />
+        ) : null}
       </div>
 
       <EditRowDialog table={table} />

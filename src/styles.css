@@ -2153,8 +2153,77 @@
   border: var(--rtc-border-width, 1px) solid var(--rtc-color-border-strong);
   border-radius: var(--rtc-radius-sm);
   background-color: var(--rtc-color-surface);
+  background-image: linear-gradient(var(--rtc-peek-row-bg, transparent), var(--rtc-peek-row-bg, transparent));
+  /* Measured from the border edge, which is where the cell's bounds are
+     measured from too. */
+  background-origin: border-box;
   box-shadow: var(--rtc-shadow-menu);
   pointer-events: none;
+}
+
+/* `cellPeekAppearance`, which is experimental: the two looks that mark the
+ * cell's own bounds inside the peek, as against `solid`, which does not.
+ *
+ * The bounds arrive as `--rtc-peek-cell-x/-y/-w/-h`, relative to the peek's
+ * border box, and are painted as background layers — the one kind of
+ * decoration that stays put while a peek's content scrolls under it. The
+ * layers are, top to bottom: the four edges of a ring around the cell, the
+ * row's colour over the table surface inside it, and whatever fills the part
+ * beyond it. The peek's own border goes transparent: it would sit on top of
+ * the ring along the two edges the cell shares with the peek. */
+.rtc-cell-peek[data-rtc-peek-appearance="outlined"],
+.rtc-cell-peek[data-rtc-peek-appearance="glass"] {
+  --rtc-peek-x: var(--rtc-peek-cell-x, 0px);
+  --rtc-peek-y: var(--rtc-peek-cell-y, 0px);
+  --rtc-peek-w: var(--rtc-peek-cell-w, 0px);
+  --rtc-peek-h: var(--rtc-peek-cell-h, 0px);
+  --rtc-peek-row: var(--rtc-peek-row-bg, transparent);
+  border-color: transparent;
+  background-color: transparent;
+  background-image:
+    linear-gradient(var(--rtc-peek-ring-color), var(--rtc-peek-ring-color)),
+    linear-gradient(var(--rtc-peek-ring-color), var(--rtc-peek-ring-color)),
+    linear-gradient(var(--rtc-peek-ring-color), var(--rtc-peek-ring-color)),
+    linear-gradient(var(--rtc-peek-ring-color), var(--rtc-peek-ring-color)),
+    linear-gradient(var(--rtc-peek-row), var(--rtc-peek-row)),
+    linear-gradient(var(--rtc-color-surface), var(--rtc-color-surface)),
+    linear-gradient(var(--rtc-peek-beyond), var(--rtc-peek-beyond));
+  background-size:
+    var(--rtc-peek-w) var(--rtc-peek-ring-width),
+    var(--rtc-peek-w) var(--rtc-peek-ring-width),
+    var(--rtc-peek-ring-width) var(--rtc-peek-h),
+    var(--rtc-peek-ring-width) var(--rtc-peek-h),
+    var(--rtc-peek-w) var(--rtc-peek-h),
+    var(--rtc-peek-w) var(--rtc-peek-h),
+    100% 100%;
+  background-position:
+    var(--rtc-peek-x) var(--rtc-peek-y),
+    var(--rtc-peek-x) calc(var(--rtc-peek-y) + var(--rtc-peek-h) - var(--rtc-peek-ring-width)),
+    var(--rtc-peek-x) var(--rtc-peek-y),
+    calc(var(--rtc-peek-x) + var(--rtc-peek-w) - var(--rtc-peek-ring-width)) var(--rtc-peek-y),
+    var(--rtc-peek-x) var(--rtc-peek-y),
+    var(--rtc-peek-x) var(--rtc-peek-y),
+    0 0;
+  background-repeat: no-repeat;
+}
+
+/* The overflow reads as an extension of the cell: tinted towards the accent,
+   with the cell itself ringed in it. */
+.rtc-cell-peek[data-rtc-peek-appearance="outlined"] {
+  --rtc-peek-ring-color: var(--rtc-color-accent);
+  --rtc-peek-ring-width: 2px;
+  --rtc-peek-beyond: color-mix(in srgb, var(--rtc-color-accent) 7%, var(--rtc-color-surface));
+}
+
+/* The overflow is a pane of frosted glass over the cells it covers: they stay
+   in view, blurred enough that their text does not compete with the peek's. */
+.rtc-cell-peek[data-rtc-peek-appearance="glass"] {
+  --rtc-peek-ring-color: var(--rtc-color-border-strong);
+  --rtc-peek-ring-width: 1px;
+  --rtc-peek-beyond: color-mix(in srgb, var(--rtc-color-surface) 72%, transparent);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+  box-shadow: 0 8px 24px -12px rgb(15 23 42 / 30%);
 }
 
 .rtc-cell-peek[data-rtc-open] {
@@ -2167,6 +2236,15 @@
 .rtc-cell-peek {
   align-items: flex-start;
   align-items: safe center;
+}
+
+/* `peek-wheel`: still a picture, but one that scrolls. The scrollbar is shown
+   for what it says — there is more — even though the pointer passes through
+   it; the wheel over the cell is what moves it (`CellOverflowReveal`). */
+.rtc-cell-peek[data-rtc-wheel] {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
 
 /* `peek-scroll`: the same copy, made reachable. It scrolls rather than cuts,
