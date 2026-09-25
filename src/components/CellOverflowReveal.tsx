@@ -22,6 +22,14 @@ function revealMode(cell: HTMLElement): string | undefined {
   return cell.dataset.rtcReveal
 }
 
+function peeks(cell: HTMLElement): boolean {
+  const mode = revealMode(cell)
+  return mode === 'peek' || mode === 'peek-scroll'
+}
+
+/** What a reader could otherwise reach inside the copy: it is a picture, not a second set of controls. */
+const FOCUSABLE = 'a[href], button, input, select, textarea, [tabindex]'
+
 /** The first colour that is not fully transparent, walking from the cell up to its row. */
 function rowBackground(cell: HTMLElement): string | null {
   for (const element of [cell, cell.parentElement]) {
@@ -56,6 +64,14 @@ function rowBackground(cell: HTMLElement): string | null {
  * column or an ancestor's `overflow` cannot cover or clip it, while staying a
  * DOM descendant of the root so it still inherits the theme.
  *
+ * `peek-scroll` is the same copy made reachable: it takes the pointer, so it
+ * scrolls and its text can be selected, and it is no longer inert. The pointer
+ * crossing from the cell onto it is therefore not leaving, and a press or a
+ * scroll inside it is the reader using it rather than moving on. A plain click
+ * — one that selected nothing — closes it and is passed to whatever the copy
+ * was covering, so click-to-copy and click-to-select still answer the click
+ * the reader aimed at them.
+ *
  * `title` is the lightweight alternative: the browser's own tooltip, set on the
  * value just before the browser would look for it, and only when the value is
  * actually cut.
@@ -79,6 +95,13 @@ export function CellOverflowReveal({
 
     let shown: HTMLElement | null = null
     let pending: HTMLElement | null = null
+    // Put away on purpose — Escape, a press, a click through — and so not to be
+    // reopened by the very pointer that is still resting on it, until it leaves.
+    let dismissed: HTMLElement | null = null
+    // What the peek was last drawn from, so a mutation elsewhere in the table
+    // does not redraw it: a redraw is a new copy, and a new copy is back at the
+    // top with the reader's selection gone.
+    let drawnFrom: { cell: HTMLElement; html: string } | null = null
     let timer: ReturnType<typeof setTimeout> | null = null
     let frame = 0
     let closedAt = Number.NEGATIVE_INFINITY
@@ -90,6 +113,8 @@ export function CellOverflowReveal({
         if (shown) render(shown)
       })
     })
+
+    const inPeek = (target: EventTarget | null) => target instanceof Node && peek.contains(target)
 
     const ownCell = (target: EventTarget | null): HTMLElement | null => {
       if (!(target instanceof Element)) return null
@@ -104,10 +129,16 @@ export function CellOverflowReveal({
       pending = null
     }
 
+    const dismiss = () => {
+      dismissed = shown ?? pending
+      hide()
+    }
+
     const hide = () => {
       cancel()
       if (!shown) return
       shown = null
+      drawnFrom = null
       observer.disconnect()
       peek.removeAttribute('data-rtc-open')
       // Asked only where popovers exist: elsewhere `:popover-open` is not a
@@ -125,12 +156,22 @@ export function CellOverflowReveal({
         return
       }
 
+      if (drawnFrom?.cell === cell && drawnFrom.html === inner.innerHTML) return
+      drawnFrom = { cell, html: inner.innerHTML }
+
       const content = inner.cloneNode(true) as HTMLElement
       // A document may hold an id once; the copy is decoration, not a second
       // instance of the cell.
       for (const element of content.querySelectorAll('[id]')) element.removeAttribute('id')
       content.querySelector(`[${AUTO_TITLE}]`)?.removeAttribute('title')
+      const scrollable = revealMode(cell) === 'peek-scroll'
+      if (scrollable) {
+        // Reachable by the pointer, but still not a stop for the Tab key.
+        for (const element of content.querySelectorAll(FOCUSABLE)) element.setAttribute('tabindex', '-1')
+      }
       peek.replaceChildren(content)
+      peek.inert = !scrollable
+      peek.toggleAttribute('data-rtc-scrollable', scrollable)
 
       const style = getComputedStyle(cell)
       const rect = cell.getBoundingClientRect()
@@ -227,7 +268,7 @@ export function CellOverflowReveal({
         }
         return
       }
-      if (mode !== 'peek' || cell === shown || cell === pending) return
+      if (!peeks(cell) || cell === shown || cell === pending || cell === dismissed) return
 
       cancel()
       // Moving along a row of cut-short cells, each one opens at once: the
@@ -247,6 +288,9 @@ export function CellOverflowReveal({
 
     const leave = (from: HTMLElement | null, to: EventTarget | null) => {
       if (!from || (to instanceof Node && from.contains(to))) return
+      // Onto its own peek, which only a `peek-scroll` can be pointed at.
+      if (from === shown && inPeek(to)) return
+      if (from === dismissed) dismissed = null
       if (from === pending) cancel()
       if (from === shown) {
         hide()
@@ -258,22 +302,50 @@ export function CellOverflowReveal({
 
     const onPointerOver = (event: PointerEvent) => {
       // A touch has no hover; a tap is a press on the cell and belongs to it.
-      if (event.pointerType === 'touch') return
+      if (event.pointerType === 'touch' || inPeek(event.target)) return
       const cell = ownCell(event.target)
       if (cell) arm(cell)
       else if (shown || pending) hide()
     }
-    const onPointerOut = (event: PointerEvent) => leave(ownCell(event.target), event.relatedTarget)
+    const onPointerOut = (event: PointerEvent) => {
+      if (!inPeek(event.target)) {
+        leave(ownCell(event.target), event.relatedTarget)
+        return
+      }
+      // Out of the peek: back onto the cell it belongs to keeps it, anywhere
+      // else is the same as walking out of that cell.
+      const to = event.relatedTarget
+      if (inPeek(to) || (shown && to instanceof Node && shown.contains(to))) return
+      hide()
+      closedAt = performance.now()
+    }
     const onFocusIn = (event: FocusEvent) => {
       const cell = ownCell(event.target)
-      if (cell && revealMode(cell) === 'peek') arm(cell)
+      if (cell && peeks(cell)) arm(cell)
     }
     const onFocusOut = (event: FocusEvent) => leave(ownCell(event.target), event.relatedTarget)
     // A press is the reader acting on the cell, and whatever it starts — an
     // edit, a selection, a copy — should not happen behind a copy of it.
-    const onPointerDown = () => hide()
+    const onPointerDown = (event: PointerEvent) => {
+      // Inside a `peek-scroll`: selecting its text, or dragging its scrollbar.
+      if (!inPeek(event.target)) dismiss()
+    }
+    const onClick = (event: MouseEvent) => {
+      if (!inPeek(event.target)) return
+      // A click that selected something was the reader selecting it.
+      const selection = document.getSelection()
+      if (selection && !selection.isCollapsed && inPeek(selection.anchorNode)) return
+      dismiss()
+      const underneath = document.elementFromPoint(event.clientX, event.clientY)
+      if (underneath instanceof HTMLElement && root.contains(underneath)) underneath.click()
+    }
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') hide()
+      if (event.key === 'Escape') dismiss()
+    }
+    // Positioned against the viewport, so any scroll anywhere leaves it behind
+    // — except its own, which is the reader reading it.
+    const onScroll = (event: Event) => {
+      if (!inPeek(event.target)) hide()
     }
 
     root.addEventListener('pointerover', onPointerOver)
@@ -281,9 +353,9 @@ export function CellOverflowReveal({
     root.addEventListener('focusin', onFocusIn)
     root.addEventListener('focusout', onFocusOut)
     root.addEventListener('pointerdown', onPointerDown)
+    root.addEventListener('click', onClick)
     root.addEventListener('keydown', onKeyDown)
-    // Positioned against the viewport, so any scroll anywhere leaves it behind.
-    window.addEventListener('scroll', hide, true)
+    window.addEventListener('scroll', onScroll, true)
     window.addEventListener('resize', hide)
 
     return () => {
@@ -294,8 +366,9 @@ export function CellOverflowReveal({
       root.removeEventListener('focusin', onFocusIn)
       root.removeEventListener('focusout', onFocusOut)
       root.removeEventListener('pointerdown', onPointerDown)
+      root.removeEventListener('click', onClick)
       root.removeEventListener('keydown', onKeyDown)
-      window.removeEventListener('scroll', hide, true)
+      window.removeEventListener('scroll', onScroll, true)
       window.removeEventListener('resize', hide)
     }
   }, [rootRef])

@@ -15,6 +15,10 @@ of the value is no longer out of reach:
   own text was always the whole value to assistive technology. This is the new
   default; `cellOverflowReveal: 'title'` uses the browser tooltip instead, and
   `cellOverflowReveal: 'none'` restores the previous behaviour.
+- **`cellOverflowReveal: 'peek-scroll'`** is a peek you can point at, for
+  values that run to paragraphs: it stays open under the pointer, scrolls
+  without scrolling the table, and its text can be selected. A plain click on
+  it closes it and reaches the cell underneath.
 - **`cellOverflow`** chooses `truncate` (the default), `wrap`, or `clamp` to
   `cellMaxLines` lines. All three options can be set per column in `meta`
   (`meta.cellOverflow`, `meta.cellMaxLines`, `meta.cellOverflowReveal`), which

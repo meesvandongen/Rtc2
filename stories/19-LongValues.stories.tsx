@@ -88,7 +88,7 @@ const overflowArgTypes = {
   },
   cellOverflowReveal: {
     control: 'inline-radio',
-    options: ['peek', 'title', 'none'] satisfies DataTableCellOverflowReveal[],
+    options: ['peek', 'peek-scroll', 'title', 'none'] satisfies DataTableCellOverflowReveal[],
     description:
       'How a cut-short cell shows the rest of its value. Per column: `meta.cellOverflowReveal`.',
     table: { category: 'Long values' },
@@ -138,7 +138,7 @@ export const Playground: Story = {
 }
 
 /**
- * The five ways a long value can be handled, one table each, over the same
+ * The six ways a long value can be handled, one table each, over the same
  * rows. The first is the table before these options existed.
  */
 export const Comparison: Story = {
@@ -149,6 +149,7 @@ export const Comparison: Story = {
           ['truncate', 'none', 'Before: cut, and no way to read the rest'],
           ['truncate', 'title', "Cut; the browser's own tooltip on hover"],
           ['truncate', 'peek', 'Cut; opens out in place on hover and focus (the default)'],
+          ['truncate', 'peek-scroll', 'Cut; opens out in place, and can be scrolled and selected'],
           ['clamp', 'peek', 'Two lines, then cut; opens out for the rest'],
           ['wrap', 'none', 'Everything, on as many lines as it takes'],
         ] as Array<[DataTableCellOverflow, DataTableCellOverflowReveal, string]>
@@ -188,6 +189,53 @@ export const PerColumn: Story = {
       getRowId={(row) => row.id}
       enablePagination={false}
       enableStripes
+      enableRowSelection
+      enableClickToSelect
+    />
+  ),
+}
+
+/** Notes that run to paragraphs, taller than any peek is allowed to grow. */
+const LOG = [
+  'Customer reports that the nightly export stops partway through. First seen after the 3.2 upgrade; the job log shows the export reaching the pagination boundary and then exiting cleanly with no error.',
+  'Reproduced on staging with a copy of their data. The export only stops when a filter on a date column is active and the result spans a daylight-saving change — the page cursor is computed in local time and skips an hour.',
+  'Workaround sent: filter in UTC. Fix in review; it moves the cursor to UTC and adds a regression test with a range across the October change.',
+  'Customer confirmed the workaround. Leaving open until the fix ships in 3.2.4.',
+].join('\n\n')
+
+const longNotes = tickets.map((ticket, index) => ({
+  ...ticket,
+  notes: index % 2 === 0 ? LOG : ticket.notes,
+}))
+
+/**
+ * `peek-scroll`: a peek that can be pointed at.
+ *
+ * Values that run to paragraphs outgrow any peek, and a plain `peek` cuts what
+ * does not fit its 320px — it takes no pointer events, so there is nothing to
+ * scroll it with. `peek-scroll` takes the pointer: move onto it and it stays
+ * open, the wheel scrolls it without scrolling the table, and its text can be
+ * selected and copied. A plain click on it closes it and goes through to the
+ * cell underneath, so clicking a row still selects it.
+ *
+ * Set on the one column that needs it; the rest of the table keeps the plain
+ * `peek`, which never stands in the way of the cells around it.
+ *
+ * ```tsx
+ * helper.accessor('notes', { meta: { cellOverflowReveal: 'peek-scroll' } })
+ * ```
+ */
+export const ScrollablePeek: Story = {
+  render: () => (
+    <DataTable
+      columns={ticketColumns.map((column) =>
+        (column as { accessorKey?: string }).accessorKey === 'notes'
+          ? { ...column, meta: { ...column.meta, cellOverflowReveal: 'peek-scroll' as const } }
+          : column,
+      )}
+      data={longNotes.slice(0, 10)}
+      getRowId={(row) => row.id}
+      enablePagination={false}
       enableRowSelection
       enableClickToSelect
     />

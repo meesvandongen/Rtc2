@@ -2089,11 +2089,12 @@
  * `truncate` is the rule above and needs no attribute. The other two let the
  * value onto more lines, which is also why they break anywhere: a URL or a
  * hash has no spaces, and a value that cannot break is one that still runs out
- * of the cell. The click-to-copy button inside a value clips on its own, so it
- * follows the value it sits in. */
+ * of the cell. `pre-line` rather than `normal`, because a value given more
+ * lines should keep the line breaks it came with. The click-to-copy button
+ * inside a value clips on its own, so it follows the value it sits in. */
 .rtc-td[data-rtc-overflow] .rtc-cell-value,
 .rtc-td[data-rtc-overflow] .rtc-copy-cell {
-  white-space: normal;
+  white-space: pre-line;
   overflow-wrap: anywhere;
 }
 
@@ -2147,7 +2148,6 @@
   z-index: 1000;
   box-sizing: border-box;
   margin: 0;
-  align-items: center;
   max-height: min(320px, 60vh);
   overflow: hidden;
   border: var(--rtc-border-width, 1px) solid var(--rtc-color-border-strong);
@@ -2161,6 +2161,26 @@
   display: flex;
 }
 
+/* Centred like the cell when it is short, but never at the cost of its first
+   lines: plain `center` overflows a tall value at both ends, and the half
+   above the top edge is out of reach of any scrollbar. */
+.rtc-cell-peek {
+  align-items: flex-start;
+  align-items: safe center;
+}
+
+/* `peek-scroll`: the same copy, made reachable. It scrolls rather than cuts,
+   keeps its scroll to itself — reaching the end must not scroll the table
+   underneath, which would put the peek away mid-read — and lets its text be
+   selected. */
+.rtc-cell-peek[data-rtc-scrollable] {
+  pointer-events: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  user-select: text;
+  cursor: text;
+}
+
 .rtc-cell-peek > .rtc-cell-inner {
   min-width: 0;
   max-width: 100%;
@@ -2170,7 +2190,7 @@
 .rtc-cell-peek .rtc-copy-cell {
   display: block;
   overflow: visible;
-  white-space: normal;
+  white-space: pre-line;
   overflow-wrap: anywhere;
   -webkit-line-clamp: none;
   line-clamp: none;

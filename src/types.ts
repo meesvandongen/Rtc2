@@ -143,11 +143,18 @@ export type DataTableCellOverflow = 'truncate' | 'wrap' | 'clamp'
  * fits never gets a tooltip that repeats it.
  *
  * - `peek` — the cell opens out over its neighbours, showing the whole value
- *   in place, on hover and on keyboard focus.
+ *   in place, on hover and on keyboard focus. It is a picture of the value:
+ *   it takes no pointer events, so it never stands between the reader and a
+ *   cell, and what does not fit its maximum height is cut.
+ * - `peek-scroll` — the same, but it can be pointed at: it scrolls when the
+ *   value is taller than it, and its text can be selected. The price is that
+ *   while it is open it covers the cell and whatever it overlaps; a plain
+ *   click on it closes it and goes through to what is underneath. For the
+ *   column whose values run to paragraphs.
  * - `title` — the browser's own tooltip, via a `title` set on demand.
  * - `none` — the value stays cut.
  */
-export type DataTableCellOverflowReveal = 'peek' | 'title' | 'none'
+export type DataTableCellOverflowReveal = 'peek' | 'peek-scroll' | 'title' | 'none'
 
 export type DataTableColumn<TData extends RowData, TValue = unknown> = ColumnDef<DataTableFeatures, TData, TValue>
 export type DataTableRow<TData extends RowData> = Row<DataTableFeatures, TData>

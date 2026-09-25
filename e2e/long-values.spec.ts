@@ -54,6 +54,81 @@ test.describe('long values', () => {
     await expect(peek).toHaveText(await title.innerText(), { timeout: 250 })
   })
 
+  test('a plain peek cuts what it cannot fit, and never takes the pointer', async ({ page }) => {
+    await openStory(page, 'datatable-19-long-values--comparison')
+    const table = page.locator('.rtc-root').nth(2)
+    await expect(table).toContainText('cellOverflowReveal="peek" ')
+    // Scrolled to first: a scroll puts a peek away, pending ones included.
+    await table.scrollIntoViewIfNeeded()
+    await page.waitForTimeout(100)
+    await cell(table, 'notes').hover()
+    const peek = table.locator('.rtc-cell-peek')
+    await expect(peek).toBeVisible()
+    expect(await peek.evaluate((element) => getComputedStyle(element).pointerEvents)).toBe('none')
+    expect(await peek.evaluate((element) => (element as HTMLElement).inert)).toBe(true)
+  })
+
+  test('`peek-scroll` stays open under the pointer and scrolls on its own', async ({ page }) => {
+    const root = await openStory(page, 'datatable-19-long-values--scrollable-peek')
+    const notes = cell(root, 'notes')
+    const peek = root.locator('.rtc-cell-peek')
+
+    await notes.hover()
+    await expect(peek).toBeVisible()
+    await expect(peek).toHaveAttribute('data-rtc-scrollable', '')
+    expect(await peek.evaluate((element) => (element as HTMLElement).inert)).toBe(false)
+    // Taller than it may grow, which is what it is for.
+    expect(await peek.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true)
+    // Line breaks in the value survive into the peek.
+    expect(await peek.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThan(200)
+
+    // Onto the peek itself, away from the part covering the cell.
+    const box = (await peek.boundingBox())!
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height - 20)
+    await page.mouse.wheel(0, 200)
+    await expect.poll(() => peek.evaluate((element) => element.scrollTop)).toBeGreaterThan(0)
+    await expect(peek).toBeVisible()
+    // The table underneath did not scroll with it.
+    expect(await root.locator('.rtc-container').evaluate((element) => element.scrollTop)).toBe(0)
+
+    await page.mouse.move(0, 0)
+    await expect(peek).toBeHidden()
+  })
+
+  test('its text can be selected without closing it', async ({ page }) => {
+    const root = await openStory(page, 'datatable-19-long-values--scrollable-peek')
+    await cell(root, 'notes').hover()
+    const peek = root.locator('.rtc-cell-peek')
+    await expect(peek).toBeVisible()
+
+    const box = (await peek.boundingBox())!
+    await page.mouse.move(box.x + 16, box.y + 16)
+    await page.mouse.down()
+    await page.mouse.move(box.x + box.width - 16, box.y + 60, { steps: 5 })
+    await page.mouse.up()
+
+    await expect(peek).toBeVisible()
+    expect(await page.evaluate(() => document.getSelection()?.toString().length ?? 0)).toBeGreaterThan(10)
+  })
+
+  test('a plain click on it closes it and reaches the cell underneath', async ({ page }) => {
+    const root = await openStory(page, 'datatable-19-long-values--scrollable-peek')
+    const row = root.locator('tbody tr').first()
+    await cell(root, 'notes').hover()
+    const peek = root.locator('.rtc-cell-peek')
+    await expect(peek).toBeVisible()
+
+    const cellBox = (await cell(root, 'notes').boundingBox())!
+    await page.mouse.click(cellBox.x + 20, cellBox.y + cellBox.height / 2)
+
+    await expect(peek).toBeHidden()
+    // `enableClickToSelect` heard the click the peek was covering.
+    await expect(row).toHaveAttribute('data-rtc-selected', 'true')
+    // And resting there does not reopen it.
+    await page.waitForTimeout(700)
+    await expect(peek).toBeHidden()
+  })
+
   test('a value that fits never peeks', async ({ page }) => {
     const root = await openStory(page, 'datatable-19-long-values--playground')
     const amount = cell(root, 'amount')
@@ -96,8 +171,8 @@ test.describe('long values', () => {
     const tables = page.locator('.rtc-root')
 
     const oneLine = (await cell(tables.nth(0), 'notes').boundingBox())!.height
-    const clamped = cell(tables.nth(3), 'notes')
-    const wrapped = cell(tables.nth(4), 'notes')
+    const clamped = cell(tables.nth(4), 'notes')
+    const wrapped = cell(tables.nth(5), 'notes')
 
     expect((await clamped.boundingBox())!.height).toBeGreaterThan(oneLine)
     expect(await isTruncated(clamped)).toBe(true)
