@@ -2084,16 +2084,268 @@
   white-space: nowrap;
 }
 
+/* Long values.
+ *
+ * `truncate` is the rule above and needs no attribute. The other two let the
+ * value onto more lines, which is also why they break anywhere: a URL or a
+ * hash has no spaces, and a value that cannot break is one that still runs out
+ * of the cell. `pre-line` rather than `normal`, because a value given more
+ * lines should keep the line breaks it came with. The click-to-copy button
+ * inside a value clips on its own, so it follows the value it sits in. */
+.rtc-td[data-rtc-overflow] .rtc-cell-value,
+.rtc-td[data-rtc-overflow] .rtc-copy-cell {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.rtc-td[data-rtc-overflow="wrap"] .rtc-cell-value,
+.rtc-td[data-rtc-overflow="wrap"] .rtc-copy-cell {
+  overflow: visible;
+}
+
+.rtc-td[data-rtc-overflow="clamp"] .rtc-cell-value,
+.rtc-td[data-rtc-overflow="clamp"] .rtc-copy-cell {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--rtc-cell-max-lines, 2);
+  line-clamp: var(--rtc-cell-max-lines, 2);
+}
+
+/* A wrapping cell is taller than one line, and the row has to be allowed to
+   follow it. A table row already treats its height as a floor; a grid row is
+   a flex container, where `height` is exactly that height, so the floor is
+   restated for the rows that need it. */
+.rtc-root[data-rtc-layout="grid"] .rtc-tr:has(> .rtc-td[data-rtc-overflow]),
+.rtc-root[data-rtc-layout="grid-no-grow"] .rtc-tr:has(> .rtc-td[data-rtc-overflow]) {
+  height: auto;
+  min-height: var(--rtc-row-height);
+}
+
+/* Held for one synchronous read by `fitColumnToContent`: every value back on
+   one line, so a wrapping column reports how wide it would like to be rather
+   than that it fits exactly as wrapped. Laid out, never painted. */
+.rtc-root[data-rtc-measuring] .rtc-td .rtc-cell-value,
+.rtc-root[data-rtc-measuring] .rtc-td .rtc-copy-cell {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  -webkit-line-clamp: none;
+  line-clamp: none;
+}
+
+/* The peek: a cut-short cell opened out over its neighbours.
+ *
+ * `CellOverflowReveal` copies the cell's font, padding, alignment and row
+ * colour onto it and lays it exactly over the cell, so the value reads as
+ * carrying on past the edge it was cut at. The row colour is painted over the
+ * table surface rather than instead of it — the same two layers as the header,
+ * for the same reason: a selected or hovered row is translucent, and a peek
+ * painted with it alone would let the next cell show through. */
+.rtc-cell-peek {
+  display: none;
+  position: fixed;
+  inset: auto;
+  z-index: 1000;
+  box-sizing: border-box;
+  margin: 0;
+  max-height: min(320px, 60vh);
+  overflow: hidden;
+  border: var(--rtc-border-width, 1px) solid var(--rtc-color-border-strong);
+  border-radius: var(--rtc-radius-sm);
+  background-color: var(--rtc-color-surface);
+  background-image: linear-gradient(var(--rtc-peek-row-bg, transparent), var(--rtc-peek-row-bg, transparent));
+  /* Measured from the border edge, which is where the cell's bounds are
+     measured from too. */
+  background-origin: border-box;
+  --rtc-peek-shadow: var(--rtc-shadow-menu);
+  box-shadow: var(--rtc-peek-shadow);
+  transition: box-shadow 120ms ease-out;
+  pointer-events: none;
+}
+
+/* The edge a held-back wheel ran into (`cellPeekOverscroll: 'contain'` or
+   `'latch'`), marked for a moment: without it a wheel that does nothing reads
+   as a wheel that is broken. An inset shadow, because a scroll container
+   paints it on its own box rather than on the content that moves. */
+.rtc-cell-peek[data-rtc-peek-edge="end"] {
+  box-shadow: var(--rtc-peek-shadow), inset 0 -3px 0 var(--rtc-color-accent);
+}
+
+.rtc-cell-peek[data-rtc-peek-edge="start"] {
+  box-shadow: var(--rtc-peek-shadow), inset 0 3px 0 var(--rtc-color-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rtc-cell-peek {
+    transition: none;
+  }
+}
+
+/* `cellPeekAppearance`, which is experimental: the two looks that mark the
+ * cell's own bounds inside the peek, as against `solid`, which does not.
+ *
+ * The bounds arrive as `--rtc-peek-cell-x/-y/-w/-h`, relative to the peek's
+ * border box, and are painted as background layers — the one kind of
+ * decoration that stays put while a peek's content scrolls under it. The
+ * layers are, top to bottom: the four edges of a ring around the cell, the
+ * row's colour over the table surface inside it, and whatever fills the part
+ * beyond it. The peek's own border goes transparent: it would sit on top of
+ * the ring along the two edges the cell shares with the peek. */
+.rtc-cell-peek[data-rtc-peek-appearance="outlined"],
+.rtc-cell-peek[data-rtc-peek-appearance="glass"] {
+  --rtc-peek-x: var(--rtc-peek-cell-x, 0px);
+  --rtc-peek-y: var(--rtc-peek-cell-y, 0px);
+  --rtc-peek-w: var(--rtc-peek-cell-w, 0px);
+  --rtc-peek-h: var(--rtc-peek-cell-h, 0px);
+  --rtc-peek-row: var(--rtc-peek-row-bg, transparent);
+  border-color: transparent;
+  background-color: transparent;
+  background-image:
+    linear-gradient(var(--rtc-peek-ring-color), var(--rtc-peek-ring-color)),
+    linear-gradient(var(--rtc-peek-ring-color), var(--rtc-peek-ring-color)),
+    linear-gradient(var(--rtc-peek-ring-color), var(--rtc-peek-ring-color)),
+    linear-gradient(var(--rtc-peek-ring-color), var(--rtc-peek-ring-color)),
+    linear-gradient(var(--rtc-peek-row), var(--rtc-peek-row)),
+    linear-gradient(var(--rtc-color-surface), var(--rtc-color-surface)),
+    linear-gradient(var(--rtc-peek-beyond), var(--rtc-peek-beyond));
+  background-size:
+    var(--rtc-peek-w) var(--rtc-peek-ring-width),
+    var(--rtc-peek-w) var(--rtc-peek-ring-width),
+    var(--rtc-peek-ring-width) var(--rtc-peek-h),
+    var(--rtc-peek-ring-width) var(--rtc-peek-h),
+    var(--rtc-peek-w) var(--rtc-peek-h),
+    var(--rtc-peek-w) var(--rtc-peek-h),
+    100% 100%;
+  background-position:
+    var(--rtc-peek-x) var(--rtc-peek-y),
+    var(--rtc-peek-x) calc(var(--rtc-peek-y) + var(--rtc-peek-h) - var(--rtc-peek-ring-width)),
+    var(--rtc-peek-x) var(--rtc-peek-y),
+    calc(var(--rtc-peek-x) + var(--rtc-peek-w) - var(--rtc-peek-ring-width)) var(--rtc-peek-y),
+    var(--rtc-peek-x) var(--rtc-peek-y),
+    var(--rtc-peek-x) var(--rtc-peek-y),
+    0 0;
+  background-repeat: no-repeat;
+}
+
+/* The overflow reads as an extension of the cell: tinted towards the accent,
+   with the cell itself ringed in it. */
+.rtc-cell-peek[data-rtc-peek-appearance="outlined"] {
+  --rtc-peek-ring-color: var(--rtc-color-accent);
+  --rtc-peek-ring-width: 2px;
+  --rtc-peek-beyond: color-mix(in srgb, var(--rtc-color-accent) 7%, var(--rtc-color-surface));
+}
+
+/* The overflow is a pane of frosted glass over the cells it covers: they stay
+   in view, blurred enough that their text does not compete with the peek's. */
+.rtc-cell-peek[data-rtc-peek-appearance="glass"] {
+  --rtc-peek-ring-color: var(--rtc-color-border-strong);
+  --rtc-peek-ring-width: 1px;
+  --rtc-peek-beyond: color-mix(in srgb, var(--rtc-color-surface) 72%, transparent);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+  --rtc-peek-shadow: 0 8px 24px -12px rgb(15 23 42 / 30%);
+}
+
+.rtc-cell-peek[data-rtc-open] {
+  display: flex;
+}
+
+/* Centred like the cell when it is short, but never at the cost of its first
+   lines: plain `center` overflows a tall value at both ends, and the half
+   above the top edge is out of reach of any scrollbar. */
+.rtc-cell-peek {
+  align-items: flex-start;
+  align-items: safe center;
+}
+
+/* `peek-wheel`: still a picture, but one that scrolls. The scrollbar is shown
+   for what it says — there is more — even though the pointer passes through
+   it; the wheel over the cell is what moves it (`CellOverflowReveal`). */
+.rtc-cell-peek[data-rtc-wheel] {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+/* `peek-native`'s scroll proxy: an invisible scroll container over the
+   peeked cell, inside its `<td>`, which the wheel scrolls natively and the
+   peek follows (`CellOverflowReveal`). It has to be a real, user-scrollable
+   box for the browser to latch it and to honour `overscroll-behavior`, and it
+   has to be inside the cell for its overscroll to chain into the table rather
+   than straight to the page. Nothing of it is seen: no background, and its
+   scrollbar hidden — the peek shows its own. */
+.rtc-cell-peek-proxy {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow-y: auto;
+  overscroll-behavior: auto;
+  scrollbar-width: none;
+}
+
+.rtc-cell-peek-proxy::-webkit-scrollbar {
+  display: none;
+}
+
+.rtc-cell-peek-proxy[data-rtc-peek-overscroll="contain"] {
+  overscroll-behavior: contain;
+}
+
+/* A peek the table slid under a still pointer: the wheel is the table's until
+   the pointer moves. */
+.rtc-cell-peek-proxy[data-rtc-idle] {
+  pointer-events: none;
+}
+
+/* `peek-scroll`: the same copy, made reachable. It scrolls rather than cuts,
+   and lets its text be selected. What its wheel does at the end is
+   `cellPeekOverscroll`: a real scroll container, the browser already latches
+   it — a gesture that started in it stays in it — so `chain` and `latch`
+   leave that alone, and only `contain` keeps every gesture from the table. */
+.rtc-cell-peek[data-rtc-scrollable] {
+  pointer-events: auto;
+  overflow-y: auto;
+  overscroll-behavior: auto;
+  user-select: text;
+  cursor: text;
+}
+
+.rtc-cell-peek[data-rtc-scrollable][data-rtc-peek-overscroll="contain"] {
+  overscroll-behavior: contain;
+}
+
+.rtc-cell-peek > .rtc-cell-inner {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.rtc-cell-peek .rtc-cell-value,
+.rtc-cell-peek .rtc-copy-cell {
+  display: block;
+  overflow: visible;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  -webkit-line-clamp: none;
+  line-clamp: none;
+}
+
 /* Click-to-copy.
  *
  * The value has to keep reading as data, not as a control: a cell that looks
  * like a button in every row turns the table into a wall of chrome. So the
  * affordance is underline-on-hover and nothing else, and the button carries no
  * padding of its own — an opted-in column has to line up with the columns
- * beside it, which are plain text. */
+ * beside it, which are plain text.
+ *
+ * A block container rather than `inline-flex`, which is what makes the
+ * ellipsis appear: `text-overflow` applies to a block's own lines, and in a
+ * flex container the text is an anonymous flex item, so a long value was cut
+ * off mid-letter with no sign that anything was missing. Top-aligned, because
+ * an inline-block that clips its overflow puts its baseline at its bottom edge
+ * and would otherwise sit a line higher than the text beside it. */
 .rtc-copy-cell {
-  display: inline-flex;
-  align-items: center;
+  display: inline-block;
+  vertical-align: top;
   min-width: 0;
   max-width: 100%;
   overflow: hidden;

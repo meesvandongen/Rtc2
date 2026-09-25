@@ -181,6 +181,10 @@ export {
 export type {
   DataTableCell,
   DataTableCellEditContext,
+  DataTableCellOverflow,
+  DataTableCellOverflowReveal,
+  DataTableCellPeekAppearance,
+  DataTableCellPeekOverscroll,
   DataTableCellRenderContext,
   DataTableClassNames,
   DataTableColumn,

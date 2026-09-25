@@ -1,5 +1,6 @@
 import type { RowData } from '@tanstack/react-table'
 import { CellEditor } from './CellEditor'
+import { resolveCellOverflow } from '../cellOverflow'
 import { CopyCell, clickToCopyEnabled } from './CopyCell'
 import { getCellLayoutProps } from './HeaderCell'
 import { DISPLAY_COLUMN_IDS, rendersOnGroupedRow } from '../displayColumnIds'
@@ -104,6 +105,7 @@ export function BodyCell<TData extends RowData>({
   const edges = cellSelectionEnabled ? cell.getSelectionEdges() : undefined
 
   const userProps = options.cellProps?.({ table, row, cell, column })
+  const overflow = resolveCellOverflow(table, column)
 
   const canActivateEditor =
     !!options.enableEditing && options.editMode === 'cell' && !editing && !isGrouped && !isAggregated
@@ -133,12 +135,20 @@ export function BodyCell<TData extends RowData>({
         // only the edge it was lifted to.
         ...(record?.pinStart ? ({ '--rtc-pin-start': record.pinStart } as React.CSSProperties) : {}),
         ...(record?.pinEnd ? ({ '--rtc-pin-end': record.pinEnd } as React.CSSProperties) : {}),
+        ...(overflow.overflow === 'clamp'
+          ? ({ '--rtc-cell-max-lines': overflow.maxLines } as React.CSSProperties)
+          : {}),
         ...record?.attributes?.style,
         ...userProps?.style,
       }}
       // Stated rather than counted: with the columns virtualized, the cells
       // either side of this one may not be in the DOM at all.
       aria-colindex={columnIndex + 1}
+      // Read by the stylesheet (`truncate` is its default and needs no
+      // attribute) and by `CellOverflowReveal`, which is one listener for the
+      // whole table and learns each cell's mode from here.
+      data-rtc-overflow={overflow.overflow === 'truncate' ? undefined : overflow.overflow}
+      data-rtc-reveal={overflow.reveal === 'none' ? undefined : overflow.reveal}
       // The record's own state, which only a transposed table puts here: its
       // column is this cell and every cell above and below it, so each one has
       // to carry what the upright table states once on the row.

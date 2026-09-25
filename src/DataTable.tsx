@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import type { RowData } from '@tanstack/react-table'
 
 import { getBodyItems } from './components/bodyItems'
+import { CellOverflowReveal } from './components/CellOverflowReveal'
 import { type ColumnWindow, WithColumnVirtualizer } from './components/columnVirtualizer'
 import { defaultComponents } from './components/defaultComponents'
 import { EditRowDialog } from './components/EditRowDialog'
@@ -15,6 +16,7 @@ import { TableHead } from './components/TableHead'
 import { BottomToolbar, TopToolbar } from './components/Toolbar'
 import { TransposedBody } from './components/TransposedBody'
 import { WithTransposedWindows } from './components/transposedVirtualizer'
+import { resolveCellOverflow } from './cellOverflow'
 import { DragProvider, type DropEdge } from './dragContext'
 import { resolveLayoutMode } from './layoutMode'
 import { useStickyPinnedRows } from './pinnedRows'
@@ -63,6 +65,7 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
   const ui = useComponents()
   const options = table.dataTableOptions
   const containerRef = useRef<HTMLDivElement>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
 
   /**
    * Which way round the table is.
@@ -243,6 +246,12 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
 
   const showProgress = !!options.isLoading || !!options.isSaving
 
+  // Mounted when any column can reveal a cut-short value, and not otherwise:
+  // a table that turned it off everywhere carries no listeners for it.
+  const revealsOverflow = table
+    .getVisibleLeafColumns()
+    .some((column) => resolveCellOverflow(table, column).reveal !== 'none')
+
   // Defined once and rendered through however many virtualizers the table
   // asked for: each owns its virtualizer above the container it measures, and
   // a table that does not virtualize builds neither and is handed nulls.
@@ -352,6 +361,7 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
       transposed={transposed}
     >
       <div
+        ref={rootRef}
         className={cx('rtc-root', options.className, options.classNames?.root)}
         dir={options.direction ?? 'ltr'}
         data-rtc-density={table.ui.density}
@@ -413,6 +423,14 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
             layer either way, and a descendant inherits `cssVars`, the theme
             attribute and the density the table was given. */}
         {filterDrawer ? <DataTableFilterDrawer table={table} /> : null}
+
+        {revealsOverflow ? (
+          <CellOverflowReveal
+            rootRef={rootRef}
+            appearance={options.cellPeekAppearance ?? 'solid'}
+            overscroll={options.cellPeekOverscroll ?? 'latch'}
+          />
+        ) : null}
       </div>
 
       <EditRowDialog table={table} />

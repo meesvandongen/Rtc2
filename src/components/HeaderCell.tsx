@@ -4,6 +4,7 @@ import type { RowData } from '@tanstack/react-table'
 import { ColumnActionsMenu } from './ColumnActionsMenu'
 import { ColumnFilterPopover } from './ColumnFilterPopover'
 import { useComponents } from './registry'
+import { fitColumnToContent } from '../cellOverflow'
 import { isDisplayColumnId } from '../displayColumns'
 import { useDrag } from '../dragContext'
 import { resolveLayoutMode } from '../layoutMode'
@@ -142,6 +143,7 @@ export function HeaderCell<TData extends RowData>({
   const { localization } = options
   const column = header.column
   const drag = useDrag()
+  const cellRef = useRef<HTMLTableCellElement>(null)
 
   const layout = getCellLayoutProps(table, column, 'head')
   const canSort = (options.enableSorting ?? true) && column.getCanSort()
@@ -221,6 +223,7 @@ export function HeaderCell<TData extends RowData>({
 
   return (
     <th
+      ref={cellRef}
       {...layout}
       {...userProps}
       className={cx(layout.className, userProps?.className)}
@@ -286,7 +289,9 @@ export function HeaderCell<TData extends RowData>({
           <span className="rtc-th-spacer" />
 
           {showFilter ? <ColumnFilterPopover table={table} column={column as never} /> : null}
-          {showActions ? <ColumnActionsMenu table={table} column={column as never} /> : null}
+          {showActions ? (
+            <ColumnActionsMenu table={table} column={column as never} cellRef={cellRef} />
+          ) : null}
         </div>
       )}
 
@@ -334,7 +339,10 @@ function ColumnResizer<TData extends RowData>({
       aria-label={`${localization.resetColumnSize}: ${getColumnLabel(column, localization)}`}
       data-rtc-resizing={column.getIsResizing() ? 'true' : undefined}
       onPointerDown={resizeHandler}
-      onDoubleClick={() => column.resetSize()}
+      // A spreadsheet's double-click on a column edge: fit the column to what
+      // it holds. Resetting to the declared size stays on Enter and in the
+      // column menu.
+      onDoubleClick={(event) => fitColumnToContent(table, column, event.currentTarget)}
       onClick={(event) => event.stopPropagation()}
       onKeyDown={(event) => {
         if (event.key === 'ArrowLeft') {

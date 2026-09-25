@@ -19,7 +19,8 @@ Each of these has a dedicated story section in the sidebar.
 | Column ordering | `enableColumnOrdering`, `enableColumnDragging` |
 | Column pinning | `enableColumnPinning` — start/end, sticky with an edge border (`--rtc-border-pin`) |
 | Row pinning | `enableRowPinning` (bool or predicate) — pin/unpin from each row's overflow menu, `rowPinningDisplayMode` (`sticky`, which keeps a row in the order and docks it at whichever edge it would leave, \| `top` \| `bottom` \| `top-and-bottom`, which lift rows into a section), `keepPinnedRows`¹ — a pinned row survives the filter or page that drops it |
-| Column resizing | `enableColumnResizing`, `columnResizeMode`, `columnResizeDirection`, keyboard-operable grips |
+| Column resizing | `enableColumnResizing`, `columnResizeMode`, `columnResizeDirection`, keyboard-operable grips, double-click a grip or "Fit to content" in the column menu to fit a column to its values |
+| Long values | `cellOverflow` (`truncate` \| `wrap` \| `clamp`), `cellMaxLines`, `cellOverflowReveal` (`peek`¹ \| `peek-wheel` \| `peek-native` \| `peek-scroll` \| `title` \| `none`), `cellPeekAppearance` and `cellPeekOverscroll` (experimental), each overridable per column in `meta` — see [Long values](#long-values) |
 | Grouping | `enableGrouping`, `enableGroupingChips` (drag-to-group), `groupedColumnMode` |
 | Aggregation | `enableAggregation`¹, per-column `aggregationFn` + `aggregatedCell` |
 | Expanding | `enableExpanding`, `enableExpandAll`¹, `getRowCanExpand`, `paginateExpandedRows`¹, `renderDetailPanel` |
@@ -37,6 +38,57 @@ Each of these has a dedicated story section in the sidebar.
 | Escape hatches | `components`, `classNames`, `cssVars`, `tableProps`, `containerProps`, `rowProps`, `cellProps`, `headCellProps`, `renderCaption` |
 
 ¹ on by default; everything else is opt-in.
+
+## Long values
+
+A body cell never lets its data size its column: a value wider than the column
+is cut with an ellipsis, so rows keep one height and columns keep their width
+from page to page. What changes is what the reader can do about the part that
+was cut.
+
+- **Read it where it is.** A cut-short cell *peeks* by default: rest the
+  pointer on it, or reach it with the keyboard under `enableCellSelection`, and
+  it opens out over its neighbours showing the whole value — laid exactly over
+  the cell, so the text reads as carrying on past the edge. Only cells that are
+  actually cut do this; a value that fits never repeats itself in a tooltip.
+  The peek takes no clicks and is hidden from assistive technology, which
+  already hears the whole value: truncation is visual only.
+  What does not fit the peek's own 320px is cut, since a peek that ignores the
+  pointer has nothing to scroll with. `cellOverflowReveal: 'peek-wheel'` keeps
+  it click-through but lets the wheel scroll it while the pointer stays on its
+  own cell. What the wheel does at the end of the value is
+  `cellPeekOverscroll` (experimental): `latch`, the default, keeps a flick
+  that started in the peek in the peek, momentum and all, and gives the next
+  one to the table; `contain` never passes it on; `chain` lets the rest of the
+  flick carry on into the table. A peek only takes the wheel once the pointer
+  has moved since the table last scrolled, so pausing on a long note while
+  scrolling the table doesn't catch the next flick.
+  `cellOverflowReveal: 'peek-native'` is the same peek with the browser doing
+  the scrolling: an invisible scroll container laid over the peeked cell
+  takes the wheel, and the peek follows it, so momentum, latching and
+  `overscroll-behavior` are the browser's own.
+  `cellOverflowReveal: 'peek-scroll'` is
+  the variant for values that run to paragraphs: it takes the pointer, so it
+  stays open while you move onto it, scrolls without scrolling the table, and
+  its text can be selected. While open it covers what it overlaps, so a plain
+  click on it closes it and goes through to the cell underneath. Set it on the
+  column that needs it rather than the table.
+  `cellPeekAppearance` — experimental — chooses how a peek is drawn: `solid`,
+  `outlined` (the cell ringed, the overflow tinted) or `glass` (the overflow
+  translucent over a blur).
+  `cellOverflowReveal: 'title'` uses the browser's own tooltip instead, and
+  `'none'` leaves the value cut.
+- **Give it more lines.** `meta.cellOverflow: 'clamp'` shows `cellMaxLines`
+  lines and truncates the last; `'wrap'` shows everything. Both belong on the
+  column that holds prose, not on the table: one wrapping column is a readable
+  table, every column wrapping is a wall of text.
+- **Give it more room.** With `enableColumnResizing`, double-click a column's
+  grip — as in a spreadsheet — or choose "Fit to content" from its menu. The
+  column is fitted to the rows that are mounted, and to its header, within its
+  `minSize` and `maxSize`. Enter on a focused grip still resets the column.
+
+The [Long values stories](?path=/story/datatable-19-long-values--playground)
+show every combination over the same rows.
 
 ## Chrome that removes itself
 
