@@ -98,6 +98,16 @@ const overflowArgTypes = {
     description: 'Double-click a column edge, or use the column menu, to fit it to its content.',
     table: { category: 'Columns' },
   },
+  enableEditing: {
+    control: 'boolean',
+    description: 'With `editMode: "cell"`, double-click a cell to edit it — through a peek too.',
+    table: { category: 'Editing' },
+  },
+  editMode: {
+    control: 'inline-radio',
+    options: ['cell', 'row', 'table', 'modal'],
+    table: { category: 'Editing' },
+  },
 } as const
 
 const meta: Meta = {
@@ -121,6 +131,8 @@ export const Playground: Story = {
     cellMaxLines: 2,
     cellOverflowReveal: 'peek',
     enableColumnResizing: true,
+    enableEditing: false,
+    editMode: 'cell',
   },
   render: (args) => (
     <DataTable

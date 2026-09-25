@@ -70,7 +70,8 @@ function rowBackground(cell: HTMLElement): string | null {
  * scroll inside it is the reader using it rather than moving on. A plain click
  * — one that selected nothing — closes it and is passed to whatever the copy
  * was covering, so click-to-copy and click-to-select still answer the click
- * the reader aimed at them.
+ * the reader aimed at them. A double-click needs no help: its second click
+ * lands on the cell itself, which is where the browser sends it.
  *
  * `title` is the lightweight alternative: the browser's own tooltip, set on the
  * value just before the browser would look for it, and only when the value is

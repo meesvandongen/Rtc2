@@ -129,6 +129,22 @@ test.describe('long values', () => {
     await expect(peek).toBeHidden()
   })
 
+  test('a double-click through it still opens the cell editor', async ({ page }) => {
+    const root = await openStory(
+      page,
+      'datatable-19-long-values--playground&args=cellOverflowReveal:peek-scroll;enableEditing:!true',
+    )
+    const title = cell(root, 'title')
+    await expect(title).toHaveAttribute('data-rtc-reveal', 'peek-scroll')
+    await title.hover()
+    await expect(root.locator('.rtc-cell-peek')).toBeVisible()
+
+    const box = (await title.boundingBox())!
+    await page.mouse.dblclick(box.x + 30, box.y + box.height / 2)
+
+    await expect(title.locator('input')).toBeFocused()
+  })
+
   test('a value that fits never peeks', async ({ page }) => {
     const root = await openStory(page, 'datatable-19-long-values--playground')
     const amount = cell(root, 'amount')
