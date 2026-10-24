@@ -35,11 +35,11 @@ export default defineConfig({
     },
   ],
 
-  // Tests run against the built Storybook. `vite preview` is used rather than
+  // Tests run against the built Storybook. `vp preview` is used rather than
   // `storybook dev` so the suite exercises the same bundle CI publishes, and so
   // MSW's worker script is served from the site root where it registers.
   webServer: {
-    command: `pnpm exec vite preview --outDir storybook-static --port ${PORT} --strictPort --host 127.0.0.1`,
+    command: `pnpm exec vp preview --outDir storybook-static --port ${PORT} --strictPort --host 127.0.0.1`,
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
