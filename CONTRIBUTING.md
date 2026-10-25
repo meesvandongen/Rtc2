@@ -7,18 +7,19 @@ it up automatically).
 pnpm install
 pnpm run storybook        # http://localhost:6006
 pnpm run typecheck
-pnpm run build:lib        # dist/index.js + dist/style.css + dist/index.d.ts
+pnpm run lint             # vp lint (Oxlint)
+pnpm run build:lib        # vp pack → dist/index.js + dist/index.css + dist/index.d.ts
 pnpm run build:storybook  # → storybook-static/
 pnpm run test:e2e         # Playwright, against the built Storybook
 ```
 
-`pnpm install` will ask to approve build scripts the first time. `esbuild` is
-on the approved list because Storybook's core needs its postinstall to link a
-platform binary; without it `build:storybook` fails.
+pnpm only runs the dependency build scripts listed under `allowBuilds` in
+`pnpm-workspace.yaml`. `esbuild` is on that list because Storybook's core needs
+its postinstall to link a platform binary; without it `build:storybook` fails.
 
 ## Tests
 
-The Playwright suite drives the real Storybook build: it starts `vite preview`
+The Playwright suite drives the real Storybook build: it starts `vp preview`
 over `storybook-static/`, so run `pnpm run build:storybook` first. The
 remote-pagination specs intercept `/api/people` with Mock Service Worker.
 
@@ -73,12 +74,13 @@ npm. See [`.changeset/README.md`](.changeset/README.md) for which bump to pick.
 
 ## Build toolchain
 
-The library is bundled by [tsdown](https://tsdown.dev), which runs on
-**rolldown** and emits declarations through `rolldown-plugin-dts`; CSS goes
-through **lightningcss** via `@tsdown/css`. Storybook builds on Vite 8, which
-is also rolldown-backed. No rollup anywhere; the only remaining esbuild is
-Storybook core's own internal dependency, which cannot be removed without
-dropping Storybook.
+The toolchain is [Vite+](https://viteplus.dev) (`vite-plus`, CLI `vp`), configured
+in `vite.config.ts`. The library is bundled by `vp pack`, which runs
+[tsdown](https://tsdown.dev) on **rolldown** and emits declarations through
+`rolldown-plugin-dts`; CSS goes through **lightningcss**, bundled into Vite+.
+Storybook builds on the Vite+ core (Vite 8), which is also rolldown-backed. No
+rollup anywhere; the only remaining esbuild is Storybook core's own internal
+dependency, which cannot be removed without dropping Storybook.
 
 Two things about the output worth knowing:
 
@@ -102,7 +104,7 @@ Storybook is published to Cloudflare Pages at
 | --- | --- |
 | Build command | `pnpm run build:storybook` |
 | Output directory | `storybook-static` |
-| Node version | from `.nvmrc` (22) |
+| Node version | from `.nvmrc` (24) |
 
 ## Layout
 
@@ -130,5 +132,5 @@ stories/               one file per feature area
 stories/docs/          the prose documentation, as Storybook MDX pages
 e2e/                   Playwright specs
 scripts/               screenshot generation for the README
-tsdown.config.ts       library build (rolldown + lightningcss)
+vite.config.ts         Vite+ config: library build (`pack`), lint, fmt
 ```
