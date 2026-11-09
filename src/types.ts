@@ -145,7 +145,8 @@ export type DataTableCellOverflow = 'truncate' | 'wrap' | 'clamp'
  * - `peek` — the cell opens out over its neighbours, showing the whole value
  *   in place, on hover and on keyboard focus. Once open it is one area: the
  *   pointer can move anywhere on it, its text can be selected, and a value
- *   taller than it scrolls natively, with `overscroll-behavior: auto`. While
+ *   taller than it scrolls natively; past its end the wheel goes on to what
+ *   the cell would have scrolled — the table, then the page. While
  *   it is open it covers the cells beneath it; a plain click on it closes it
  *   and goes through to what is underneath.
  * - `title` — the browser's own tooltip, via a `title` set on demand.

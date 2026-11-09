@@ -2143,10 +2143,9 @@
  * painted with it alone would let the next cell show through.
  *
  * Once open it is one area the reader can use: it takes the pointer, its text
- * can be selected, and a value taller than it scrolls. Natively, with
- * `overscroll-behavior: auto` — the wheel keeps the browser's momentum and
- * stays with the peek until the pointer moves or the wheel rests, and only
- * then goes on to what is behind it. */
+ * can be selected, and a value taller than it scrolls, natively. What the
+ * wheel does past its end is `CellOverflowReveal`'s: from the top layer the
+ * browser would hand it to the page, never to the table's own scroller. */
 .rtc-cell-peek {
   display: none;
   position: fixed;

@@ -52,9 +52,11 @@ was cut.
   the cell, so the text reads as carrying on past the edge. Only cells that are
   actually cut do this; a value that fits never repeats itself in a tooltip.
   Once open, the peek is one area: the pointer can move anywhere on it, its
-  text can be selected, and a value taller than its 320px scrolls — natively,
-  with `overscroll-behavior: auto`, so the wheel stays with the peek until the
-  pointer moves or the wheel rests and then goes on to the page. While it is
+  text can be selected, and a value taller than its 320px scrolls natively.
+  Past its end the wheel goes on to whatever the cell would have scrolled —
+  the table's own scroll area, then the page — by the browser's rule for
+  nested boxes: a flick that was scrolling the note stays with it, momentum
+  and all, until the pointer moves or the wheel rests. While it is
   open it covers the cells beneath it; a plain click on it closes it and goes
   through to whatever was underneath, so clicking a row still selects it and a
   copy button still copies. It never opens under a pointer the table has just

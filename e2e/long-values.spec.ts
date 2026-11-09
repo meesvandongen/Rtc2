@@ -106,6 +106,67 @@ test.describe('long values', () => {
     await expect(peek).toBeHidden()
   })
 
+  test('a wheel over a peek with nothing more to show scrolls the table', async ({ page }) => {
+    // The table scrolls in its own box here, and the peek — in the top layer —
+    // would hand its overscroll to the page, or nowhere, but never to the table.
+    await page.setViewportSize({ width: 1280, height: 720 })
+    const root = await openStory(page, 'datatable-19-long-values--wrap-with-virtualization')
+    const notes = root.locator('td[data-rtc-column-id="notes"]').first()
+    const peek = root.locator('.rtc-cell-peek')
+    await notes.hover()
+    await expect(peek).toBeVisible()
+    expect(await peek.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(false)
+
+    const container = root.locator('.rtc-container')
+    const pageScroll = await page.evaluate(() => window.scrollY)
+    await page.mouse.wheel(0, 120)
+    await expect.poll(() => scrollTop(container)).toBeGreaterThan(0)
+    await expect(peek).toBeHidden()
+    expect(await page.evaluate(() => window.scrollY)).toBe(pageScroll)
+  })
+
+  test('past the end of the note, a fresh turn of the wheel scrolls the table', async ({ page }) => {
+    const { table, peek } = await openLongNote(page, 1)
+    await peek.evaluate((element) => (element.scrollTop = element.scrollHeight))
+    const container = table.locator('.rtc-container')
+    await page.mouse.wheel(0, 120)
+    await expect.poll(() => scrollTop(container)).toBeGreaterThan(0)
+    await expect(peek).toBeHidden()
+  })
+
+  test('past the end of the note, in a table in the page, it scrolls the page', async ({ page }) => {
+    const { peek } = await openLongNote(page, 0)
+    await peek.evaluate((element) => (element.scrollTop = element.scrollHeight))
+    const pageScroll = await page.evaluate(() => window.scrollY)
+    await page.mouse.wheel(0, 120)
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(pageScroll)
+    await expect(peek).toBeHidden()
+  })
+
+  test('a flick that was scrolling the note stays with it at the end, until the pointer moves', async ({ page }) => {
+    const { table, peek } = await openLongNote(page, 1)
+    const container = table.locator('.rtc-container')
+    const box = (await peek.boundingBox())!
+    await page.mouse.move(box.x + box.width / 2, box.y + 30)
+
+    // One flick, momentum and all: far more than the note has to give.
+    for (let index = 0; index < 10; index++) {
+      await page.mouse.wheel(0, 150)
+      await page.waitForTimeout(16)
+    }
+    await expect(peek).toBeVisible()
+    expect(
+      await peek.evaluate((element) => element.scrollTop + element.clientHeight >= element.scrollHeight - 1),
+    ).toBe(true)
+    expect(await scrollTop(container)).toBe(0)
+
+    // The pointer moving ends it; the next turn goes on to the table.
+    await page.waitForTimeout(150)
+    await page.mouse.move(box.x + box.width / 2 + 6, box.y + 32, { steps: 2 })
+    await page.mouse.wheel(0, 120)
+    await expect.poll(() => scrollTop(container)).toBeGreaterThan(0)
+  })
+
   test('its text can be selected without closing it', async ({ page }) => {
     const { peek } = await openLongNote(page, 0)
     const box = (await peek.boundingBox())!

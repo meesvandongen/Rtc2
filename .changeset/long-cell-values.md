@@ -12,7 +12,8 @@ of the value is no longer out of reach:
   with the keyboard under `enableCellSelection`, and it opens out over its
   neighbours showing the whole value in place. Only cells that are actually cut
   do this. Once open, the peek is one area you can move across, select text in,
-  and scroll natively when the value is taller than it; a plain click on it
+  and scroll natively when the value is taller than it; past its end the wheel
+  goes on to the table's own scroll area, then the page. A plain click on it
   closes it and goes through to what it covers. It is `aria-hidden` — the
   cell's own text was always the whole value to assistive technology. This is
   the new default; `cellOverflowReveal: 'title'` uses the browser tooltip

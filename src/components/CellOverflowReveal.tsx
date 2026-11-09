@@ -23,11 +23,51 @@ const AUTO_TITLE = 'data-rtc-auto-title'
 /** Longest a double-click can take, for following one through the peek. */
 const DOUBLE_CLICK_MS = 600
 
+/**
+ * When a run of wheel events that was scrolling the peek ends: after this long
+ * without one, or once the pointer moves — though not within `WHEEL_MOVE_GRACE_MS`
+ * of a wheel event, which a hand on a mouse jogs. Firefox's own numbers
+ * (`mousewheel.transaction.timeout` and `.ignoremovedelay`).
+ */
+const WHEEL_REST_MS = 1500
+const WHEEL_MOVE_GRACE_MS = 100
+/** A line of a line-based wheel, in pixels, for passing it on to a scroller. */
+const WHEEL_LINE_PX = 20
+
 /** Controls inside the copy: reachable by the pointer, but not stops for the Tab key. */
 const FOCUSABLE = 'a[href], button, input, select, textarea, [tabindex]'
 
 function revealMode(cell: HTMLElement): string | undefined {
   return cell.dataset.rtcReveal
+}
+
+/** Whether `element` can scroll by (`dx`, `dy`) at all — not only in principle, but from where it is now. */
+function canScroll(element: Element, dx: number, dy: number): boolean {
+  const style = getComputedStyle(element)
+  const scrolls = (overflow: string) => overflow === 'auto' || overflow === 'scroll' || overflow === 'overlay'
+  const root = element === document.scrollingElement
+  if (dy && (root || scrolls(style.overflowY))) {
+    const max = element.scrollHeight - element.clientHeight
+    if (dy < 0 ? element.scrollTop > 0 : element.scrollTop < max - 1) return true
+  }
+  if (dx && (root || scrolls(style.overflowX))) {
+    const max = element.scrollWidth - element.clientWidth
+    if (dx < 0 ? element.scrollLeft > 0 : element.scrollLeft < max - 1) return true
+  }
+  return false
+}
+
+/**
+ * What a wheel over `cell` would scroll: the nearest box around it that can
+ * still move that way, as the browser would chain to — the table's own
+ * scroller, then the page.
+ */
+function scrollerFor(cell: Element, dx: number, dy: number): Element | null {
+  for (let element = cell.parentElement; element; element = element.parentElement) {
+    if (canScroll(element, dx, dy)) return element
+  }
+  const page = document.scrollingElement
+  return page && canScroll(page, dx, dy) ? page : null
 }
 
 /** The first colour that is not fully transparent, walking from the cell up to its row. */
@@ -74,6 +114,16 @@ function rowBackground(cell: HTMLElement): string | null {
  * column or an ancestor's `overflow` cannot cover or clip it, while staying a
  * DOM descendant of the root so it still inherits the theme.
  *
+ * Which is also why the end of its scroll is the table's to handle. A box in
+ * the top layer hands its overscroll to the page — or, in some builds, to
+ * nothing — and never to the table's own scroller, so in a table with a
+ * `height` a wheel over a peek with nothing left to show would scroll nothing.
+ * Inside the peek the scroll stays native; past its end, the wheel is passed to
+ * what the cell would have scrolled, by the browser's own rule for nested
+ * boxes: a run of wheel events that was scrolling the note stays with the note,
+ * momentum and all, until the pointer moves or the wheel rests, and it is the
+ * next one that goes on to the table.
+ *
  * A peek opens only where the pointer was put. Scrolling the table slides cells
  * under a pointer that is resting still, and opening a peek there would catch
  * the reader's next turn of the wheel; so after a scroll, nothing opens until
@@ -119,6 +169,9 @@ export function CellOverflowReveal({
     // Where the last click through the peek was passed, so the double-click it
     // turns out to be half of can follow it.
     let passedThrough: { element: HTMLElement; at: number } | null = null
+    // The run of wheel events in progress over the peek, and whether it has
+    // been scrolling the note — in which case its end stays with the note.
+    let wheelRun: { onNote: boolean; lastAt: number } | null = null
 
     const observer = new MutationObserver((records) => {
       // The peek is inside the root too, and drawing it is a mutation.
@@ -153,6 +206,7 @@ export function CellOverflowReveal({
       cancel()
       if (!shown) return
       shown = null
+      wheelRun = null
       drawnFrom = null
       observer.disconnect()
       peek.removeAttribute('data-rtc-open')
@@ -342,7 +396,37 @@ export function CellOverflowReveal({
       hide()
       closedAt = performance.now()
     }
+    const onWheel = (event: WheelEvent) => {
+      if (!shown || !inPeek(event.target)) return
+      const now = performance.now()
+      const unit =
+        event.deltaMode === WheelEvent.DOM_DELTA_LINE
+          ? WHEEL_LINE_PX
+          : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+            ? peek.clientHeight
+            : 1
+      const [dx, dy] = [event.deltaX * unit, event.deltaY * unit]
+      const onNote = canScroll(peek, dx, dy)
+      if (!wheelRun || now - wheelRun.lastAt > WHEEL_REST_MS) wheelRun = { onNote, lastAt: now }
+      wheelRun.lastAt = now
+      if (onNote) {
+        // The browser's, natively.
+        wheelRun.onNote = true
+        return
+      }
+      // Past the end of the note: never the browser's to chain on, which from
+      // the top layer would be the page or nothing.
+      event.preventDefault()
+      if (wheelRun.onNote) return
+      scrollerFor(shown, dx, dy)?.scrollBy({ left: dx, top: dy })
+    }
     const onPointerMove = (event: PointerEvent) => {
+      // A pointer that moves ends a run of wheel events, as in the browser —
+      // though not the jog a hand on a mouse gives it as the wheel turns.
+      if (wheelRun && performance.now() - wheelRun.lastAt > WHEEL_MOVE_GRACE_MS) {
+        const moved = event.clientX !== pointer.x || event.clientY !== pointer.y
+        if (moved) wheelRun = null
+      }
       pointer = { x: event.clientX, y: event.clientY }
       // Real movement only: a browser re-hovering whatever a scroll slid under
       // a still pointer reports a move to where the pointer already was.
@@ -416,6 +500,8 @@ export function CellOverflowReveal({
     root.addEventListener('click', onClick)
     root.addEventListener('dblclick', onDoubleClick)
     root.addEventListener('keydown', onKeyDown)
+    // Not passive: past the end of the note the wheel is kept from the browser.
+    root.addEventListener('wheel', onWheel, { passive: false })
     window.addEventListener('scroll', onScroll, true)
     window.addEventListener('resize', hide)
 
@@ -431,6 +517,7 @@ export function CellOverflowReveal({
       root.removeEventListener('click', onClick)
       root.removeEventListener('dblclick', onDoubleClick)
       root.removeEventListener('keydown', onKeyDown)
+      root.removeEventListener('wheel', onWheel)
       window.removeEventListener('scroll', onScroll, true)
       window.removeEventListener('resize', hide)
     }
