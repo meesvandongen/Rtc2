@@ -20,6 +20,9 @@ const VIEWPORT_MARGIN = 8
 /** Marks a `title` this component set, so it never removes one the cell came with. */
 const AUTO_TITLE = 'data-rtc-auto-title'
 
+/** Longest a double-click can take, for following one through the peek. */
+const DOUBLE_CLICK_MS = 600
+
 /** Controls inside the copy: reachable by the pointer, but not stops for the Tab key. */
 const FOCUSABLE = 'a[href], button, input, select, textarea, [tabindex]'
 
@@ -62,8 +65,10 @@ function rowBackground(cell: HTMLElement): string | null {
  * the browser's own momentum, latching and `overscroll-behavior: auto`. A
  * plain click on it — one that selected nothing — closes it and is passed to
  * whatever it was covering, so click-to-copy and click-to-select still answer
- * the click the reader aimed at them; a double-click needs no help, because
- * its second click lands on the cell itself.
+ * the click the reader aimed at them. A double-click follows it there too: its
+ * second click lands on the cell itself, but the first landed on the peek, and
+ * a browser may send the double-click to what the two have in common — which
+ * is not the cell, so an editor opened on double-click would never hear it.
  *
  * It lives in the top layer (`popover="manual"`) so a sticky header, a pinned
  * column or an ancestor's `overflow` cannot cover or clip it, while staying a
@@ -111,6 +116,9 @@ export function CellOverflowReveal({
     let aimed = true
     let pointer = { x: Number.NaN, y: Number.NaN }
     let pointerAtScroll = pointer
+    // Where the last click through the peek was passed, so the double-click it
+    // turns out to be half of can follow it.
+    let passedThrough: { element: HTMLElement; at: number } | null = null
 
     const observer = new MutationObserver((records) => {
       // The peek is inside the root too, and drawing it is a mutation.
@@ -362,7 +370,30 @@ export function CellOverflowReveal({
       if (selection && !selection.isCollapsed && inPeek(selection.anchorNode)) return
       dismiss()
       const underneath = document.elementFromPoint(event.clientX, event.clientY)
-      if (underneath instanceof HTMLElement && root.contains(underneath)) underneath.click()
+      if (underneath instanceof HTMLElement && root.contains(underneath)) {
+        passedThrough = { element: underneath, at: performance.now() }
+        underneath.click()
+      }
+    }
+    const onDoubleClick = (event: MouseEvent) => {
+      const previous = passedThrough
+      passedThrough = null
+      if (!previous || performance.now() - previous.at > DOUBLE_CLICK_MS) return
+      if (!previous.element.isConnected) return
+      // Delivered into the cell already, where the cell's own handlers hear it.
+      const cell = previous.element.closest('.rtc-td') ?? previous.element
+      if (event.target instanceof Node && cell.contains(event.target)) return
+      previous.element.dispatchEvent(
+        new MouseEvent('dblclick', {
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+          view: window,
+          detail: 2,
+          clientX: event.clientX,
+          clientY: event.clientY,
+        }),
+      )
     }
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') dismiss()
@@ -383,6 +414,7 @@ export function CellOverflowReveal({
     root.addEventListener('focusout', onFocusOut)
     root.addEventListener('pointerdown', onPointerDown)
     root.addEventListener('click', onClick)
+    root.addEventListener('dblclick', onDoubleClick)
     root.addEventListener('keydown', onKeyDown)
     window.addEventListener('scroll', onScroll, true)
     window.addEventListener('resize', hide)
@@ -397,6 +429,7 @@ export function CellOverflowReveal({
       root.removeEventListener('focusout', onFocusOut)
       root.removeEventListener('pointerdown', onPointerDown)
       root.removeEventListener('click', onClick)
+      root.removeEventListener('dblclick', onDoubleClick)
       root.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('scroll', onScroll, true)
       window.removeEventListener('resize', hide)

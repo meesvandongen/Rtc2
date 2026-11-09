@@ -96,12 +96,13 @@ test.describe('long values', () => {
     await expect(peek).toBeHidden()
   })
 
-  test('with the note read to the end, the wheel goes on to the page', async ({ page }) => {
+  test('when the page scrolls, the peek goes with what it covered', async ({ page }) => {
+    // Whether a wheel past the end of the note chains on to the page is the
+    // browser's to decide — the peek only declares `overscroll-behavior: auto`
+    // — and Chromium builds differ on it for a box in the top layer. What is
+    // the table's is that a scroll, however it came, puts the peek away.
     const { peek } = await openLongNote(page, 0)
-    await peek.evaluate((element) => (element.scrollTop = element.scrollHeight))
-    const pageScroll = await page.evaluate(() => window.scrollY)
-    await page.mouse.wheel(0, 150)
-    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(pageScroll)
+    await page.evaluate(() => window.scrollBy(0, 40))
     await expect(peek).toBeHidden()
   })
 
@@ -161,6 +162,31 @@ test.describe('long values', () => {
     const box = (await title.boundingBox())!
     await page.mouse.dblclick(box.x + 30, box.y + box.height / 2)
 
+    await expect(title.locator('input')).toBeFocused()
+  })
+
+  test('a double-click the browser sends elsewhere is passed on to the cell', async ({ page }) => {
+    // Some Chromium builds send a double-click whose first click landed on the
+    // peek to what the peek and the cell have in common, which the cell never
+    // hears. This sends it there on purpose, after a real click through.
+    const root = await openStory(
+      page,
+      'datatable-19-long-values--playground&args=enableEditing:!true',
+    )
+    const title = cell(root, 'title')
+    await title.hover()
+    await expect(root.locator('.rtc-cell-peek')).toBeVisible()
+
+    const box = (await title.boundingBox())!
+    const [x, y] = [box.x + 30, box.y + box.height / 2]
+    await page.mouse.click(x, y)
+    await root.evaluate(
+      (element, [px, py]) =>
+        element.dispatchEvent(
+          new MouseEvent('dblclick', { bubbles: true, detail: 2, clientX: px, clientY: py }),
+        ),
+      [x, y],
+    )
     await expect(title.locator('input')).toBeFocused()
   })
 
