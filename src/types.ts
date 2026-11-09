@@ -143,69 +143,15 @@ export type DataTableCellOverflow = 'truncate' | 'wrap' | 'clamp'
  * fits never gets a tooltip that repeats it.
  *
  * - `peek` — the cell opens out over its neighbours, showing the whole value
- *   in place, on hover and on keyboard focus. It is a picture of the value:
- *   it takes no pointer events, so it never stands between the reader and a
- *   cell, and what does not fit its maximum height is cut.
- * - `peek-wheel` — the plain peek, still a picture that takes no pointer
- *   events, but a value taller than it scrolls with the wheel while the
- *   pointer stays on its own cell. The cells around it are hovered and
- *   clicked as if it were not there; at the end of the value the wheel goes
- *   back to scrolling the table.
- * - `peek-native` — `peek-wheel` with the browser doing the scrolling. While
- *   the peek has more to show, an invisible scroll container the size of the
- *   cell sits inside it, and the peek follows that container's scroll. So the
- *   wheel gets the browser's own momentum, latching and `overscroll-behavior`,
- *   and hands over to the table's own scroll container when it is done. The
- *   cell underneath still hears its clicks through its own `<td>`; a control
- *   inside it, such as the click-to-copy button, is passed the click.
- * - `peek-scroll` — the same, but it can be pointed at: it scrolls when the
- *   value is taller than it, and its text can be selected. The price is that
- *   while it is open it covers the cell and whatever it overlaps; a plain
- *   click on it closes it and goes through to what is underneath. For the
- *   column whose values run to paragraphs.
+ *   in place, on hover and on keyboard focus. Once open it is one area: the
+ *   pointer can move anywhere on it, its text can be selected, and a value
+ *   taller than it scrolls natively, with `overscroll-behavior: auto`. While
+ *   it is open it covers the cells beneath it; a plain click on it closes it
+ *   and goes through to what is underneath.
  * - `title` — the browser's own tooltip, via a `title` set on demand.
  * - `none` — the value stays cut.
  */
-export type DataTableCellOverflowReveal =
-  | 'peek'
-  | 'peek-wheel'
-  | 'peek-native'
-  | 'peek-scroll'
-  | 'title'
-  | 'none'
-
-/**
- * How a peek is drawn. Experimental: one of these is meant to become the only
- * look, and the option to go with the others.
- *
- * - `solid` — one opaque surface in the row's colour, with a border and a
- *   shadow. Where the cell ends and the overflow begins is not marked.
- * - `outlined` — the cell's own bounds ringed in the accent colour, and the
- *   part beyond them on the sunken surface, so it reads as an extension.
- * - `glass` — the cell's own bounds opaque, and the part beyond them
- *   translucent over a blur, so the cells underneath stay in view.
- */
-export type DataTableCellPeekAppearance = 'solid' | 'outlined' | 'glass'
-
-/**
- * What the wheel does once a scrolling peek has reached the end of its value.
- * Experimental, like `DataTableCellPeekAppearance`: one is meant to stay.
- *
- * - `chain` — the rest of the wheel goes to the table, momentum included, and
- *   the table scrolling puts the peek away.
- * - `contain` — never passed on while the pointer is on the peeked cell: the
- *   edge is marked instead, and scrolling the table means moving off it.
- * - `latch` — the browser's own rule for nested scrolling: a wheel gesture
- *   that started in the peek stays with the peek until it ends, momentum and
- *   all, and it is the next gesture that scrolls the table.
- *
- * For `peek-wheel` all three are the table's own logic. `peek-native` and
- * `peek-scroll` scroll a real scroll container, which the browser latches
- * itself: `contain` sets `overscroll-behavior: contain` on it, and the other
- * two leave it at `auto` — where a wheel stays with the peek until the pointer
- * moves or the wheel rests, and the next one goes to the table.
- */
-export type DataTableCellPeekOverscroll = 'chain' | 'contain' | 'latch'
+export type DataTableCellOverflowReveal = 'peek' | 'title' | 'none'
 
 export type DataTableColumn<TData extends RowData, TValue = unknown> = ColumnDef<DataTableFeatures, TData, TValue>
 export type DataTableRow<TData extends RowData> = Row<DataTableFeatures, TData>
@@ -604,17 +550,9 @@ export interface DataTableOptions<TData extends RowData> {
    *
    * Nothing is hidden from assistive technology either way: truncation is
    * visual only, and the cell's text is the whole value. The peek itself is
-   * `aria-hidden` and ignores the pointer, so it never takes a click, a hover
-   * or a focus from the cells underneath it.
+   * `aria-hidden`, and holds no stop for the Tab key.
    */
   cellOverflowReveal?: DataTableCellOverflowReveal
-  /** How a peek is drawn. Experimental; defaults to `solid`. See `DataTableCellPeekAppearance`. */
-  cellPeekAppearance?: DataTableCellPeekAppearance
-  /**
-   * What the wheel does at the end of a scrolling peek. Experimental; defaults
-   * to `latch`. See `DataTableCellPeekOverscroll`.
-   */
-  cellPeekOverscroll?: DataTableCellPeekOverscroll
 
   enableColumnVisibility?: boolean
   enableHiding?: boolean

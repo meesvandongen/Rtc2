@@ -20,7 +20,7 @@ Each of these has a dedicated story section in the sidebar.
 | Column pinning | `enableColumnPinning` — start/end, sticky with an edge border (`--rtc-border-pin`) |
 | Row pinning | `enableRowPinning` (bool or predicate) — pin/unpin from each row's overflow menu, `rowPinningDisplayMode` (`sticky`, which keeps a row in the order and docks it at whichever edge it would leave, \| `top` \| `bottom` \| `top-and-bottom`, which lift rows into a section), `keepPinnedRows`¹ — a pinned row survives the filter or page that drops it |
 | Column resizing | `enableColumnResizing`, `columnResizeMode`, `columnResizeDirection`, keyboard-operable grips, double-click a grip or "Fit to content" in the column menu to fit a column to its values |
-| Long values | `cellOverflow` (`truncate` \| `wrap` \| `clamp`), `cellMaxLines`, `cellOverflowReveal` (`peek`¹ \| `peek-wheel` \| `peek-native` \| `peek-scroll` \| `title` \| `none`), `cellPeekAppearance` and `cellPeekOverscroll` (experimental), each overridable per column in `meta` — see [Long values](#long-values) |
+| Long values | `cellOverflow` (`truncate` \| `wrap` \| `clamp`), `cellMaxLines`, `cellOverflowReveal` (`peek`¹ \| `title` \| `none`), each overridable per column in `meta` — see [Long values](#long-values) |
 | Grouping | `enableGrouping`, `enableGroupingChips` (drag-to-group), `groupedColumnMode` |
 | Aggregation | `enableAggregation`¹, per-column `aggregationFn` + `aggregatedCell` |
 | Expanding | `enableExpanding`, `enableExpandAll`¹, `getRowCanExpand`, `paginateExpandedRows`¹, `renderDetailPanel` |
@@ -51,31 +51,16 @@ was cut.
   it opens out over its neighbours showing the whole value — laid exactly over
   the cell, so the text reads as carrying on past the edge. Only cells that are
   actually cut do this; a value that fits never repeats itself in a tooltip.
-  The peek takes no clicks and is hidden from assistive technology, which
-  already hears the whole value: truncation is visual only.
-  What does not fit the peek's own 320px is cut, since a peek that ignores the
-  pointer has nothing to scroll with. `cellOverflowReveal: 'peek-wheel'` keeps
-  it click-through but lets the wheel scroll it while the pointer stays on its
-  own cell. What the wheel does at the end of the value is
-  `cellPeekOverscroll` (experimental): `latch`, the default, keeps a flick
-  that started in the peek in the peek, momentum and all, and gives the next
-  one to the table; `contain` never passes it on; `chain` lets the rest of the
-  flick carry on into the table. A peek only takes the wheel once the pointer
-  has moved since the table last scrolled, so pausing on a long note while
-  scrolling the table doesn't catch the next flick.
-  `cellOverflowReveal: 'peek-native'` is the same peek with the browser doing
-  the scrolling: an invisible scroll container laid over the peeked cell
-  takes the wheel, and the peek follows it, so momentum, latching and
-  `overscroll-behavior` are the browser's own.
-  `cellOverflowReveal: 'peek-scroll'` is
-  the variant for values that run to paragraphs: it takes the pointer, so it
-  stays open while you move onto it, scrolls without scrolling the table, and
-  its text can be selected. While open it covers what it overlaps, so a plain
-  click on it closes it and goes through to the cell underneath. Set it on the
-  column that needs it rather than the table.
-  `cellPeekAppearance` — experimental — chooses how a peek is drawn: `solid`,
-  `outlined` (the cell ringed, the overflow tinted) or `glass` (the overflow
-  translucent over a blur).
+  Once open, the peek is one area: the pointer can move anywhere on it, its
+  text can be selected, and a value taller than its 320px scrolls — natively,
+  with `overscroll-behavior: auto`, so the wheel stays with the peek until the
+  pointer moves or the wheel rests and then goes on to the page. While it is
+  open it covers the cells beneath it; a plain click on it closes it and goes
+  through to whatever was underneath, so clicking a row still selects it and a
+  copy button still copies. It never opens under a pointer the table has just
+  scrolled cells beneath: only once the pointer moves. It is hidden from
+  assistive technology, which already hears the whole value: truncation is
+  visual only.
   `cellOverflowReveal: 'title'` uses the browser's own tooltip instead, and
   `'none'` leaves the value cut.
 - **Give it more lines.** `meta.cellOverflow: 'clamp'` shows `cellMaxLines`

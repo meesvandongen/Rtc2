@@ -3,11 +3,8 @@ import type { Meta, StoryObj } from '@storybook/react-vite'
 import {
   createDataTableColumnHelper,
   DataTable,
-  dataTableThemes,
   type DataTableCellOverflow,
   type DataTableCellOverflowReveal,
-  type DataTableCellPeekAppearance,
-  type DataTableCellPeekOverscroll,
 } from '../src'
 import { currency, makePeople } from './fixtures'
 
@@ -91,21 +88,9 @@ const overflowArgTypes = {
   },
   cellOverflowReveal: {
     control: 'inline-radio',
-    options: ['peek', 'peek-wheel', 'peek-native', 'peek-scroll', 'title', 'none'] satisfies DataTableCellOverflowReveal[],
+    options: ['peek', 'title', 'none'] satisfies DataTableCellOverflowReveal[],
     description:
       'How a cut-short cell shows the rest of its value. Per column: `meta.cellOverflowReveal`.',
-    table: { category: 'Long values' },
-  },
-  cellPeekAppearance: {
-    control: 'inline-radio',
-    options: ['solid', 'outlined', 'glass'] satisfies DataTableCellPeekAppearance[],
-    description: 'How a peek is drawn — experimental. `outlined` and `glass` mark the cell\'s own bounds.',
-    table: { category: 'Long values' },
-  },
-  cellPeekOverscroll: {
-    control: 'inline-radio',
-    options: ['chain', 'contain', 'latch'] satisfies DataTableCellPeekOverscroll[],
-    description: 'What the wheel does at the end of a scrolling peek — experimental.',
     table: { category: 'Long values' },
   },
   enableColumnResizing: {
@@ -145,8 +130,6 @@ export const Playground: Story = {
     cellOverflow: 'truncate',
     cellMaxLines: 2,
     cellOverflowReveal: 'peek',
-    cellPeekAppearance: 'solid',
-    cellPeekOverscroll: 'latch',
     enableColumnResizing: true,
     enableEditing: false,
     editMode: 'cell',
@@ -167,7 +150,7 @@ export const Playground: Story = {
 }
 
 /**
- * The six ways a long value can be handled, one table each, over the same
+ * The five ways a long value can be handled, one table each, over the same
  * rows. The first is the table before these options existed.
  */
 export const Comparison: Story = {
@@ -178,7 +161,6 @@ export const Comparison: Story = {
           ['truncate', 'none', 'Before: cut, and no way to read the rest'],
           ['truncate', 'title', "Cut; the browser's own tooltip on hover"],
           ['truncate', 'peek', 'Cut; opens out in place on hover and focus (the default)'],
-          ['truncate', 'peek-scroll', 'Cut; opens out in place, and can be scrolled and selected'],
           ['clamp', 'peek', 'Two lines, then cut; opens out for the rest'],
           ['wrap', 'none', 'Everything, on as many lines as it takes'],
         ] as Array<[DataTableCellOverflow, DataTableCellOverflowReveal, string]>
@@ -238,211 +220,44 @@ const longNotes = tickets.map((ticket, index) => ({
 }))
 
 /**
- * `peek-scroll`: a peek that can be pointed at.
+ * Notes that run to paragraphs, taller than a peek may grow.
  *
- * Values that run to paragraphs outgrow any peek, and a plain `peek` cuts what
- * does not fit its 320px — it takes no pointer events, so there is nothing to
- * scroll it with. `peek-scroll` takes the pointer: move onto it and it stays
- * open, the wheel scrolls it without scrolling the table, and its text can be
- * selected and copied. A plain click on it closes it and goes through to the
- * cell underneath, so clicking a row still selects it.
- *
- * Set on the one column that needs it; the rest of the table keeps the plain
- * `peek`, which never stands in the way of the cells around it.
- *
- * ```tsx
- * helper.accessor('notes', { meta: { cellOverflowReveal: 'peek-scroll' } })
- * ```
+ * Rest on a long note and it opens out; move onto it and it stays open, the
+ * wheel scrolls it, and its text can be selected. Read it to the end and keep
+ * turning the wheel: the browser keeps the wheel with the note until the
+ * pointer moves or the wheel rests, and then hands it on — here, to the page
+ * in the first table, and in the second, whose rows scroll in a 300px box of
+ * their own, see what it reaches. A plain click on the peek closes it and
+ * goes through to whatever is underneath, so clicking a row still selects it,
+ * and the notes in the second table still copy on click. Turn on
+ * `enableEditing` and a double-click still edits.
  */
-export const ScrollablePeek: Story = {
-  render: () => (
-    <DataTable
-      columns={ticketColumns.map((column) =>
-        (column as { accessorKey?: string }).accessorKey === 'notes'
-          ? { ...column, meta: { ...column.meta, cellOverflowReveal: 'peek-scroll' as const } }
-          : column,
-      )}
-      data={longNotes.slice(0, 10)}
-      getRowId={(row) => row.id}
-      enablePagination={false}
-      enableRowSelection
-      enableClickToSelect
-    />
-  ),
-}
-
-/** The notes column set to a reveal mode, over the paragraph-length notes. */
-const withNotesReveal = (cellOverflowReveal: DataTableCellOverflowReveal, enableClickToCopy?: boolean) =>
-  ticketColumns.map((column) =>
-    (column as { accessorKey?: string }).accessorKey === 'notes'
-      ? { ...column, meta: { ...column.meta, cellOverflowReveal, enableClickToCopy } }
-      : column,
-  )
-
-/**
- * The three peeks side by side, over notes too long for any of them.
- *
- * Try the same things on each: rest on a long note, then turn the wheel; move
- * from the note onto the Amount cell beside it; click the note while it is
- * open.
- *
- * | | `peek` | `peek-wheel` | `peek-native` | `peek-scroll` |
- * | --- | --- | --- | --- | --- |
- * | Takes the pointer | no | no | only over its own cell | yes |
- * | Reads past 320px | no — cut | wheel, over its own cell | wheel, over its own cell | wheel or scrollbar, anywhere on it |
- * | Scrolled by | — | the table's code | the browser | the browser |
- * | Neighbours hover and click normally | yes | yes | yes | no, while it covers them |
- * | Text can be selected | no | no | no | yes |
- * | Wheel at the end of the value | `cellPeekOverscroll` | `cellPeekOverscroll` | the browser's `overscroll-behavior` | the browser's `overscroll-behavior` |
- */
-export const PeekInteraction: Story = {
-  render: () => (
-    <>
-      {(
-        [
-          ['peek', 'A picture of the value: nothing can be done with it, and what does not fit is cut'],
-          ['peek-wheel', 'Still a picture, but the wheel scrolls it while the pointer stays on its own cell'],
-          ['peek-native', 'The same, with the browser doing the scrolling through a proxy over the cell'],
-          ['peek-scroll', 'Takes the pointer: scroll or select anywhere on it, at the price of covering its neighbours'],
-        ] as Array<[DataTableCellOverflowReveal, string]>
-      ).map(([reveal, caption]) => (
-        <div key={reveal} style={{ marginBottom: 24 }}>
-          <DataTable
-            columns={withNotesReveal(reveal)}
-            data={longNotes.slice(0, 4)}
-            getRowId={(row) => row.id}
-            enableToolbar={false}
-            enablePagination={false}
-            enableRowSelection
-            enableClickToSelect
-            enableBorders="all"
-            caption={`notes: cellOverflowReveal="${reveal}" — ${caption}`}
-          />
-        </div>
-      ))}
-    </>
-  ),
-}
-
-/**
- * The three looks side by side — experimental, to pick one.
- *
- * `solid` is the peek as it stands: one surface, so the overflow reads as the
- * cell grown larger, and where the cell ended is lost. `outlined` rings the
- * cell's own bounds and tints what lies beyond them. `glass` keeps the cell
- * opaque and makes the overflow translucent over a blur, so the cells it
- * covers stay faintly in view. The marking is a background layer, so it stays
- * put while a `peek-wheel` scrolls — which is what the notes column here uses.
- */
-export const PeekAppearance: Story = {
-  args: { theme: 'default' },
-  argTypes: {
-    theme: {
-      control: 'select',
-      options: ['default', ...Object.keys(dataTableThemes)],
-      description: 'A theme preset, to see each look on a dark surface too (`linear`).',
-      table: { category: 'Appearance' },
-    },
-  },
-  render: (args) => (
-    <>
-      {(
-        [
-          ['solid', 'One surface; the cell\'s own bounds are not marked'],
-          ['outlined', 'The cell ringed in the accent; the overflow tinted as its extension'],
-          ['glass', 'The cell opaque; the overflow translucent over the cells it covers'],
-        ] as Array<[DataTableCellPeekAppearance, string]>
-      ).map(([appearance, caption]) => (
-        <div key={appearance} style={{ marginBottom: 24 }}>
-          <DataTable
-            columns={withNotesReveal('peek-wheel')}
-            data={longNotes.slice(0, 4)}
-            getRowId={(row) => row.id}
-            cellPeekAppearance={appearance}
-            cssVars={
-              args.theme === 'default'
-                ? undefined
-                : dataTableThemes[args.theme as keyof typeof dataTableThemes]
-            }
-            enableToolbar={false}
-            enablePagination={false}
-            enableStripes
-            enableBorders="all"
-            caption={`cellPeekAppearance="${appearance}" — ${caption}`}
-          />
-        </div>
-      ))}
-    </>
-  ),
-}
-
-/**
- * What the wheel does once a `peek-wheel` has been read to the end —
- * experimental, to pick one.
- *
- * Each table here scrolls inside its own 300px, which is the scroll a reader
- * least wants to lose their place in. Rest on a long note and flick the wheel
- * (a trackpad shows it best): the first flick scrolls the note, and what
- * happens when it runs out is the difference.
- *
- * | | at the end, same flick | next flick | to scroll the table |
- * | --- | --- | --- | --- |
- * | `chain` | carries on into the table | table | keep scrolling |
- * | `contain` | stops, edge marked | stops, edge marked | move off the cell |
- * | `latch` | stops, edge marked | table | flick again |
- * | `peek-native`, `auto` | stops | table, once the pointer moves or the wheel rests | move the pointer a little, or wait |
- * | `peek-native`, `contain` | stops | stops | move off the cell |
- *
- * The last two are the browser's rules rather than the table's: `peek-native`
- * scrolls a real scroll container laid over the cell, so they are exactly what
- * the same wheel does in any nested scroll box on the page.
- */
-export const PeekOverscroll: Story = {
+export const LongNotes: Story = {
   args: { enableEditing: false },
-  argTypes: {
-    enableEditing: {
-      control: 'boolean',
-      description: 'Double-click a cell to edit it — through the `peek-native` proxy too.',
-      table: { category: 'Editing' },
-    },
-  },
   render: (args) => (
     <>
-      {(
-        [
-          ['peek-wheel', 'chain', 'The rest of the flick, momentum and all, scrolls the table and closes the peek'],
-          ['peek-wheel', 'contain', 'Never passed on: the edge is marked, and scrolling the table means moving off the cell'],
-          ['peek-wheel', 'latch', 'A flick that started in the note ends in the note; the next one scrolls the table'],
-          [
-            'peek-native',
-            'latch',
-            "The browser's own overscroll-behavior: auto — the wheel stays with the note until the pointer moves or the wheel rests",
-          ],
-          ['peek-native', 'contain', "The browser's own overscroll-behavior: contain — never passed on"],
-        ] as Array<[DataTableCellOverflowReveal, DataTableCellPeekOverscroll, string]>
-      ).map(([reveal, overscroll, caption]) => (
-        <div key={`${reveal}-${overscroll}`} style={{ marginBottom: 24 }}>
+      {[false, true].map((bounded) => (
+        <div key={String(bounded)} style={{ marginBottom: 24 }}>
           <DataTable
-            // The native rows copy on click, to show a control in a covered
-            // cell still answering it.
-            columns={withNotesReveal(reveal, reveal === 'peek-native')}
+            columns={ticketColumns.map((column) =>
+              bounded && (column as { accessorKey?: string }).accessorKey === 'notes'
+                ? { ...column, meta: { ...column.meta, enableClickToCopy: true } }
+                : column,
+            )}
             data={longNotes.slice(0, 10)}
             getRowId={(row) => row.id}
-            cellPeekOverscroll={overscroll}
-            cellPeekAppearance="outlined"
-            enableEditing={Boolean(args.enableEditing)}
-            editMode="cell"
-            height={300}
-            enableStickyHeader
+            enablePagination={false}
+            enableToolbar={false}
             enableRowSelection
             enableClickToSelect
-            enableToolbar={false}
-            enablePagination={false}
+            enableEditing={Boolean(args.enableEditing)}
+            editMode="cell"
             enableBorders="all"
+            {...(bounded ? { height: 300, enableStickyHeader: true } : {})}
             caption={
-              reveal === 'peek-native'
-                ? `peek-native, overscroll-behavior: ${overscroll === 'contain' ? 'contain' : 'auto'} — ${caption}`
-                : `peek-wheel, cellPeekOverscroll="${overscroll}" — ${caption}`
+              bounded
+                ? 'Rows scrolling in their own 300px, and notes that copy on click'
+                : 'Rows in the page'
             }
           />
         </div>
