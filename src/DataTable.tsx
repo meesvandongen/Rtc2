@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RowData } from '@tanstack/react-table'
 
 import { getBodyItems } from './components/bodyItems'
@@ -66,6 +66,10 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
   const options = table.dataTableOptions
   const containerRef = useRef<HTMLDivElement>(null)
   const rootRef = useRef<HTMLDivElement>(null)
+  // The peek's element, as state rather than a ref: it lives inside the
+  // scroll container, which is remounted when the table changes how it
+  // virtualizes or turns on its side, and the peek has to follow it there.
+  const [peekElement, setPeekElement] = useState<HTMLDivElement | null>(null)
 
   /**
    * Which way round the table is.
@@ -324,6 +328,11 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
           </>
         )}
       </table>
+      {/* Inside the scroll container, so that when the table scrolls by itself
+          the peek's overscroll chains to it, as any box nested in it would. */}
+      {revealsOverflow ? (
+        <div ref={setPeekElement} className="rtc-cell-peek" aria-hidden="true" />
+      ) : null}
     </div>
   )
 
@@ -424,7 +433,7 @@ function DataTableShell<TData extends RowData>({ table }: { table: DataTableInst
             attribute and the density the table was given. */}
         {filterDrawer ? <DataTableFilterDrawer table={table} /> : null}
 
-        {revealsOverflow ? <CellOverflowReveal rootRef={rootRef} /> : null}
+        {revealsOverflow ? <CellOverflowReveal rootRef={rootRef} peek={peekElement} /> : null}
       </div>
 
       <EditRowDialog table={table} />

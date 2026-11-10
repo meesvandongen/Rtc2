@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 
 import { cellValueElement, isCellValueTruncated } from '../cellOverflow'
 
@@ -23,17 +23,6 @@ const AUTO_TITLE = 'data-rtc-auto-title'
 /** Longest a double-click can take, for following one through the peek. */
 const DOUBLE_CLICK_MS = 600
 
-/**
- * When a run of wheel events that was scrolling the peek ends: after this long
- * without one, or once the pointer moves — though not within `WHEEL_MOVE_GRACE_MS`
- * of a wheel event, which a hand on a mouse jogs. Firefox's own numbers
- * (`mousewheel.transaction.timeout` and `.ignoremovedelay`).
- */
-const WHEEL_REST_MS = 1500
-const WHEEL_MOVE_GRACE_MS = 100
-/** A line of a line-based wheel, in pixels, for passing it on to a scroller. */
-const WHEEL_LINE_PX = 20
-
 /** Controls inside the copy: reachable by the pointer, but not stops for the Tab key. */
 const FOCUSABLE = 'a[href], button, input, select, textarea, [tabindex]'
 
@@ -41,33 +30,13 @@ function revealMode(cell: HTMLElement): string | undefined {
   return cell.dataset.rtcReveal
 }
 
-/** Whether `element` can scroll by (`dx`, `dy`) at all — not only in principle, but from where it is now. */
-function canScroll(element: Element, dx: number, dy: number): boolean {
-  const style = getComputedStyle(element)
-  const scrolls = (overflow: string) => overflow === 'auto' || overflow === 'scroll' || overflow === 'overlay'
-  const root = element === document.scrollingElement
-  if (dy && (root || scrolls(style.overflowY))) {
-    const max = element.scrollHeight - element.clientHeight
-    if (dy < 0 ? element.scrollTop > 0 : element.scrollTop < max - 1) return true
-  }
-  if (dx && (root || scrolls(style.overflowX))) {
-    const max = element.scrollWidth - element.clientWidth
-    if (dx < 0 ? element.scrollLeft > 0 : element.scrollLeft < max - 1) return true
-  }
-  return false
-}
-
 /**
- * What a wheel over `cell` would scroll: the nearest box around it that can
- * still move that way, as the browser would chain to — the table's own
- * scroller, then the page.
+ * Whether a table's scroll container scrolls the rows itself, rather than
+ * leaving that to the page: a `height`, a virtualized body.
  */
-function scrollerFor(cell: Element, dx: number, dy: number): Element | null {
-  for (let element = cell.parentElement; element; element = element.parentElement) {
-    if (canScroll(element, dx, dy)) return element
-  }
-  const page = document.scrollingElement
-  return page && canScroll(page, dx, dy) ? page : null
+function scrollsItself(container: Element): boolean {
+  const overflow = getComputedStyle(container).overflowY
+  return (overflow === 'auto' || overflow === 'scroll') && container.scrollHeight > container.clientHeight
 }
 
 /** The first colour that is not fully transparent, walking from the cell up to its row. */
@@ -101,28 +70,25 @@ function rowBackground(cell: HTMLElement): string | null {
  *
  * Once open, the peek is one area, not the cell plus some overflow: the
  * pointer can move anywhere on it without closing it, its text can be
- * selected, and a value taller than it scrolls — natively, so the wheel keeps
- * the browser's own momentum, latching and `overscroll-behavior: auto`. A
- * plain click on it — one that selected nothing — closes it and is passed to
+ * selected, and a value taller than it scrolls. A plain click on it — one that selected nothing — closes it and is passed to
  * whatever it was covering, so click-to-copy and click-to-select still answer
  * the click the reader aimed at them. A double-click follows it there too: its
  * second click lands on the cell itself, but the first landed on the peek, and
  * a browser may send the double-click to what the two have in common — which
  * is not the cell, so an editor opened on double-click would never hear it.
  *
- * It lives in the top layer (`popover="manual"`) so a sticky header, a pinned
- * column or an ancestor's `overflow` cannot cover or clip it, while staying a
- * DOM descendant of the root so it still inherits the theme.
- *
- * Which is also why the end of its scroll is the table's to handle. A box in
- * the top layer hands its overscroll to the page — or, in some builds, to
- * nothing — and never to the table's own scroller, so in a table with a
- * `height` a wheel over a peek with nothing left to show would scroll nothing.
- * Inside the peek the scroll stays native; past its end, the wheel is passed to
- * what the cell would have scrolled, by the browser's own rule for nested
- * boxes: a run of wheel events that was scrolling the note stays with the note,
- * momentum and all, until the pointer moves or the wheel rests, and it is the
- * next one that goes on to the table.
+ * Every scroll is the browser's own — momentum, latching, the hand-over at
+ * the end of the note — which only works if the peek is nested in whatever its
+ * cell scrolls in, because that is the box the browser chains on to. So it
+ * lives in one of two places, chosen each time it opens. In a table that
+ * scrolls its rows itself (a `height`, a virtualized body) it is a positioned
+ * box inside that scroll container, above the cells and pinned columns and
+ * below a sticky header, kept to the part of the container in view; it moves
+ * with its row, and its overscroll goes to the table and then the page. In a
+ * table the page scrolls, it is in the top layer (`popover="manual"`), where
+ * nothing can clip it and its overscroll goes to the page — which is what
+ * scrolls that table. Either way it stays a DOM descendant of the root, and
+ * inherits the theme.
  *
  * A peek opens only where the pointer was put. Scrolling the table slides cells
  * under a pointer that is resting still, and opening a peek there would catch
@@ -135,18 +101,20 @@ function rowBackground(cell: HTMLElement): string | null {
  */
 export function CellOverflowReveal({
   rootRef,
+  peek,
 }: {
   rootRef: React.RefObject<HTMLDivElement | null>
+  /** The peek's element, rendered inside the table's scroll container. */
+  peek: HTMLDivElement | null
 }) {
-  const peekRef = useRef<HTMLDivElement>(null)
-
   useEffect(() => {
     const root = rootRef.current
-    const peek = peekRef.current
     if (!root || !peek) return
 
     // Set here rather than as a prop: React 18 does not know the attribute.
     peek.setAttribute('popover', 'manual')
+    // Which of its two homes the peek is in while it is open.
+    let inTopLayer = false
 
     let shown: HTMLElement | null = null
     let pending: HTMLElement | null = null
@@ -169,9 +137,6 @@ export function CellOverflowReveal({
     // Where the last click through the peek was passed, so the double-click it
     // turns out to be half of can follow it.
     let passedThrough: { element: HTMLElement; at: number } | null = null
-    // The run of wheel events in progress over the peek, and whether it has
-    // been scrolling the note — in which case its end stays with the note.
-    let wheelRun: { onNote: boolean; lastAt: number } | null = null
 
     const observer = new MutationObserver((records) => {
       // The peek is inside the root too, and drawing it is a mutation.
@@ -206,7 +171,6 @@ export function CellOverflowReveal({
       cancel()
       if (!shown) return
       shown = null
-      wheelRun = null
       drawnFrom = null
       observer.disconnect()
       peek.removeAttribute('data-rtc-open')
@@ -240,9 +204,45 @@ export function CellOverflowReveal({
 
       const style = getComputedStyle(cell)
       const rect = cell.getBoundingClientRect()
+      const background = rowBackground(cell)
+      const container = peek.parentElement
+      if (!container) return
       const viewportWidth = document.documentElement.clientWidth
       const viewportHeight = document.documentElement.clientHeight
-      const background = rowBackground(cell)
+
+      // Where it may go, in viewport coordinates: the viewport, or — inside a
+      // table that scrolls itself — the part of its scroll container in view,
+      // below a sticky header and above a sticky footer. Inside the container
+      // it must also never reach past what is in view, or it would add to the
+      // very scroll area it sits in.
+      inTopLayer = !scrollsItself(container)
+      const area = {
+        left: VIEWPORT_MARGIN,
+        right: viewportWidth - VIEWPORT_MARGIN,
+        top: VIEWPORT_MARGIN,
+        bottom: viewportHeight - VIEWPORT_MARGIN,
+      }
+      if (!inTopLayer) {
+        const box = container.getBoundingClientRect()
+        const inner = {
+          left: box.left + container.clientLeft,
+          top: box.top + container.clientTop,
+        }
+        area.left = Math.max(area.left, inner.left)
+        area.right = Math.min(area.right, inner.left + container.clientWidth)
+        area.top = Math.max(area.top, inner.top)
+        area.bottom = Math.min(area.bottom, inner.top + container.clientHeight)
+        const head = container.querySelector(':scope > table > thead')
+        const foot = container.querySelector(':scope > table > tfoot')
+        if (head && getComputedStyle(head).position === 'sticky') {
+          area.top = Math.max(area.top, head.getBoundingClientRect().bottom)
+        }
+        if (foot && getComputedStyle(foot).position === 'sticky') {
+          area.bottom = Math.min(area.bottom, foot.getBoundingClientRect().top)
+        }
+      }
+      const areaWidth = Math.max(0, area.right - area.left)
+      const areaHeight = Math.max(0, area.bottom - area.top)
 
       // Grow away from the edge the text is anchored to, so the part the
       // reader could already see stays where it was: rightwards for start-
@@ -254,15 +254,12 @@ export function CellOverflowReveal({
       const anchor = align === 'center' ? 'center' : (align === 'right') !== rtl ? 'right' : 'left'
       const room =
         anchor === 'left'
-          ? viewportWidth - VIEWPORT_MARGIN - rect.left
+          ? area.right - rect.left
           : anchor === 'right'
-            ? rect.right - VIEWPORT_MARGIN
-            : 2 *
-              Math.min(
-                rect.left + rect.width / 2 - VIEWPORT_MARGIN,
-                viewportWidth - VIEWPORT_MARGIN - (rect.left + rect.width / 2),
-              )
-      const maxWidth = Math.max(rect.width, Math.min(PEEK_MAX_WIDTH, room))
+            ? rect.right - area.left
+            : 2 * Math.min(rect.left + rect.width / 2 - area.left, area.right - (rect.left + rect.width / 2))
+      const minWidth = Math.min(rect.width, areaWidth)
+      const maxWidth = Math.min(areaWidth, Math.max(rect.width, Math.min(PEEK_MAX_WIDTH, room)))
 
       Object.assign(peek.style, {
         fontFamily: style.fontFamily,
@@ -275,45 +272,57 @@ export function CellOverflowReveal({
         textAlign: style.textAlign,
         direction: style.direction,
         padding: style.padding,
-        minWidth: `${rect.width}px`,
-        minHeight: `${rect.height}px`,
+        minWidth: `${minWidth}px`,
+        minHeight: `${Math.min(rect.height, areaHeight)}px`,
         maxWidth: `${maxWidth}px`,
-        // Back to the stylesheet's cap; a cell near the bottom lowers it below.
+        // Back to the stylesheet's cap; the room below the cell may lower it.
         maxHeight: '',
         left: '0px',
         top: '0px',
       })
       // The row's colour, painted over the table surface by the stylesheet.
       peek.style.setProperty('--rtc-peek-row-bg', background ?? 'transparent')
+      peek.toggleAttribute('data-rtc-top-layer', inTopLayer)
 
       peek.setAttribute('data-rtc-open', '')
-      if (typeof peek.showPopover === 'function' && !peek.matches(':popover-open')) {
-        peek.showPopover()
-      }
+      const popoverOpen = typeof peek.showPopover === 'function' && peek.matches(':popover-open')
+      if (inTopLayer && !popoverOpen && typeof peek.showPopover === 'function') peek.showPopover()
+      if (!inTopLayer && popoverOpen) peek.hidePopover()
 
       const width = peek.offsetWidth
-      const height = peek.offsetHeight
+      let height = peek.offsetHeight
       let left =
         anchor === 'center'
           ? rect.left + rect.width / 2 - width / 2
           : anchor === 'right'
             ? rect.right - width
             : rect.left
-      // Only a cell already partly off screen still has to move.
-      left = Math.min(Math.max(VIEWPORT_MARGIN, left), viewportWidth - VIEWPORT_MARGIN - width)
-      let top = rect.top
-      const below = viewportHeight - VIEWPORT_MARGIN - rect.top
+      // Only a cell already partly out of view still has to move.
+      left = Math.min(Math.max(area.left, left), area.right - width)
+      let top = Math.max(rect.top, area.top)
+      const below = area.bottom - top
       if (height > below) {
         // Keep the text starting where the cell's does and scroll to the
         // rest, as long as the room below is worth having; otherwise slide up.
         if (below >= Math.min(height, PEEK_MIN_ROOM)) {
           peek.style.maxHeight = `${below}px`
         } else {
-          top = Math.max(VIEWPORT_MARGIN, viewportHeight - VIEWPORT_MARGIN - height)
+          if (height > areaHeight) {
+            peek.style.maxHeight = `${areaHeight}px`
+            height = areaHeight
+          }
+          top = Math.max(area.top, area.bottom - height)
         }
       }
-      peek.style.left = `${left}px`
-      peek.style.top = `${top}px`
+      if (inTopLayer) {
+        peek.style.left = `${left}px`
+        peek.style.top = `${top}px`
+      } else {
+        // Positioned in the scroll container's content, so it moves with its row.
+        const box = container.getBoundingClientRect()
+        peek.style.left = `${left - box.left - container.clientLeft + container.scrollLeft}px`
+        peek.style.top = `${top - box.top - container.clientTop + container.scrollTop}px`
+      }
       peek.scrollTop = scrollTop
     }
 
@@ -396,37 +405,7 @@ export function CellOverflowReveal({
       hide()
       closedAt = performance.now()
     }
-    const onWheel = (event: WheelEvent) => {
-      if (!shown || !inPeek(event.target)) return
-      const now = performance.now()
-      const unit =
-        event.deltaMode === WheelEvent.DOM_DELTA_LINE
-          ? WHEEL_LINE_PX
-          : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
-            ? peek.clientHeight
-            : 1
-      const [dx, dy] = [event.deltaX * unit, event.deltaY * unit]
-      const onNote = canScroll(peek, dx, dy)
-      if (!wheelRun || now - wheelRun.lastAt > WHEEL_REST_MS) wheelRun = { onNote, lastAt: now }
-      wheelRun.lastAt = now
-      if (onNote) {
-        // The browser's, natively.
-        wheelRun.onNote = true
-        return
-      }
-      // Past the end of the note: never the browser's to chain on, which from
-      // the top layer would be the page or nothing.
-      event.preventDefault()
-      if (wheelRun.onNote) return
-      scrollerFor(shown, dx, dy)?.scrollBy({ left: dx, top: dy })
-    }
     const onPointerMove = (event: PointerEvent) => {
-      // A pointer that moves ends a run of wheel events, as in the browser —
-      // though not the jog a hand on a mouse gives it as the wheel turns.
-      if (wheelRun && performance.now() - wheelRun.lastAt > WHEEL_MOVE_GRACE_MS) {
-        const moved = event.clientX !== pointer.x || event.clientY !== pointer.y
-        if (moved) wheelRun = null
-      }
       pointer = { x: event.clientX, y: event.clientY }
       // Real movement only: a browser re-hovering whatever a scroll slid under
       // a still pointer reports a move to where the pointer already was.
@@ -482,13 +461,15 @@ export function CellOverflowReveal({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') dismiss()
     }
-    // Positioned against the viewport, so any scroll anywhere leaves it behind
-    // — except its own, which is the reader reading it.
+    // In the top layer it is placed against the viewport, so any scroll
+    // leaves it behind — except its own, which is the reader reading it.
+    // Inside the scroll container it moves with its row, as the content
+    // around it does, and goes when the pointer leaves it.
     const onScroll = (event: Event) => {
       if (inPeek(event.target)) return
       aimed = false
       pointerAtScroll = pointer
-      hide()
+      if (inTopLayer) hide()
     }
 
     root.addEventListener('pointerover', onPointerOver)
@@ -500,8 +481,6 @@ export function CellOverflowReveal({
     root.addEventListener('click', onClick)
     root.addEventListener('dblclick', onDoubleClick)
     root.addEventListener('keydown', onKeyDown)
-    // Not passive: past the end of the note the wheel is kept from the browser.
-    root.addEventListener('wheel', onWheel, { passive: false })
     window.addEventListener('scroll', onScroll, true)
     window.addEventListener('resize', hide)
 
@@ -517,11 +496,10 @@ export function CellOverflowReveal({
       root.removeEventListener('click', onClick)
       root.removeEventListener('dblclick', onDoubleClick)
       root.removeEventListener('keydown', onKeyDown)
-      root.removeEventListener('wheel', onWheel)
       window.removeEventListener('scroll', onScroll, true)
       window.removeEventListener('resize', hide)
     }
-  }, [rootRef])
+  }, [rootRef, peek])
 
-  return <div ref={peekRef} className="rtc-cell-peek" aria-hidden="true" />
+  return null
 }

@@ -2143,14 +2143,21 @@
  * painted with it alone would let the next cell show through.
  *
  * Once open it is one area the reader can use: it takes the pointer, its text
- * can be selected, and a value taller than it scrolls, natively. What the
- * wheel does past its end is `CellOverflowReveal`'s: from the top layer the
- * browser would hand it to the page, never to the table's own scroller. */
+ * can be selected, and a value taller than it scrolls — natively, with
+ * `overscroll-behavior: auto`, handing over to whatever it is nested in.
+ *
+ * Which is why it has two homes (`CellOverflowReveal` picks one each time it
+ * opens). In a table that scrolls its rows itself it is positioned in that
+ * scroll container's content: it moves with its row, and its overscroll goes
+ * to the table. Its stacking puts it over the cells, pinned columns and pinned
+ * rows (it comes after them, at the same level as the rows) and under a sticky
+ * header or footer, as the rows themselves are. In a table the page scrolls,
+ * it is in the top layer, fixed to the viewport. */
 .rtc-cell-peek {
   display: none;
-  position: fixed;
+  position: absolute;
   inset: auto;
-  z-index: 1000;
+  z-index: 2;
   box-sizing: border-box;
   margin: 0;
   /* Centred like the cell when it is short, but never at the cost of its
@@ -2172,6 +2179,10 @@
 
 .rtc-cell-peek[data-rtc-open] {
   display: flex;
+}
+
+.rtc-cell-peek[data-rtc-top-layer] {
+  position: fixed;
 }
 
 .rtc-cell-peek > .rtc-cell-inner {

@@ -107,8 +107,8 @@ test.describe('long values', () => {
   })
 
   test('a wheel over a peek with nothing more to show scrolls the table', async ({ page }) => {
-    // The table scrolls in its own box here, and the peek — in the top layer —
-    // would hand its overscroll to the page, or nowhere, but never to the table.
+    // The table scrolls its rows itself, so the peek is nested in its scroll
+    // container and the browser chains the wheel on to the table.
     await page.setViewportSize({ width: 1280, height: 720 })
     const root = await openStory(page, 'datatable-19-long-values--wrap-with-virtualization')
     const notes = root.locator('td[data-rtc-column-id="notes"]').first()
@@ -121,50 +121,53 @@ test.describe('long values', () => {
     const pageScroll = await page.evaluate(() => window.scrollY)
     await page.mouse.wheel(0, 120)
     await expect.poll(() => scrollTop(container)).toBeGreaterThan(0)
-    await expect(peek).toBeHidden()
     expect(await page.evaluate(() => window.scrollY)).toBe(pageScroll)
   })
 
-  test('past the end of the note, a fresh turn of the wheel scrolls the table', async ({ page }) => {
+  test('past the end of the note, the wheel scrolls the table it is in', async ({ page }) => {
     const { table, peek } = await openLongNote(page, 1)
+    // Set in code, the end is a fraction of a pixel short, and the first turn
+    // of the wheel goes on finishing it; it is the next that is handed on.
     await peek.evaluate((element) => (element.scrollTop = element.scrollHeight))
     const container = table.locator('.rtc-container')
-    await page.mouse.wheel(0, 120)
-    await expect.poll(() => scrollTop(container)).toBeGreaterThan(0)
-    await expect(peek).toBeHidden()
-  })
-
-  test('past the end of the note, in a table in the page, it scrolls the page', async ({ page }) => {
-    const { peek } = await openLongNote(page, 0)
-    await peek.evaluate((element) => (element.scrollTop = element.scrollHeight))
-    const pageScroll = await page.evaluate(() => window.scrollY)
-    await page.mouse.wheel(0, 120)
-    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(pageScroll)
-    await expect(peek).toBeHidden()
-  })
-
-  test('a flick that was scrolling the note stays with it at the end, until the pointer moves', async ({ page }) => {
-    const { table, peek } = await openLongNote(page, 1)
-    const container = table.locator('.rtc-container')
-    const box = (await peek.boundingBox())!
-    await page.mouse.move(box.x + box.width / 2, box.y + 30)
-
-    // One flick, momentum and all: far more than the note has to give.
-    for (let index = 0; index < 10; index++) {
-      await page.mouse.wheel(0, 150)
-      await page.waitForTimeout(16)
+    for (let turn = 0; turn < 3; turn++) {
+      await page.mouse.wheel(0, 120)
+      await page.waitForTimeout(100)
     }
-    await expect(peek).toBeVisible()
-    expect(
-      await peek.evaluate((element) => element.scrollTop + element.clientHeight >= element.scrollHeight - 1),
-    ).toBe(true)
-    expect(await scrollTop(container)).toBe(0)
-
-    // The pointer moving ends it; the next turn goes on to the table.
-    await page.waitForTimeout(150)
-    await page.mouse.move(box.x + box.width / 2 + 6, box.y + 32, { steps: 2 })
-    await page.mouse.wheel(0, 120)
     await expect.poll(() => scrollTop(container)).toBeGreaterThan(0)
+  })
+
+  test('in a table that scrolls itself, the peek is in its scroll container and moves with its row', async ({ page }) => {
+    const { table, notes, peek } = await openLongNote(page, 1)
+    const container = table.locator('.rtc-container')
+    expect(await peek.evaluate((element) => element.parentElement?.classList.contains('rtc-container'))).toBe(true)
+    expect(await peek.evaluate((element) => element.matches(':popover-open'))).toBe(false)
+
+    // Kept to what is in view: it adds nothing to the area it scrolls in.
+    const before = await container.evaluate((element) => [element.scrollWidth, element.scrollHeight])
+    const closed = await container.evaluate((element) => {
+      const peek = element.querySelector('.rtc-cell-peek') as HTMLElement
+      peek.style.display = 'none'
+      const size = [element.scrollWidth, element.scrollHeight]
+      peek.style.display = ''
+      return size
+    })
+    expect(before).toEqual(closed)
+
+    // The table scrolls; the peek goes with its cell rather than staying put.
+    const offset = async () => {
+      const [cellBox, peekBox] = [(await notes.boundingBox())!, (await peek.boundingBox())!]
+      return Math.round(peekBox.y - cellBox.y)
+    }
+    const start = await offset()
+    await container.evaluate((element) => (element.scrollTop = 20))
+    await expect(peek).toBeVisible()
+    expect(await offset()).toBe(start)
+  })
+
+  test('in a table the page scrolls, the peek is in the top layer', async ({ page }) => {
+    const { peek } = await openLongNote(page, 0)
+    expect(await peek.evaluate((element) => element.matches(':popover-open'))).toBe(true)
   })
 
   test('its text can be selected without closing it', async ({ page }) => {
@@ -273,20 +276,22 @@ test.describe('long values', () => {
     expect(await peek.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true)
   })
 
-  test('nothing opens under a pointer the table scrolled cells beneath', async ({ page }) => {
-    const { table, notes, peek } = await openLongNote(page, 1)
+  test('nothing opens under a pointer the page scrolled cells beneath', async ({ page }) => {
+    // The table in the page: its peek is in the top layer, and a scroll puts
+    // it away, so what the pointer is over afterwards is the next note.
+    const { table, notes, peek } = await openLongNote(page, 0)
     const start = (await notes.boundingBox())!
     const [x, y] = [start.x + 30, start.y + start.height / 2]
     await page.mouse.move(x, y)
 
     // Slide the next long note (two rows down) under the pointer without
-    // moving it, as scrolling the table past it would.
+    // moving it, as scrolling the page past it would.
     const rows = table.locator('tbody tr')
     const offset = await rows.nth(2).evaluate(
       (row, first) => row.getBoundingClientRect().top - first!.getBoundingClientRect().top,
       await rows.nth(0).elementHandle(),
     )
-    await table.locator('.rtc-container').evaluate((element, by) => (element.scrollTop = by), offset)
+    await page.evaluate((by) => window.scrollBy(0, by), offset)
     await expect(peek).toBeHidden()
 
     // A browser re-hovers what is now under a still pointer with pointer
