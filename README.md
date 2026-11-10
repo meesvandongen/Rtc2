@@ -104,7 +104,8 @@ runs against all four.
 | **Sorting** | multi-sort, custom `sortFn`, server-side |
 | **Filtering** | per column, global search, faceted options, multiple conditions with and/or |
 | **Selection** | rows, sub-rows, cells and cell ranges; checkbox, radio or switch |
-| **Columns** | reorder by drag, resize, pin, hide, group headers, footers |
+| **Columns** | reorder by drag, resize, fit to content, pin, hide, group headers, footers |
+| **Long values** | cut-short cells open out in place on hover and focus; truncate, wrap or clamp per column |
 | **Orientation** | `transposed` — flip the axes so columns run down the side and each record runs across; every feature turns with it |
 | **Grouping** | drag-to-group chips, multi-level, per-column aggregation |
 | **Rows** | expanding sub-rows, detail panels, pinning, drag reordering, row actions |

@@ -1,6 +1,7 @@
 import type { RowData } from '@tanstack/react-table'
 
 import { useComponents, type RtcMenuItem } from './registry'
+import { fitColumnToContent } from '../cellOverflow'
 import { formatMessage } from '../locale'
 import { getColumnLabel } from '../utils'
 import type { DataTableColumnInstance, DataTableInstance } from '../types'
@@ -15,9 +16,12 @@ import type { DataTableColumnInstance, DataTableInstance } from '../types'
 export function ColumnActionsMenu<TData extends RowData>({
   table,
   column,
+  cellRef,
 }: {
   table: DataTableInstance<TData>
   column: DataTableColumnInstance<TData, any>
+  /** The header cell the menu belongs to: where "Fit to content" starts measuring. */
+  cellRef?: React.RefObject<HTMLTableCellElement | null>
 }) {
   const ui = useComponents()
   const options = table.dataTableOptions
@@ -102,6 +106,16 @@ export function ColumnActionsMenu<TData extends RowData>({
   }
 
   if ((options.enableColumnResizing ?? false) && column.getCanResize()) {
+    // Upright only: transposed, a column is a band and its size is a height,
+    // which a value too wide for its record does not change.
+    if (!table.ui.transposed && cellRef) {
+      items.push({
+        id: 'fit-size',
+        label: localization.fitColumnToContent,
+        icon: <ui.Icon name="columns" />,
+        onSelect: () => fitColumnToContent(table, column, cellRef.current),
+      })
+    }
     items.push({
       id: 'reset-size',
       label: localization.resetColumnSize,

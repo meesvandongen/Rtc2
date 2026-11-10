@@ -73,6 +73,7 @@ export interface DataTableLocalization {
   pinToTop: string
   pinToBottom: string
   resetColumnSize: string
+  fitColumnToContent: string
   resetOrder: string
   rowActions: string
   rowNumber: string
@@ -200,6 +201,7 @@ export const defaultLocalization: DataTableLocalization = {
   pinToTop: 'Pin to top',
   pinToBottom: 'Pin to bottom',
   resetColumnSize: 'Reset column size',
+  fitColumnToContent: 'Fit to content',
   resetOrder: 'Reset order',
   rowActions: 'Row actions',
   rowNumber: '#',
