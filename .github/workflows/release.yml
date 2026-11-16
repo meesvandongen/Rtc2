@@ -41,7 +41,7 @@ jobs:
       # Opens (or updates) a "Version Packages" pull request while unreleased
       # changesets are pending, and publishes once that pull request is merged
       # and no changesets are left.
-      - uses: changesets/action@v1
+      - uses: changesets/action@v2.1.2
         with:
           version: pnpm run changeset:version
           publish: pnpm run release
